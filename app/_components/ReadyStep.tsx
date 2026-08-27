@@ -1,14 +1,9 @@
 'use client';
 
 import { Button, Icon } from '@sovereignfs/ui';
+import { formatMoney } from '../_lib/format';
 import { CURRENCY_OPTIONS } from './SetupWizard';
 import styles from './SetupWizard.module.css';
-
-function formatAmountMinor(amountMinor: number, currencyCode: string): string {
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode }).format(
-    amountMinor / 100,
-  );
-}
 
 export function ReadyStep({
   currencyCode,
@@ -48,7 +43,7 @@ export function ReadyStep({
           <span className={styles.summaryLabel}>Primary income</span>
           <span className={styles.summaryValue}>
             {incomeAmountMinor !== null
-              ? `${formatAmountMinor(incomeAmountMinor, currencyCode)} / month`
+              ? `${formatMoney(incomeAmountMinor, currencyCode)} / month`
               : '—'}
           </span>
         </div>

@@ -1,35 +1,46 @@
+import { LedgerShell } from './_components/LedgerShell';
+import { OverviewView } from './_components/OverviewView';
 import { SetupWizard } from './_components/SetupWizard';
 import { requireUser } from './_lib/authz';
 import { getDb } from './_lib/db';
+import { getOverviewData } from './_lib/overview';
 import { getSetupStatus } from './_lib/setup-status';
 
 /**
- * `/ledger` is both the setup wizard's entry point and (once its minimum is
- * met) the future Overview's placeholder — no separate `/ledger/setup`
- * route, per `SPEC.md`'s Routes section. Completion is derived from real
- * data (a base currency, a primary income, at least one category) rather
- * than a stored "onboarding done" flag — see `getSetupStatus`.
+ * `/ledger` is both the setup wizard's entry point and, once its minimum is
+ * met, Overview itself — no separate `/ledger/setup` route, per SPEC.md's
+ * Routes section. Completion is derived from real data (a base currency, a
+ * primary income, at least one category), not a stored flag — see
+ * `getSetupStatus`.
  *
- * Always mounts the SAME client component regardless of status, passing it
- * as an `initialStatus` prop rather than branching here between two
- * different components. `SetupWizard` snapshots that prop once via
- * `useState` and manages its own step transitions entirely client-side
- * from then on — required because every wizard-step action calls
- * `revalidatePath('/ledger', 'layout')` (the shared `refresh()` helper in
- * `actions.ts`), which makes Next.js automatically re-run this server
- * component mid-flow. A branch here (`if (!status.complete) return
- * <SetupWizard/>; return <Placeholder/>`) would let that incidental
- * refresh swap the whole tree out from under an in-progress wizard the
- * moment step 3's last category is created — skipping the Ready screen
- * entirely, since the parent would already be rendering the complete
- * placeholder before the user ever saw it. Snapshotting the prop into
- * client state sidesteps this: only a real full navigation re-mounts the
- * component and re-reads fresh status.
+ * Branches directly on a single fresh status read, unlike the shape this
+ * had through L.4 (always render `SetupWizard`, let it decide internally).
+ * That indirection existed only because a wizard-step action's
+ * `revalidatePath('/ledger', 'layout')` re-runs this server component
+ * mid-flow, and swapping to a *different* component while the user is
+ * actively completing steps 1-3 would discard their in-progress wizard —
+ * see `SetupWizard`'s own doc comment for the full incident. That risk is
+ * specific to an in-progress client interaction on the currently-rendered
+ * component getting yanked out from under it; it doesn't apply to a fresh,
+ * first render deciding which branch to take at all. Overview (as built in
+ * L.5) triggers no mutations of its own yet, so there's no path by which an
+ * incidental refresh could fire while a user is mid-interaction with it —
+ * re-check this reasoning if a later task (e.g. L.6's Add-expense dialog)
+ * adds one directly on this page.
  */
 export default async function LedgerHomePage() {
   const actor = await requireUser();
   const db = await getDb();
   const status = await getSetupStatus(db, actor.userId);
 
-  return <SetupWizard initialStatus={status} />;
+  if (!status.complete) {
+    return <SetupWizard initialStatus={status} />;
+  }
+
+  const data = await getOverviewData(db, actor.userId);
+  return (
+    <LedgerShell>
+      <OverviewView data={data} />
+    </LedgerShell>
+  );
 }

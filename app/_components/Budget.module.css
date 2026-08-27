@@ -1,0 +1,141 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-6);
+  padding: var(--sv-space-6);
+}
+
+.sectionLabel {
+  font-size: var(--sv-font-size-xs);
+  font-weight: var(--sv-font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sv-color-text-muted);
+  margin: 0 0 var(--sv-space-2);
+}
+
+.section + .section {
+  margin-top: var(--sv-space-2);
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-1);
+  width: 100%;
+  padding: var(--sv-space-2) var(--sv-space-3);
+  margin: 0 calc(var(--sv-space-3) * -1);
+  border: none;
+  border-radius: var(--sv-radius-md);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.row:hover {
+  background: var(--sv-color-surface-sunken);
+}
+
+.rowSelected {
+  background: var(--sv-color-surface-sunken);
+}
+
+.rowHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: var(--sv-font-size-sm);
+}
+
+.rowName {
+  font-weight: var(--sv-font-weight-semibold);
+  color: var(--sv-color-text-primary);
+}
+
+.rowAmounts {
+  color: var(--sv-color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.rowOver {
+  color: var(--sv-color-error-text);
+}
+
+.emptyState {
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}
+
+/* Detail column */
+
+.detailHeader {
+  padding: var(--sv-space-6) var(--sv-space-5) var(--sv-space-4);
+  border-bottom: var(--sv-border-width-hairline) solid var(--sv-color-border);
+}
+
+.detailTitle {
+  font-size: var(--sv-font-size-lg);
+  font-weight: var(--sv-font-weight-bold);
+  margin: 0 0 var(--sv-space-1);
+}
+
+.detailSubtitle {
+  font-size: var(--sv-font-size-sm);
+  color: var(--sv-color-text-muted);
+  margin: 0;
+}
+
+.detailBody {
+  padding: var(--sv-space-4) var(--sv-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-6);
+}
+
+.detailSectionLabel {
+  font-size: var(--sv-font-size-xs);
+  font-weight: var(--sv-font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sv-color-text-muted);
+  margin: 0 0 var(--sv-space-2);
+}
+
+.kindRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-1);
+  padding: var(--sv-space-2) 0;
+}
+
+.kindRowHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: var(--sv-font-size-sm);
+}
+
+.transactionRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sv-space-3);
+  padding: var(--sv-space-2) 0;
+  font-size: var(--sv-font-size-sm);
+}
+
+.transactionLabel {
+  color: var(--sv-color-text-primary);
+}
+
+.transactionDate {
+  color: var(--sv-color-text-muted);
+}
+
+.transactionAmount {
+  color: var(--sv-color-text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

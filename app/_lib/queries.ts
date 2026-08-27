@@ -1,4 +1,4 @@
-import { and, desc, eq, ne } from 'drizzle-orm';
+import { and, desc, eq, gte, lt, ne } from 'drizzle-orm';
 import type { LedgerDb } from '../_db/client';
 import * as schema from '../_db/schema';
 
@@ -57,5 +57,28 @@ export async function listTransactionsForKind(db: LedgerDb, userId: string, kind
     .select()
     .from(schema.transactions)
     .where(and(eq(schema.transactions.userId, userId), eq(schema.transactions.kindId, kindId)))
+    .orderBy(desc(schema.transactions.occurredAt));
+}
+
+/**
+ * Every transaction with `occurredAt` in `[start, end)` — one bulk query for
+ * Overview/Budget's "this month" aggregates instead of one query per kind.
+ */
+export async function listTransactionsInRange(
+  db: LedgerDb,
+  userId: string,
+  start: number,
+  end: number,
+) {
+  return db
+    .select()
+    .from(schema.transactions)
+    .where(
+      and(
+        eq(schema.transactions.userId, userId),
+        gte(schema.transactions.occurredAt, start),
+        lt(schema.transactions.occurredAt, end),
+      ),
+    )
     .orderBy(desc(schema.transactions.occurredAt));
 }

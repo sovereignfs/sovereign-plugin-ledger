@@ -1,0 +1,74 @@
+/* Content/padding only — width, background, and border-right come from
+   ThreeColumnLayout's own `.sidebar` wrapper (packages/ui). */
+.nav {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: var(--sv-space-1);
+  padding: var(--sv-space-4) var(--sv-space-3);
+}
+
+.addExpense {
+  width: 100%;
+  justify-content: center;
+}
+
+.divider {
+  margin: var(--sv-space-2) var(--sv-space-1);
+  border-top: 1px solid var(--sv-color-border);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-1);
+}
+
+.link {
+  display: flex;
+  align-items: center;
+  gap: var(--sv-space-2);
+  padding: var(--sv-space-2) var(--sv-space-3);
+  border-radius: var(--sv-radius-md);
+  font-size: var(--sv-font-size-sm);
+  font-weight: 500;
+  color: var(--sv-color-text-muted);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link:hover {
+  background: var(--sv-color-surface-sunken);
+  color: var(--sv-color-text-primary);
+}
+
+.linkActive {
+  background: var(--sv-color-surface-sunken);
+  color: var(--sv-color-text-primary);
+  font-weight: 600;
+}
+
+.linkDisabled {
+  display: flex;
+  align-items: center;
+  gap: var(--sv-space-2);
+  padding: var(--sv-space-2) var(--sv-space-3);
+  font-size: var(--sv-font-size-sm);
+  font-weight: 500;
+  color: var(--sv-color-text-muted);
+  opacity: 0.6;
+  cursor: default;
+}
+
+.soon {
+  margin-left: auto;
+  font-size: var(--sv-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.spacer {
+  flex: 1;
+}

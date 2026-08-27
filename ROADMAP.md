@@ -1,6 +1,6 @@
 # Ledger — Roadmap
 
-**Manifest version:** 0.4.0 · **Last updated:** 2026-08-27
+**Manifest version:** 0.5.0 · **Last updated:** 2026-08-27
 
 Chronological build index — one row per PR, platform-`ROADMAP.md` style. Full
 task detail lives in [SPEC.md](SPEC.md); the product concept in
@@ -26,7 +26,7 @@ depend on the previous row unless noted.
 | Slot  | Task                                  | Status | Spec task                                     |
 | ----- | -------------------------------------- | ------ | ----------------------------------------------- |
 | 0.4.0 | Setup wizard                           | ✅     | [L.4](SPEC.md#l4--setup-wizard)                 |
-| 0.5.0 | Web Overview + Budget                  | ⬜     | [L.5](SPEC.md#l5--web-overview--budget)         |
+| 0.5.0 | Web Overview + Budget                  | ✅     | [L.5](SPEC.md#l5--web-overview--budget)         |
 | 0.6.0 | Expense entry                          | ⬜     | [L.6](SPEC.md#l6--expense-entry)                |
 
 ## Phase C — Net worth & reporting

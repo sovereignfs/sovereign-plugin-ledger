@@ -163,8 +163,109 @@ complete state re-derives correctly with no flash of the wizard. Full
 check suite (13 tests, typecheck, lint, format:check, design-tokens) all
 pass clean.
 
-🚧 L.5 (Web Overview + Budget) is next, dependent on this task, not
-started. L.6 also depends on L.5.
+✅ **L.5 shipped (0.5.0)** — the `ThreeColumnLayout` web shell
+(`LedgerShell`/`LedgerSidebar`), Overview's two states (populated dashboard
+and setup checklist), and Budget's list+detail+edit-budget screen, per
+`web-shell.md` screens 1–3.
+
+**Sidebar built to match the wireframe's structure exactly, but with real
+navigability constraints resolved rather than left as dead links.**
+Accounts, Reports, and Settings have no page shipped yet (L.7/L.8, and no
+task at all for Settings), so they render as disabled "coming soon" rows —
+not `<Link>`s to a 404 — per sv-ui-design's "no dead nav" rule. "+ Add
+expense" is a disabled pinned button (native `title` tooltip, no new DS
+component needed) until L.6 builds the dialog it opens.
+
+**Overview's checklist-vs-dashboard trigger deliberately deviates from
+`web-shell.md`'s own wording.** The wireframe says the checklist collapses
+once its "beyond minimum" sections (saving plans, accounts, ...) are filled
+in, "or dismissed" — but every one of those sections has no task shipped
+yet, so none can ever be filled in during this phase of the build, and this
+task doesn't add a persisted dismiss action (not asked for, and building one
+now — its own affordance, its own persisted flag — would be scope creep for
+a screen this phase of the build couldn't otherwise reach anyway). Used
+instead: whether the user has logged at least one expense
+(`transactionCount > 0`), which the DB/actions layer has supported since
+L.3 even though L.6's dialog doesn't exist yet. Verified both states live by
+directly clearing/restoring the four seed transactions via the dev sqld
+endpoint (documented in `AGENTS.md`'s dev-environment notes) rather than a
+second throwaway account, since `pnpm sv seed` only reasons about
+board/document-style plugins.
+
+**Net worth and saving jars are real, currently-zero aggregates, not
+placeholders.** `getOverviewData` queries `ledger_accounts`/`ledger_assets`/
+`ledger_deposits`/`ledger_loans`/`ledger_saving_jars` directly — genuinely
+empty right now (L.7/L.12 haven't shipped, so nothing can insert a row into
+any of them), not hand-stubbed. Once those tasks ship, the cards start
+showing real data with no change to Overview itself. Insights and the
+month-end review `SystemBanner` are omitted outright, not stubbed — they
+depend on L.13 and L.8 respectively, and a permanent "coming soon" card for
+either would be clutter for features 3–8 tasks away. The wireframe's Recent
+Activity also draws an illustrative income row ("Salary — Primary income,
++€2,400") that has no basis in this data model — an income is a declared
+recurring amount, never a logged event — so every row rendered here is a
+real spend, no income rows at all.
+
+**A genuine architectural question resolved by testing, not just reasoning:
+does `revalidatePath('/ledger', 'layout')` (every action's shared
+`refresh()` helper) reach `/ledger/budget`, a sibling route with no shared
+`layout.tsx` between them?** `EditBudgetDialog` (the "Edit budgeted amount"
+flow, wired to the existing `updateKindBudget` action from L.3) doesn't rely
+on the answer — it calls `router.refresh()` client-side after a successful
+save, which forces `/ledger/budget`'s own server data to refetch
+unconditionally regardless of `revalidatePath`'s exact scoping. Safe here in
+a way L.4's `revalidatePath`-triggered bug wasn't: `BudgetView` holds `data`
+as a plain prop, not frozen into local state, so a fresh server render just
+flows new props into the already-mounted client tree — confirmed live that
+`selectedCategoryId` survives the refresh with no flicker or reset.
+
+**`page.tsx` goes back to branching directly between `SetupWizard` and the
+real Overview** on a single fresh status read, reverting the "always mount
+the same component" indirection L.4 added. That indirection existed only to
+protect an *in-progress* multi-step client interaction (the wizard) from
+being swapped out by an incidental mid-flow refresh — it was never a
+general rule against branching in a server component. Overview as built in
+L.5 triggers no mutations of its own, so there's no path by which a refresh
+could fire while a user is mid-interaction with it; the branch is a single,
+one-time decision on first render, not a swap out from under existing
+client state. Documented in `page.tsx`'s own comment, including a flag for
+whoever adds L.6's Add-expense dialog directly to Overview to re-check this
+reasoning still holds. `SetupWizard` itself simplified alongside this — its
+own now-unneeded `showComplete` placeholder branch is gone; "Go to Ledger"
+does a hard `window.location.href` reload instead, guaranteeing a fully
+fresh server render with zero dependency on Next's router-cache behavior
+for what is a rare, one-time transition.
+
+**Every category created through any shipped flow has exactly one kind**
+(`createCategoryWithKind`, the wizard's only path) — so "Edit budgeted
+amount" in the detail column unambiguously edits `category.kinds[0]`.
+`createKind` could in principle add a second kind to an existing category
+with a different currency, but nothing calls it outside the wizard's own
+combo action yet; documented in `CategoryDetail.tsx` and `budget.ts` as an
+assumption to revisit if a later task adds that flow, not silently baked
+in. Budget's category/kind list is fully preloaded in one round trip
+(including each category's recent transactions) rather than "fetched on
+selection" as this doc's Data fetching contract originally described —
+written before this task's actual dataset size (a handful of categories per
+user) was known; preloading is simpler and just as fast at this scale, a
+deliberate deviation, not a miss.
+
+Verified live end-to-end: populated dashboard (real seed data — income,
+spend, projected-saved, budget-progress bars, recent activity, zero net
+worth/jars) and the setup checklist (seed transactions temporarily cleared
+via direct SQL against the dev sqld endpoint, then restored to their exact
+original values afterward) both render correctly with zero console errors;
+Budget's list promotes the detail column on category selection and
+collapses back on deselection; the edit-budget dialog updates both the list
+row and detail column immediately, preserving the current selection;
+manually pushing "Eating out" under its actual spend confirmed the
+error-token "over" state (progress bar clamped, red amount text) on both
+the list row and detail column, then restored to its original budget. 29
+tests across 7 files (13 pre-existing + 16 new: period/money helpers,
+`getOverviewData`, `getBudgetData`), typecheck, lint, format:check, and
+design-tokens-check all pass clean.
+
+🚧 L.6 (Expense entry) is next, dependent on this task.
 
 ---
 

@@ -9,9 +9,8 @@ import * as schema from '../_db/schema';
  * `/ledger` (`app/page.tsx`) uses this to decide whether to show the wizard
  * (and which step to resume at) or the setup-complete placeholder.
  */
-export type SetupStatus =
-  | { complete: false; step: 1 | 2 | 3; baseCurrencyCode: string | null }
-  | { complete: true };
+export type IncompleteSetupStatus = { complete: false; step: 1 | 2 | 3; baseCurrencyCode: string | null };
+export type SetupStatus = IncompleteSetupStatus | { complete: true };
 
 export async function getSetupStatus(db: LedgerDb, userId: string): Promise<SetupStatus> {
   const [baseCurrency] = await db

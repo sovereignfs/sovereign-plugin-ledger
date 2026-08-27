@@ -1,10 +1,10 @@
 'use client';
 
-import { Button, CurrencyInput, FormField, PageContainer, PageHeader, Select } from '@sovereignfs/ui';
+import { Button, CurrencyInput, FormField, Select } from '@sovereignfs/ui';
 import { startTransition, useActionState, useState } from 'react';
 import { createCurrency, createIncome } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
-import type { SetupStatus } from '../_lib/setup-status';
+import type { IncompleteSetupStatus } from '../_lib/setup-status';
 import { CategoriesStep } from './CategoriesStep';
 import { ReadyStep } from './ReadyStep';
 import styles from './SetupWizard.module.css';
@@ -141,27 +141,15 @@ function IncomeStep({
 
 type Step = 1 | 2 | 3 | 4;
 
-export function SetupWizard({ initialStatus }: { initialStatus: SetupStatus }) {
+export function SetupWizard({ initialStatus }: { initialStatus: IncompleteSetupStatus }) {
   // Snapshot on mount, deliberately ignoring subsequent prop updates — see
   // page.tsx's own doc comment for why this must survive an incidental
   // mid-wizard server refresh.
   const [frozen] = useState(initialStatus);
-  const [step, setStep] = useState<Step>(frozen.complete ? 4 : frozen.step);
-  const [showComplete, setShowComplete] = useState(frozen.complete);
-  const [currencyCode, setCurrencyCode] = useState(
-    (!frozen.complete && frozen.baseCurrencyCode) || 'EUR',
-  );
+  const [step, setStep] = useState<Step>(frozen.step);
+  const [currencyCode, setCurrencyCode] = useState(frozen.baseCurrencyCode ?? 'EUR');
   const [incomeAmountMinor, setIncomeAmountMinor] = useState<number | null>(null);
   const [createdCategoryNames, setCreatedCategoryNames] = useState<string[]>([]);
-
-  if (showComplete) {
-    return (
-      <PageContainer>
-        <PageHeader title="Ledger" description="Your budget, at a glance." />
-        <p>Setup complete — the Overview dashboard lands in an upcoming task.</p>
-      </PageContainer>
-    );
-  }
 
   return (
     <div className={styles.page}>
@@ -200,7 +188,15 @@ export function SetupWizard({ initialStatus }: { initialStatus: SetupStatus }) {
             currencyCode={currencyCode}
             incomeAmountMinor={incomeAmountMinor}
             categoryNames={createdCategoryNames}
-            onGoToLedger={() => setShowComplete(true)}
+            onGoToLedger={() => {
+              // Hard reload rather than router.push/replace to the same
+              // pathname: guarantees a genuinely fresh server render of
+              // page.tsx's status check (now complete) with zero risk of
+              // Next's client router cache serving a stale RSC payload from
+              // before the wizard's last write — a one-time transition, not
+              // a hot path, so the reload cost is a non-issue.
+              window.location.href = '/ledger';
+            }}
           />
         )}
       </div>
