@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" font-family="-apple-system, 'Segoe UI', sans-serif">
+  <rect width="1200" height="900" fill="#fafafa"/>
+
+  <!-- Sidebar (ThreeColumnLayout, sidebarWidth 240) -->
+  <rect x="0" y="0" width="240" height="900" fill="#f4f4f5"/>
+  <line x1="240" y1="0" x2="240" y2="900" stroke="#e4e4e7"/>
+
+  <text x="24" y="40" font-size="20" font-weight="700" fill="#18181b">Ledger</text>
+
+  <rect x="16" y="60" width="208" height="40" rx="8" fill="#18181b"/>
+  <text x="34" y="85" font-size="14" font-weight="600" fill="#ffffff">+ Add expense</text>
+
+  <line x1="16" y1="116" x2="224" y2="116" stroke="#e4e4e7"/>
+
+  <rect x="16" y="132" width="208" height="40" rx="8" fill="#e4e4e7"/>
+  <text x="34" y="157" font-size="14" font-weight="600" fill="#18181b">Overview</text>
+  <text x="34" y="205" font-size="14" fill="#52525b">Budget</text>
+  <text x="34" y="253" font-size="14" fill="#52525b">Accounts</text>
+  <text x="34" y="301" font-size="14" fill="#52525b">Reports</text>
+
+  <line x1="16" y1="820" x2="224" y2="820" stroke="#e4e4e7"/>
+  <text x="34" y="848" font-size="14" fill="#52525b">Settings</text>
+
+  <!-- Header -->
+  <text x="280" y="56" font-size="24" font-weight="700" fill="#18181b">Overview</text>
+  <text x="280" y="80" font-size="14" fill="#71717a">August 2026</text>
+  <text x="1080" y="58" font-size="18" fill="#71717a">&#8249;</text>
+  <text x="1160" y="58" font-size="18" fill="#71717a">&#8250;</text>
+
+  <!-- Review nudge (SystemBanner) -->
+  <rect x="280" y="96" width="880" height="48" rx="8" fill="#f4f4f5" stroke="#e4e4e7"/>
+  <text x="300" y="125" font-size="13" fill="#3f3f46">July's review is ready &#8212; it takes about 2 minutes.</text>
+  <text x="1140" y="125" font-size="13" font-weight="600" fill="#18181b" text-anchor="end">Review now &#8594;</text>
+
+  <!-- Summary cards -->
+  <rect x="280" y="168" width="272" height="96" rx="10" fill="#ffffff" stroke="#e4e4e7"/>
+  <text x="296" y="190" font-size="12" font-weight="600" fill="#71717a">THIS MONTH</text>
+  <text x="296" y="212" font-size="12" fill="#a1a1aa">Income</text>
+  <text x="536" y="212" font-size="12" fill="#3f3f46" text-anchor="end">&#8364;4,200</text>
+  <text x="296" y="234" font-size="12" fill="#a1a1aa">Spent</text>
+  <text x="536" y="234" font-size="12" fill="#3f3f46" text-anchor="end">&#8364;2,890</text>
+  <text x="296" y="256" font-size="12" font-weight="700" fill="#a1a1aa">Projected saved</text>
+  <text x="536" y="256" font-size="14" font-weight="700" fill="#18181b" text-anchor="end">&#8364;1,310</text>
+
+  <rect x="568" y="168" width="272" height="96" rx="10" fill="#ffffff" stroke="#e4e4e7"/>
+  <text x="584" y="190" font-size="12" font-weight="600" fill="#71717a">NET WORTH</text>
+  <text x="584" y="212" font-size="12" fill="#a1a1aa">Assets</text>
+  <text x="824" y="212" font-size="12" fill="#3f3f46" text-anchor="end">&#8364;52,000</text>
+  <text x="584" y="234" font-size="12" fill="#a1a1aa">Liabilities</text>
+  <text x="824" y="234" font-size="12" fill="#3f3f46" text-anchor="end">-&#8364;3,200</text>
+  <text x="584" y="256" font-size="12" font-weight="700" fill="#a1a1aa">Total</text>
+  <text x="824" y="256" font-size="14" font-weight="700" fill="#18181b" text-anchor="end">&#8364;48,800</text>
+
+  <rect x="856" y="168" width="272" height="96" rx="10" fill="#ffffff" stroke="#e4e4e7"/>
+  <text x="872" y="190" font-size="12" font-weight="600" fill="#71717a">SAVING JARS</text>
+  <text x="872" y="212" font-size="12" fill="#a1a1aa">Total saved</text>
+  <text x="1112" y="212" font-size="12" fill="#3f3f46" text-anchor="end">&#8364;2,145</text>
+  <text x="872" y="234" font-size="12" fill="#a1a1aa">Jars</text>
+  <text x="1112" y="234" font-size="12" fill="#3f3f46" text-anchor="end">5</text>
+  <text x="872" y="256" font-size="12" font-weight="700" fill="#a1a1aa">This month</text>
+  <text x="1112" y="256" font-size="14" font-weight="700" fill="#18181b" text-anchor="end">+&#8364;230</text>
+
+  <!-- Budget this month -->
+  <text x="280" y="300" font-size="17" font-weight="600" fill="#18181b">Budget this month</text>
+  <text x="1160" y="300" font-size="13" fill="#52525b" text-anchor="end">View full budget &#8594;</text>
+
+  <text x="280" y="340" font-size="13" fill="#3f3f46">Groceries</text>
+  <text x="1160" y="340" font-size="12" fill="#71717a" text-anchor="end">&#8364;108 / &#8364;150</text>
+  <rect x="280" y="348" width="880" height="6" rx="3" fill="#e4e4e7"/>
+  <rect x="280" y="348" width="634" height="6" rx="3" fill="#18181b"/>
+
+  <text x="280" y="380" font-size="13" fill="#3f3f46">Eating out</text>
+  <text x="1160" y="380" font-size="12" fill="#71717a" text-anchor="end">&#8364;172 / &#8364;150 &#8226; over</text>
+  <rect x="280" y="388" width="880" height="6" rx="3" fill="#e4e4e7"/>
+  <rect x="280" y="388" width="880" height="6" rx="3" fill="#18181b"/>
+
+  <text x="280" y="420" font-size="13" fill="#3f3f46">Transport</text>
+  <text x="1160" y="420" font-size="12" fill="#71717a" text-anchor="end">&#8364;17 / &#8364;30</text>
+  <rect x="280" y="428" width="880" height="6" rx="3" fill="#e4e4e7"/>
+  <rect x="280" y="428" width="502" height="6" rx="3" fill="#18181b"/>
+
+  <text x="280" y="460" font-size="13" fill="#3f3f46">Household</text>
+  <text x="1160" y="460" font-size="12" fill="#71717a" text-anchor="end">&#8364;9 / &#8364;10</text>
+  <rect x="280" y="468" width="880" height="6" rx="3" fill="#e4e4e7"/>
+  <rect x="280" y="468" width="792" height="6" rx="3" fill="#18181b"/>
+
+  <!-- Insights -->
+  <text x="280" y="512" font-size="17" font-weight="600" fill="#18181b">Insights</text>
+  <rect x="280" y="528" width="880" height="56" rx="8" fill="#ffffff" stroke="#e4e4e7"/>
+  <text x="300" y="550" font-size="13" fill="#3f3f46">Eating out is running about 15% above your 3-month average this month.</text>
+  <text x="300" y="570" font-size="11" fill="#a1a1aa">Based on your last 3 months of spending</text>
+
+  <!-- Recent activity -->
+  <text x="280" y="620" font-size="17" font-weight="600" fill="#18181b">Recent activity</text>
+  <text x="1160" y="620" font-size="13" fill="#52525b" text-anchor="end">View all &#8594;</text>
+
+  <text x="280" y="652" font-size="13" fill="#3f3f46">Aug 26 &#8226; Groceries &#8212; Essen</text>
+  <text x="1160" y="652" font-size="13" fill="#3f3f46" text-anchor="end">-&#8364;23.40</text>
+  <line x1="280" y1="664" x2="1160" y2="664" stroke="#e4e4e7"/>
+
+  <text x="280" y="684" font-size="13" fill="#3f3f46">Aug 25 &#8226; Transport &#8212; Adhoc</text>
+  <text x="1160" y="684" font-size="13" fill="#3f3f46" text-anchor="end">-&#8364;11.00</text>
+  <line x1="280" y1="696" x2="1160" y2="696" stroke="#e4e4e7"/>
+
+  <text x="280" y="716" font-size="13" fill="#3f3f46">Aug 24 &#8226; Eating out &#8212; Snacks</text>
+  <text x="1160" y="716" font-size="13" fill="#3f3f46" text-anchor="end">-&#8364;6.90</text>
+  <line x1="280" y1="728" x2="1160" y2="728" stroke="#e4e4e7"/>
+
+  <text x="280" y="748" font-size="13" fill="#3f3f46">Aug 22 &#8226; Salary &#8212; Primary income</text>
+  <text x="1160" y="748" font-size="13" fill="#3f3f46" text-anchor="end">+&#8364;2,400.00</text>
+
+  <!-- Annotations -->
+  <text x="280" y="862" font-size="12" fill="#a1a1aa">Overview is 2-column (no detail pane) &#8212; card "view all"/"view full budget" links drill sideways into Budget/Accounts/Reports.</text>
+  <text x="280" y="882" font-size="12" fill="#a1a1aa">"Eating out" would render its over-budget state via a semantic status token in the real build, not the plain gray used in this wireframe.</text>
+</svg>

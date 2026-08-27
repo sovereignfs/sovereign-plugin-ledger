@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" font-family="-apple-system, 'Segoe UI', sans-serif">
+  <rect width="1200" height="900" fill="#fafafa"/>
+
+  <text x="48" y="56" font-size="18" font-weight="700" fill="#18181b">Ledger</text>
+
+  <!-- Progress: step 3 of 3 -->
+  <rect x="520" y="176" width="48" height="4" rx="2" fill="#18181b"/>
+  <rect x="576" y="176" width="48" height="4" rx="2" fill="#18181b"/>
+  <rect x="632" y="176" width="48" height="4" rx="2" fill="#18181b"/>
+  <text x="600" y="204" font-size="12" fill="#a1a1aa" text-anchor="middle">Step 3 of 3</text>
+
+  <text x="600" y="248" font-size="28" font-weight="700" fill="#18181b" text-anchor="middle">Add your first expense categories</text>
+  <text x="600" y="276" font-size="14" fill="#71717a" text-anchor="middle">Pick a few to start tracking against &#8212; amounts are just a starting point.</text>
+
+  <!-- Chip cloud -->
+  <rect x="340" y="312" width="104" height="36" rx="18" fill="#18181b"/>
+  <text x="392" y="335" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">Groceries</text>
+
+  <rect x="456" y="312" width="108" height="36" rx="18" fill="#18181b"/>
+  <text x="510" y="335" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">Eating out</text>
+
+  <rect x="576" y="312" width="104" height="36" rx="18" fill="#18181b"/>
+  <text x="628" y="335" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">Transport</text>
+
+  <rect x="692" y="312" width="112" height="36" rx="18" fill="#ffffff" stroke="#d4d4d8"/>
+  <text x="748" y="335" font-size="13" fill="#3f3f46" text-anchor="middle">Household</text>
+
+  <rect x="340" y="360" width="92" height="36" rx="18" fill="#ffffff" stroke="#d4d4d8"/>
+  <text x="386" y="383" font-size="13" fill="#3f3f46" text-anchor="middle">Personal</text>
+
+  <rect x="444" y="360" width="140" height="36" rx="18" fill="#ffffff" stroke="#d4d4d8"/>
+  <text x="514" y="383" font-size="13" fill="#3f3f46" text-anchor="middle">Subscriptions</text>
+
+  <rect x="596" y="360" width="100" height="36" rx="18" fill="#ffffff" stroke="#d4d4d8" stroke-dasharray="4,3"/>
+  <text x="646" y="383" font-size="13" fill="#3f3f46" text-anchor="middle">+ Custom</text>
+
+  <!-- Suggested monthly budgets -->
+  <text x="340" y="440" font-size="12" font-weight="600" fill="#71717a">SUGGESTED MONTHLY BUDGETS</text>
+
+  <text x="340" y="472" font-size="14" fill="#18181b">Groceries</text>
+  <rect x="736" y="452" width="124" height="32" rx="6" fill="#ffffff" stroke="#d4d4d8"/>
+  <text x="798" y="473" font-size="14" font-weight="600" fill="#18181b" text-anchor="middle">&#8364;150</text>
+
+  <text x="340" y="516" font-size="14" fill="#18181b">Eating out</text>
+  <rect x="736" y="496" width="124" height="32" rx="6" fill="#ffffff" stroke="#d4d4d8"/>
+  <text x="798" y="517" font-size="14" font-weight="600" fill="#18181b" text-anchor="middle">&#8364;150</text>
+
+  <text x="340" y="560" font-size="14" fill="#18181b">Transport</text>
+  <rect x="736" y="540" width="124" height="32" rx="6" fill="#ffffff" stroke="#d4d4d8"/>
+  <text x="798" y="561" font-size="14" font-weight="600" fill="#18181b" text-anchor="middle">&#8364;30</text>
+
+  <rect x="340" y="600" width="520" height="48" rx="8" fill="#18181b"/>
+  <text x="600" y="629" font-size="15" font-weight="600" fill="#ffffff" text-anchor="middle">Continue</text>
+
+  <text x="600" y="668" font-size="13" fill="#71717a" text-anchor="middle">&#8592; Back</text>
+
+  <!-- Annotations -->
+  <text x="280" y="862" font-size="12" fill="#a1a1aa">Chips are the "auto-detected suggestion to confirm" pattern &#8212; amounts pre-filled with sensible</text>
+  <text x="280" y="882" font-size="12" fill="#a1a1aa">defaults, editable inline. Resolves the earlier "default Category/Kind seed set" open question:</text>
+  <text x="280" y="898" font-size="12" fill="#a1a1aa">seeded here as suggestions, never auto-created without a tap.</text>
+</svg>

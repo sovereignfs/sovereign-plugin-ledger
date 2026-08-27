@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="375" height="910" viewBox="0 0 375 910" font-family="-apple-system, 'Segoe UI', sans-serif">
+  <rect width="375" height="910" fill="#fafafa"/>
+  <rect x="0" y="0" width="375" height="812" fill="#fafafa" stroke="#e4e4e7"/>
+
+  <rect x="0" y="0" width="375" height="56" fill="#ffffff"/>
+  <line x1="0" y1="56" x2="375" y2="56" stroke="#e4e4e7"/>
+  <text x="16" y="34" font-size="17" font-weight="700" fill="#18181b">Reports</text>
+  <circle cx="295" cy="28" r="9" fill="none" stroke="#52525b" stroke-width="1.5"/>
+  <circle cx="335" cy="28" r="14" fill="#18181b"/>
+  <text x="331" y="33" font-size="11" fill="#ffffff">K</text>
+
+  <text x="16" y="84" font-size="13" fill="#71717a">Monthly recap</text>
+
+  <rect x="0" y="104" width="375" height="64" fill="#f4f4f5"/>
+  <text x="16" y="130" font-size="15" font-weight="600" fill="#18181b">July 2026</text>
+  <rect x="253" y="116" width="106" height="22" rx="11" fill="#ffffff" stroke="#d4d4d8"/>
+  <text x="306" y="131" font-size="11" font-weight="600" fill="#3f3f46" text-anchor="middle">Needs review</text>
+  <text x="16" y="152" font-size="12" fill="#71717a">Income &#8364;4,200 &#8226; Spent &#8364;3,050</text>
+  <text x="359" y="132" font-size="14" fill="#71717a" text-anchor="end">&#8250;</text>
+  <line x1="0" y1="168" x2="375" y2="168" stroke="#f4f4f5"/>
+
+  <rect x="0" y="168" width="375" height="64" fill="#ffffff"/>
+  <text x="16" y="194" font-size="15" font-weight="600" fill="#18181b">June 2026</text>
+  <rect x="279" y="180" width="80" height="22" rx="11" fill="#f4f4f5" stroke="#e4e4e7"/>
+  <text x="319" y="195" font-size="11" fill="#71717a" text-anchor="middle">Reviewed</text>
+  <text x="16" y="216" font-size="12" fill="#71717a">Income &#8364;4,200 &#8226; Spent &#8364;2,910</text>
+  <text x="359" y="196" font-size="14" fill="#a1a1aa" text-anchor="end">&#8250;</text>
+  <line x1="0" y1="232" x2="375" y2="232" stroke="#f4f4f5"/>
+
+  <rect x="0" y="232" width="375" height="64" fill="#ffffff"/>
+  <text x="16" y="258" font-size="15" font-weight="600" fill="#18181b">May 2026</text>
+  <rect x="279" y="244" width="80" height="22" rx="11" fill="#f4f4f5" stroke="#e4e4e7"/>
+  <text x="319" y="259" font-size="11" fill="#71717a" text-anchor="middle">Reviewed</text>
+  <text x="16" y="280" font-size="12" fill="#71717a">Income &#8364;4,200 &#8226; Spent &#8364;3,180</text>
+  <text x="359" y="260" font-size="14" fill="#a1a1aa" text-anchor="end">&#8250;</text>
+
+  <text x="16" y="332" font-size="12" fill="#52525b">View earlier months &#8594;</text>
+
+  <rect x="0" y="748" width="375" height="64" fill="#ffffff"/>
+  <line x1="0" y1="748" x2="375" y2="748" stroke="#e4e4e7"/>
+  <circle cx="37" cy="768" r="9" fill="none" stroke="#a1a1aa" stroke-width="1.5"/>
+  <text x="37" y="800" font-size="10" fill="#a1a1aa" text-anchor="middle">Overview</text>
+  <rect x="103" y="759" width="18" height="18" rx="3" fill="none" stroke="#a1a1aa" stroke-width="1.5"/>
+  <text x="112" y="800" font-size="10" fill="#a1a1aa" text-anchor="middle">Budget</text>
+  <circle cx="187" cy="762" r="22" fill="#18181b"/>
+  <circle cx="180" cy="756" r="2" fill="#ffffff"/><circle cx="194" cy="756" r="2" fill="#ffffff"/>
+  <circle cx="180" cy="768" r="2" fill="#ffffff"/><circle cx="194" cy="768" r="2" fill="#ffffff"/>
+  <path d="M 253 777 L 262 759 L 271 777 Z" fill="none" stroke="#a1a1aa" stroke-width="1.5"/>
+  <text x="262" y="800" font-size="10" fill="#a1a1aa" text-anchor="middle">Accounts</text>
+  <rect x="322" y="759" width="14" height="18" fill="#18181b"/>
+  <line x1="325" y1="764" x2="333" y2="764" stroke="#ffffff" stroke-width="1"/>
+  <line x1="325" y1="769" x2="333" y2="769" stroke="#ffffff" stroke-width="1"/>
+  <text x="329" y="800" font-size="10" font-weight="600" fill="#18181b" text-anchor="middle">Reports</text>
+
+  <!-- Annotations -->
+  <text x="0" y="838" font-size="10" fill="#a1a1aa">Each period row carries its own StatusBadge ("Needs review"/"Reviewed") &#8212;</text>
+  <text x="0" y="854" font-size="10" fill="#a1a1aa">tapping July drills into its detail screen, same pattern as Budget/Accounts.</text>
+</svg>

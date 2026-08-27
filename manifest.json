@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "fs.sovereign.ledger",
+  "name": "Ledger",
+  "version": "0.1.0",
+  "description": "A budget-based personal finance tracker — plan a budget, track expenses, and see your net worth.",
+  "type": "sovereign",
+  "runtime": "native",
+  "routePrefix": "/ledger",
+  "shell": "default",
+  "icon": "icon.svg",
+  "permissions": ["auth:session", "db:readWrite", "mailer:send", "notifications:send"],
+  "repository": "https://github.com/sovereignfs/sovereign-plugin-ledger",
+  "compatibility": {
+    "minPlatformVersion": "0.94.16"
+  }
+}

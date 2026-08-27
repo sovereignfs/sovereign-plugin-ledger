@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="375" height="910" viewBox="0 0 375 910" font-family="-apple-system, 'Segoe UI', sans-serif">
+  <rect width="375" height="910" fill="#fafafa"/>
+
+  <!-- Phone frame -->
+  <rect x="0" y="0" width="375" height="812" fill="#fafafa" stroke="#e4e4e7"/>
+
+  <!-- MobileHeader (title + fixed bell/avatarMenu, no trailing-action slot) -->
+  <rect x="0" y="0" width="375" height="56" fill="#ffffff"/>
+  <line x1="0" y1="56" x2="375" y2="56" stroke="#e4e4e7"/>
+  <text x="16" y="34" font-size="17" font-weight="700" fill="#18181b">Overview</text>
+  <circle cx="295" cy="28" r="9" fill="none" stroke="#52525b" stroke-width="1.5"/>
+  <circle cx="335" cy="28" r="14" fill="#18181b"/>
+  <text x="331" y="33" font-size="11" fill="#ffffff">K</text>
+
+  <!-- Month + settings row -->
+  <text x="16" y="84" font-size="13" fill="#71717a">&#8249; August 2026 &#8250;</text>
+  <circle cx="337" cy="80" r="10" fill="none" stroke="#71717a" stroke-width="1.5"/>
+  <line x1="337" y1="72" x2="337" y2="75" stroke="#71717a" stroke-width="1.5"/>
+  <line x1="337" y1="85" x2="337" y2="88" stroke="#71717a" stroke-width="1.5"/>
+  <line x1="329" y1="80" x2="326" y2="80" stroke="#71717a" stroke-width="1.5"/>
+  <line x1="345" y1="80" x2="348" y2="80" stroke="#71717a" stroke-width="1.5"/>
+
+  <!-- Review banner -->
+  <rect x="16" y="104" width="343" height="40" rx="8" fill="#f4f4f5" stroke="#e4e4e7"/>
+  <text x="28" y="128" font-size="12" fill="#3f3f46">July needs review</text>
+  <text x="347" y="128" font-size="12" font-weight="600" fill="#18181b" text-anchor="end">Review &#8594;</text>
+
+  <!-- Summary card -->
+  <rect x="16" y="156" width="343" height="112" rx="10" fill="#ffffff" stroke="#e4e4e7"/>
+  <text x="32" y="178" font-size="11" font-weight="600" fill="#71717a">THIS MONTH</text>
+  <text x="32" y="202" font-size="12" fill="#a1a1aa">Income</text>
+  <text x="343" y="202" font-size="12" fill="#3f3f46" text-anchor="end">&#8364;4,200</text>
+  <text x="32" y="224" font-size="12" fill="#a1a1aa">Spent</text>
+  <text x="343" y="224" font-size="12" fill="#3f3f46" text-anchor="end">&#8364;2,890</text>
+  <text x="32" y="248" font-size="12" font-weight="700" fill="#a1a1aa">Projected saved</text>
+  <text x="343" y="248" font-size="14" font-weight="700" fill="#18181b" text-anchor="end">&#8364;1,310</text>
+
+  <!-- Budget this month -->
+  <text x="16" y="300" font-size="15" font-weight="600" fill="#18181b">Budget this month</text>
+  <text x="359" y="300" font-size="12" fill="#52525b" text-anchor="end">View all &#8594;</text>
+
+  <text x="16" y="326" font-size="13" fill="#3f3f46">Groceries</text>
+  <text x="359" y="326" font-size="11" fill="#71717a" text-anchor="end">&#8364;108 / &#8364;150</text>
+  <rect x="16" y="334" width="343" height="6" rx="3" fill="#e4e4e7"/>
+  <rect x="16" y="334" width="247" height="6" rx="3" fill="#18181b"/>
+
+  <text x="16" y="368" font-size="13" fill="#3f3f46">Eating out</text>
+  <text x="359" y="368" font-size="11" fill="#71717a" text-anchor="end">&#8364;172 / &#8364;150</text>
+  <rect x="16" y="376" width="343" height="6" rx="3" fill="#e4e4e7"/>
+  <rect x="16" y="376" width="343" height="6" rx="3" fill="#18181b"/>
+
+  <!-- Insights -->
+  <text x="16" y="424" font-size="15" font-weight="600" fill="#18181b">Insights</text>
+  <rect x="16" y="440" width="343" height="56" rx="8" fill="#ffffff" stroke="#e4e4e7"/>
+  <text x="28" y="462" font-size="12" fill="#3f3f46">Eating out is running ~15% above</text>
+  <text x="28" y="478" font-size="12" fill="#3f3f46">your 3-month average.</text>
+
+  <!-- Recent activity -->
+  <text x="16" y="524" font-size="15" font-weight="600" fill="#18181b">Recent activity</text>
+  <text x="359" y="524" font-size="12" fill="#52525b" text-anchor="end">View all &#8594;</text>
+  <text x="16" y="550" font-size="12" fill="#3f3f46">Aug 26 &#8226; Groceries</text>
+  <text x="359" y="550" font-size="12" fill="#3f3f46" text-anchor="end">-&#8364;23.40</text>
+  <text x="16" y="576" font-size="12" fill="#3f3f46">Aug 25 &#8226; Transport</text>
+  <text x="359" y="576" font-size="12" fill="#3f3f46" text-anchor="end">-&#8364;11.00</text>
+
+  <!-- FAB: Add expense -->
+  <circle cx="331" cy="678" r="26" fill="#18181b"/>
+  <text x="331" y="686" font-size="24" fill="#ffffff" text-anchor="middle">+</text>
+
+  <!-- MobileFooter -->
+  <rect x="0" y="748" width="375" height="64" fill="#ffffff"/>
+  <line x1="0" y1="748" x2="375" y2="748" stroke="#e4e4e7"/>
+
+  <circle cx="37" cy="768" r="9" fill="#18181b"/>
+  <text x="37" y="800" font-size="10" font-weight="600" fill="#18181b" text-anchor="middle">Overview</text>
+
+  <rect x="103" y="759" width="18" height="18" rx="3" fill="none" stroke="#a1a1aa" stroke-width="1.5"/>
+  <text x="112" y="800" font-size="10" fill="#a1a1aa" text-anchor="middle">Budget</text>
+
+  <circle cx="187" cy="762" r="22" fill="#18181b"/>
+  <circle cx="180" cy="756" r="2" fill="#ffffff"/>
+  <circle cx="194" cy="756" r="2" fill="#ffffff"/>
+  <circle cx="180" cy="768" r="2" fill="#ffffff"/>
+  <circle cx="194" cy="768" r="2" fill="#ffffff"/>
+
+  <path d="M 253 777 L 262 759 L 271 777 Z" fill="none" stroke="#a1a1aa" stroke-width="1.5"/>
+  <text x="262" y="800" font-size="10" fill="#a1a1aa" text-anchor="middle">Accounts</text>
+
+  <rect x="322" y="759" width="14" height="18" fill="none" stroke="#a1a1aa" stroke-width="1.5"/>
+  <line x1="325" y1="764" x2="333" y2="764" stroke="#a1a1aa" stroke-width="1"/>
+  <line x1="325" y1="769" x2="333" y2="769" stroke="#a1a1aa" stroke-width="1"/>
+  <text x="329" y="800" font-size="10" fill="#a1a1aa" text-anchor="middle">Reports</text>
+
+  <!-- Annotations -->
+  <text x="0" y="838" font-size="10" fill="#a1a1aa">MobileHeader has no trailing-action slot (title + fixed bell/avatarMenu only) &#8212;</text>
+  <text x="0" y="854" font-size="10" fill="#a1a1aa">Settings moves into the content row instead. "Add expense" is a FAB, persistent</text>
+  <text x="0" y="870" font-size="10" fill="#a1a1aa">across all 4 sections, not a header action. Center footer icon is the platform's</text>
+  <text x="0" y="886" font-size="10" fill="#a1a1aa">own fixed app launcher (onOpenApps) &#8212; not Ledger-specific.</text>
+</svg>

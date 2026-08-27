@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" font-family="-apple-system, 'Segoe UI', sans-serif">
+  <rect width="1200" height="900" fill="#fafafa"/>
+
+  <!-- Sidebar -->
+  <rect x="0" y="0" width="240" height="900" fill="#f4f4f5"/>
+  <line x1="240" y1="0" x2="240" y2="900" stroke="#e4e4e7"/>
+
+  <text x="24" y="40" font-size="20" font-weight="700" fill="#18181b">Ledger</text>
+
+  <rect x="16" y="60" width="208" height="40" rx="8" fill="#18181b"/>
+  <text x="34" y="85" font-size="14" font-weight="600" fill="#ffffff">+ Add expense</text>
+
+  <line x1="16" y1="116" x2="224" y2="116" stroke="#e4e4e7"/>
+
+  <text x="34" y="157" font-size="14" fill="#52525b">Overview</text>
+  <rect x="16" y="180" width="208" height="40" rx="8" fill="#e4e4e7"/>
+  <text x="34" y="205" font-size="14" font-weight="600" fill="#18181b">Budget</text>
+  <text x="34" y="253" font-size="14" fill="#52525b">Accounts</text>
+  <text x="34" y="301" font-size="14" fill="#52525b">Reports</text>
+
+  <line x1="16" y1="820" x2="224" y2="820" stroke="#e4e4e7"/>
+  <text x="34" y="848" font-size="14" fill="#52525b">Settings</text>
+
+  <!-- Detail column divider -->
+  <line x1="840" y1="0" x2="840" y2="900" stroke="#e4e4e7"/>
+
+  <!-- Main header -->
+  <text x="280" y="56" font-size="24" font-weight="700" fill="#18181b">Budget</text>
+  <text x="280" y="80" font-size="14" fill="#71717a">August 2026</text>
+
+  <!-- DYNAMIC section -->
+  <text x="280" y="112" font-size="11" font-weight="600" letter-spacing="0.04em" fill="#71717a">DYNAMIC</text>
+
+  <!-- Groceries (selected) -->
+  <rect x="256" y="124" width="568" height="56" rx="8" fill="#f4f4f5"/>
+  <text x="280" y="148" font-size="14" font-weight="600" fill="#18181b">Groceries</text>
+  <text x="800" y="148" font-size="13" fill="#71717a" text-anchor="end">&#8364;108 / &#8364;150</text>
+  <rect x="280" y="158" width="340" height="6" rx="3" fill="#e4e4e7"/>
+  <rect x="280" y="158" width="245" height="6" rx="3" fill="#18181b"/>
+
+  <!-- Eating out -->
+  <text x="280" y="212" font-size="14" font-weight="600" fill="#18181b">Eating out</text>
+  <text x="800" y="212" font-size="13" fill="#71717a" text-anchor="end">&#8364;172 / &#8364;150 &#8226; over</text>
+  <rect x="280" y="222" width="340" height="6" rx="3" fill="#e4e4e7"/>
+  <rect x="280" y="222" width="340" height="6" rx="3" fill="#18181b"/>
+
+  <!-- Transport -->
+  <text x="280" y="276" font-size="14" font-weight="600" fill="#18181b">Transport</text>
+  <text x="800" y="276" font-size="13" fill="#71717a" text-anchor="end">&#8364;17 / &#8364;30</text>
+  <rect x="280" y="286" width="340" height="6" rx="3" fill="#e4e4e7"/>
+  <rect x="280" y="286" width="194" height="6" rx="3" fill="#18181b"/>
+
+  <text x="280" y="328" font-size="12" fill="#52525b">View 2 more dynamic categories &#8594;</text>
+
+  <!-- FIXED section -->
+  <text x="280" y="364" font-size="11" font-weight="600" letter-spacing="0.04em" fill="#71717a">FIXED</text>
+
+  <text x="280" y="396" font-size="14" font-weight="600" fill="#18181b">Telecom</text>
+  <text x="800" y="396" font-size="13" fill="#71717a" text-anchor="end">&#8364;21.90 / &#8364;22</text>
+  <rect x="280" y="406" width="340" height="6" rx="3" fill="#e4e4e7"/>
+  <rect x="280" y="406" width="330" height="6" rx="3" fill="#18181b"/>
+
+  <text x="280" y="460" font-size="14" font-weight="600" fill="#18181b">Household bills</text>
+  <text x="800" y="460" font-size="13" fill="#71717a" text-anchor="end">&#8364;1,700 / &#8364;1,700</text>
+  <rect x="280" y="470" width="340" height="6" rx="3" fill="#e4e4e7"/>
+  <rect x="280" y="470" width="340" height="6" rx="3" fill="#18181b"/>
+
+  <text x="280" y="524" font-size="14" font-weight="600" fill="#18181b">Subscriptions</text>
+  <text x="800" y="524" font-size="13" fill="#71717a" text-anchor="end">&#8364;93 / &#8364;95</text>
+  <rect x="280" y="534" width="340" height="6" rx="3" fill="#e4e4e7"/>
+  <rect x="280" y="534" width="333" height="6" rx="3" fill="#18181b"/>
+
+  <text x="280" y="576" font-size="12" fill="#52525b">View 1 more fixed expense &#8594;</text>
+
+  <!-- SAVING PLANS section -->
+  <text x="280" y="612" font-size="11" font-weight="600" letter-spacing="0.04em" fill="#71717a">SAVING PLANS</text>
+
+  <text x="280" y="644" font-size="14" font-weight="600" fill="#18181b">Travel</text>
+  <text x="280" y="662" font-size="11" fill="#a1a1aa">Target &#8364;50/mo</text>
+  <text x="800" y="650" font-size="16" font-weight="700" fill="#18181b" text-anchor="end">&#8364;320</text>
+  <text x="800" y="666" font-size="11" fill="#a1a1aa" text-anchor="end">saved</text>
+
+  <text x="280" y="708" font-size="14" font-weight="600" fill="#18181b">Emergency fund</text>
+  <text x="280" y="726" font-size="11" fill="#a1a1aa">Target &#8364;100/mo</text>
+  <text x="800" y="714" font-size="16" font-weight="700" fill="#18181b" text-anchor="end">&#8364;640</text>
+  <text x="800" y="730" font-size="11" fill="#a1a1aa" text-anchor="end">saved</text>
+
+  <text x="280" y="764" font-size="12" fill="#52525b">View 3 more saving jars &#8594;</text>
+
+  <!-- DETAIL: Groceries -->
+  <text x="856" y="56" font-size="20" font-weight="700" fill="#18181b">Groceries</text>
+  <text x="856" y="78" font-size="13" fill="#71717a">Budgeted &#8364;150 &#8226; Spent &#8364;108</text>
+  <line x1="856" y1="94" x2="1184" y2="94" stroke="#e4e4e7"/>
+
+  <text x="856" y="118" font-size="12" font-weight="600" fill="#71717a">BY SUBCATEGORY</text>
+
+  <text x="856" y="146" font-size="13" fill="#3f3f46">Essen</text>
+  <text x="1184" y="146" font-size="12" fill="#71717a" text-anchor="end">&#8364;62 / &#8364;90</text>
+  <rect x="856" y="154" width="240" height="6" rx="3" fill="#e4e4e7"/>
+  <rect x="856" y="154" width="165" height="6" rx="3" fill="#18181b"/>
+
+  <text x="856" y="186" font-size="13" fill="#3f3f46">Snacks &amp; Fruits</text>
+  <text x="1184" y="186" font-size="12" fill="#71717a" text-anchor="end">&#8364;28 / &#8364;35</text>
+  <rect x="856" y="194" width="240" height="6" rx="3" fill="#e4e4e7"/>
+  <rect x="856" y="194" width="192" height="6" rx="3" fill="#18181b"/>
+
+  <text x="856" y="226" font-size="13" fill="#3f3f46">Beverages</text>
+  <text x="1184" y="226" font-size="12" fill="#71717a" text-anchor="end">&#8364;18 / &#8364;25</text>
+  <rect x="856" y="234" width="240" height="6" rx="3" fill="#e4e4e7"/>
+  <rect x="856" y="234" width="173" height="6" rx="3" fill="#18181b"/>
+
+  <text x="856" y="272" font-size="12" font-weight="600" fill="#71717a">RECENT IN THIS CATEGORY</text>
+  <text x="856" y="296" font-size="13" fill="#3f3f46">Aug 26 &#8226; Essen</text>
+  <text x="1184" y="296" font-size="13" fill="#3f3f46" text-anchor="end">-&#8364;23.40</text>
+  <text x="856" y="324" font-size="13" fill="#3f3f46">Aug 24 &#8226; Snacks &amp; Fruits</text>
+  <text x="1184" y="324" font-size="13" fill="#3f3f46" text-anchor="end">-&#8364;6.90</text>
+  <text x="856" y="352" font-size="13" fill="#3f3f46">Aug 20 &#8226; Beverages</text>
+  <text x="1184" y="352" font-size="13" fill="#3f3f46" text-anchor="end">-&#8364;4.10</text>
+
+  <rect x="856" y="780" width="200" height="40" rx="8" fill="#18181b"/>
+  <text x="872" y="805" font-size="13" font-weight="600" fill="#ffffff">Edit budgeted amount</text>
+
+  <!-- Annotations -->
+  <text x="280" y="862" font-size="12" fill="#a1a1aa">Selecting a category promotes the third (detail) column &#8212; same conditional-child pattern Tally uses for group/person detail.</text>
+  <text x="280" y="882" font-size="12" fill="#a1a1aa">Fixed rows show the same predicted/actual bar as Dynamic; their actual defaults to predicted each period unless edited.</text>
+</svg>

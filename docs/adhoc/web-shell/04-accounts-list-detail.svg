@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" font-family="-apple-system, 'Segoe UI', sans-serif">
+  <rect width="1200" height="900" fill="#fafafa"/>
+
+  <!-- Sidebar -->
+  <rect x="0" y="0" width="240" height="900" fill="#f4f4f5"/>
+  <line x1="240" y1="0" x2="240" y2="900" stroke="#e4e4e7"/>
+
+  <text x="24" y="40" font-size="20" font-weight="700" fill="#18181b">Ledger</text>
+
+  <rect x="16" y="60" width="208" height="40" rx="8" fill="#18181b"/>
+  <text x="34" y="85" font-size="14" font-weight="600" fill="#ffffff">+ Add expense</text>
+
+  <line x1="16" y1="116" x2="224" y2="116" stroke="#e4e4e7"/>
+
+  <text x="34" y="157" font-size="14" fill="#52525b">Overview</text>
+  <text x="34" y="205" font-size="14" fill="#52525b">Budget</text>
+  <rect x="16" y="228" width="208" height="40" rx="8" fill="#e4e4e7"/>
+  <text x="34" y="253" font-size="14" font-weight="600" fill="#18181b">Accounts</text>
+  <text x="34" y="301" font-size="14" fill="#52525b">Reports</text>
+
+  <line x1="16" y1="820" x2="224" y2="820" stroke="#e4e4e7"/>
+  <text x="34" y="848" font-size="14" fill="#52525b">Settings</text>
+
+  <!-- Detail column divider -->
+  <line x1="840" y1="0" x2="840" y2="900" stroke="#e4e4e7"/>
+
+  <!-- Main header -->
+  <text x="280" y="56" font-size="24" font-weight="700" fill="#18181b">Accounts</text>
+  <text x="280" y="80" font-size="14" font-weight="700" fill="#18181b">Net worth &#8364;48,800</text>
+  <text x="470" y="80" font-size="13" fill="#71717a">+&#8364;620 this month</text>
+
+  <!-- BANKING -->
+  <text x="280" y="112" font-size="11" font-weight="600" letter-spacing="0.04em" fill="#71717a">BANKING</text>
+  <text x="280" y="136" font-size="14" fill="#18181b">Checking &#8226; Primary Bank</text>
+  <text x="800" y="136" font-size="14" font-weight="600" fill="#18181b" text-anchor="end">&#8364;2,150</text>
+  <text x="280" y="168" font-size="14" fill="#18181b">Savings &#8226; Online Bank</text>
+  <text x="800" y="168" font-size="14" font-weight="600" fill="#18181b" text-anchor="end">&#8364;9,400</text>
+  <text x="280" y="196" font-size="12" fill="#52525b">View 1 more account &#8594;</text>
+
+  <!-- CREDIT CARDS -->
+  <text x="280" y="228" font-size="11" font-weight="600" letter-spacing="0.04em" fill="#71717a">CREDIT CARDS</text>
+  <text x="280" y="252" font-size="14" fill="#18181b">Everyday Card</text>
+  <text x="800" y="252" font-size="14" font-weight="600" fill="#18181b" text-anchor="end">&#8364;340 / &#8364;2,000</text>
+
+  <!-- ASSETS -->
+  <text x="280" y="284" font-size="11" font-weight="600" letter-spacing="0.04em" fill="#71717a">ASSETS</text>
+  <text x="280" y="308" font-size="14" fill="#18181b">Index fund shares</text>
+  <text x="800" y="308" font-size="14" font-weight="600" fill="#18181b" text-anchor="end">&#8364;6,200</text>
+  <text x="280" y="340" font-size="14" fill="#18181b">Gold</text>
+  <text x="800" y="340" font-size="14" font-weight="600" fill="#18181b" text-anchor="end">&#8364;1,050</text>
+
+  <!-- DEPOSITS -->
+  <text x="280" y="372" font-size="11" font-weight="600" letter-spacing="0.04em" fill="#71717a">DEPOSITS</text>
+  <text x="280" y="396" font-size="14" fill="#18181b">Apartment deposit &#8226; Berlin</text>
+  <text x="800" y="396" font-size="14" font-weight="600" fill="#18181b" text-anchor="end">&#8364;3,300</text>
+
+  <!-- LOANS -->
+  <text x="280" y="428" font-size="11" font-weight="600" letter-spacing="0.04em" fill="#71717a">LOANS</text>
+  <rect x="256" y="436" width="568" height="32" rx="8" fill="#f4f4f5"/>
+  <text x="280" y="456" font-size="14" font-weight="600" fill="#18181b">Car loan</text>
+  <text x="800" y="456" font-size="14" font-weight="600" fill="#18181b" text-anchor="end">&#8364;4,200 remaining</text>
+
+  <!-- PEOPLE -->
+  <text x="280" y="500" font-size="11" font-weight="600" letter-spacing="0.04em" fill="#71717a">PEOPLE</text>
+  <text x="280" y="524" font-size="14" fill="#18181b">Alex</text>
+  <text x="800" y="524" font-size="14" font-weight="600" fill="#18181b" text-anchor="end">+&#8364;180</text>
+  <text x="280" y="556" font-size="14" fill="#18181b">Sam</text>
+  <text x="800" y="556" font-size="14" font-weight="600" fill="#18181b" text-anchor="end">&#8722;&#8364;60</text>
+
+  <!-- DETAIL: Car loan -->
+  <text x="856" y="56" font-size="20" font-weight="700" fill="#18181b">Car loan</text>
+  <text x="856" y="78" font-size="13" fill="#71717a">Lender: City Bank</text>
+  <line x1="856" y1="94" x2="1184" y2="94" stroke="#e4e4e7"/>
+
+  <text x="856" y="118" font-size="11" fill="#71717a">REMAINING BALANCE</text>
+  <text x="856" y="142" font-size="20" font-weight="700" fill="#18181b">&#8364;4,200</text>
+
+  <text x="856" y="176" font-size="11" fill="#71717a">MONTHLY INSTALLMENT</text>
+  <text x="856" y="200" font-size="20" font-weight="700" fill="#18181b">&#8364;180</text>
+
+  <text x="856" y="234" font-size="11" fill="#71717a">STARTED</text>
+  <text x="856" y="258" font-size="16" font-weight="600" fill="#18181b">Jan 2025</text>
+
+  <text x="856" y="292" font-size="11" fill="#71717a">ENDS</text>
+  <text x="856" y="316" font-size="16" font-weight="600" fill="#18181b">Dec 2027</text>
+
+  <text x="856" y="350" font-size="12" font-weight="600" fill="#71717a">PAID OFF</text>
+  <rect x="856" y="360" width="328" height="8" rx="4" fill="#e4e4e7"/>
+  <rect x="856" y="360" width="138" height="8" rx="4" fill="#18181b"/>
+  <text x="856" y="388" font-size="12" fill="#71717a">42% paid off</text>
+
+  <text x="856" y="420" font-size="12" fill="#71717a">Linked to "Household bills &#8594;</text>
+  <text x="856" y="436" font-size="12" fill="#71717a">Debt settlement" fixed expense</text>
+
+  <rect x="856" y="780" width="180" height="40" rx="8" fill="#18181b"/>
+  <text x="872" y="805" font-size="13" font-weight="600" fill="#ffffff">Record a payment</text>
+  <rect x="1050" y="780" width="134" height="40" rx="8" fill="none" stroke="#d4d4d8"/>
+  <text x="1066" y="805" font-size="13" font-weight="600" fill="#18181b">Edit loan</text>
+
+  <!-- Annotations -->
+  <text x="280" y="862" font-size="12" fill="#a1a1aa">People rows would use BalanceChip (@sovereignfs/ui) for the signed amount, not plain text as drawn here.</text>
+  <text x="280" y="882" font-size="12" fill="#a1a1aa">Selecting any row (account, card, asset, loan, person) promotes the same detail column &#8212; content shape varies by item type.</text>
+</svg>

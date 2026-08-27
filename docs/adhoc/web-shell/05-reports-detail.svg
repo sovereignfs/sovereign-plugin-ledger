@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" font-family="-apple-system, 'Segoe UI', sans-serif">
+  <rect width="1200" height="900" fill="#fafafa"/>
+
+  <!-- Sidebar -->
+  <rect x="0" y="0" width="240" height="900" fill="#f4f4f5"/>
+  <line x1="240" y1="0" x2="240" y2="900" stroke="#e4e4e7"/>
+
+  <text x="24" y="40" font-size="20" font-weight="700" fill="#18181b">Ledger</text>
+
+  <rect x="16" y="60" width="208" height="40" rx="8" fill="#18181b"/>
+  <text x="34" y="85" font-size="14" font-weight="600" fill="#ffffff">+ Add expense</text>
+
+  <line x1="16" y1="116" x2="224" y2="116" stroke="#e4e4e7"/>
+
+  <text x="34" y="157" font-size="14" fill="#52525b">Overview</text>
+  <text x="34" y="205" font-size="14" fill="#52525b">Budget</text>
+  <text x="34" y="253" font-size="14" fill="#52525b">Accounts</text>
+  <rect x="16" y="276" width="208" height="40" rx="8" fill="#e4e4e7"/>
+  <text x="34" y="301" font-size="14" font-weight="600" fill="#18181b">Reports</text>
+
+  <line x1="16" y1="820" x2="224" y2="820" stroke="#e4e4e7"/>
+  <text x="34" y="848" font-size="14" fill="#52525b">Settings</text>
+
+  <!-- Detail column divider -->
+  <line x1="840" y1="0" x2="840" y2="900" stroke="#e4e4e7"/>
+
+  <!-- Main header -->
+  <text x="280" y="56" font-size="24" font-weight="700" fill="#18181b">Reports</text>
+  <text x="280" y="80" font-size="14" fill="#71717a">Monthly recap</text>
+
+  <!-- July 2026 (selected, needs review) -->
+  <rect x="256" y="100" width="568" height="48" rx="8" fill="#f4f4f5"/>
+  <text x="280" y="122" font-size="14" font-weight="600" fill="#18181b">July 2026</text>
+  <rect x="700" y="108" width="110" height="22" rx="11" fill="#ffffff" stroke="#d4d4d8"/>
+  <text x="716" y="123" font-size="11" font-weight="600" fill="#3f3f46">Needs review</text>
+  <text x="280" y="140" font-size="12" fill="#71717a">Income &#8364;4,200 &#8226; Spent &#8364;3,050</text>
+
+  <!-- June 2026 -->
+  <text x="280" y="186" font-size="14" font-weight="600" fill="#18181b">June 2026</text>
+  <rect x="724" y="172" width="86" height="22" rx="11" fill="#f4f4f5" stroke="#e4e4e7"/>
+  <text x="740" y="187" font-size="11" fill="#71717a">Reviewed</text>
+  <text x="280" y="204" font-size="12" fill="#71717a">Income &#8364;4,200 &#8226; Spent &#8364;2,910</text>
+
+  <!-- May 2026 -->
+  <text x="280" y="250" font-size="14" font-weight="600" fill="#18181b">May 2026</text>
+  <rect x="724" y="236" width="86" height="22" rx="11" fill="#f4f4f5" stroke="#e4e4e7"/>
+  <text x="740" y="251" font-size="11" fill="#71717a">Reviewed</text>
+  <text x="280" y="268" font-size="12" fill="#71717a">Income &#8364;4,200 &#8226; Spent &#8364;3,180</text>
+
+  <!-- April 2026 -->
+  <text x="280" y="314" font-size="14" font-weight="600" fill="#18181b">April 2026</text>
+  <rect x="724" y="300" width="86" height="22" rx="11" fill="#f4f4f5" stroke="#e4e4e7"/>
+  <text x="740" y="315" font-size="11" fill="#71717a">Reviewed</text>
+  <text x="280" y="332" font-size="12" fill="#71717a">Income &#8364;4,200 &#8226; Spent &#8364;2,760</text>
+
+  <text x="280" y="368" font-size="12" fill="#52525b">View earlier months &#8594;</text>
+
+  <!-- DETAIL: July 2026 -->
+  <text x="856" y="56" font-size="20" font-weight="700" fill="#18181b">July 2026</text>
+  <rect x="980" y="40" width="110" height="22" rx="11" fill="#ffffff" stroke="#d4d4d8"/>
+  <text x="996" y="55" font-size="11" font-weight="600" fill="#3f3f46">Needs review</text>
+  <line x1="856" y1="78" x2="1184" y2="78" stroke="#e4e4e7"/>
+
+  <text x="856" y="102" font-size="11" fill="#71717a">PROJECTED SAVINGS</text>
+  <text x="856" y="124" font-size="18" font-weight="700" fill="#18181b">&#8364;1,240</text>
+
+  <text x="856" y="152" font-size="11" fill="#71717a">ACTUAL SAVINGS</text>
+  <text x="856" y="174" font-size="18" font-weight="700" fill="#18181b">&#8364;980</text>
+
+  <text x="856" y="202" font-size="11" fill="#71717a">ACTUAL, NET OF JARS</text>
+  <text x="856" y="224" font-size="18" font-weight="700" fill="#18181b">&#8364;720</text>
+
+  <text x="856" y="256" font-size="12" font-weight="600" fill="#71717a">TOP CATEGORIES</text>
+  <text x="856" y="280" font-size="13" fill="#3f3f46">Eating out</text>
+  <text x="856" y="296" font-size="11" fill="#a1a1aa">+18% vs. budget</text>
+  <text x="1184" y="286" font-size="13" fill="#3f3f46" text-anchor="end">&#8364;177</text>
+
+  <text x="856" y="322" font-size="13" fill="#3f3f46">Groceries</text>
+  <text x="856" y="338" font-size="11" fill="#a1a1aa">-5% vs. budget</text>
+  <text x="1184" y="328" font-size="13" fill="#3f3f46" text-anchor="end">&#8364;143</text>
+
+  <text x="856" y="364" font-size="13" fill="#3f3f46">Transport</text>
+  <text x="856" y="380" font-size="11" fill="#a1a1aa">on budget</text>
+  <text x="1184" y="370" font-size="13" fill="#3f3f46" text-anchor="end">&#8364;30</text>
+
+  <rect x="856" y="404" width="328" height="64" rx="8" fill="#ffffff" stroke="#e4e4e7"/>
+  <text x="872" y="426" font-size="12" fill="#3f3f46">Eating out has run over budget 3 months</text>
+  <text x="872" y="444" font-size="12" fill="#3f3f46">running &#8212; consider raising it or trimming</text>
+  <text x="872" y="462" font-size="12" fill="#3f3f46">weekday lunches.</text>
+
+  <rect x="856" y="780" width="180" height="40" rx="8" fill="#18181b"/>
+  <text x="878" y="805" font-size="13" font-weight="600" fill="#ffffff">Mark as reviewed</text>
+  <rect x="1050" y="780" width="134" height="40" rx="8" fill="none" stroke="#d4d4d8"/>
+  <text x="1062" y="805" font-size="13" font-weight="600" fill="#18181b">Adjust budget &#8594;</text>
+
+  <!-- Annotations -->
+  <text x="280" y="862" font-size="12" fill="#a1a1aa">Month-end review lives here, not as its own sidebar item &#8212; "Needs review" is a StatusBadge state on the period itself.</text>
+  <text x="280" y="882" font-size="12" fill="#a1a1aa">"Adjust budget" jumps into the Budget section pre-filtered to this period's categories rather than duplicating budget editing here.</text>
+</svg>

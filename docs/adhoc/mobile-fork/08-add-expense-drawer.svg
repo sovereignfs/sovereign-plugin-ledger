@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="375" height="910" viewBox="0 0 375 910" font-family="-apple-system, 'Segoe UI', sans-serif">
+  <rect width="375" height="910" fill="#fafafa"/>
+  <rect x="0" y="0" width="375" height="812" fill="#fafafa" stroke="#e4e4e7"/>
+
+  <!-- Dimmed Overview behind -->
+  <rect x="0" y="0" width="375" height="56" fill="#ffffff" opacity="0.6"/>
+  <text x="16" y="34" font-size="17" font-weight="700" fill="#18181b" opacity="0.4">Overview</text>
+  <rect x="0" y="0" width="375" height="440" fill="#18181b" opacity="0.06"/>
+
+  <!-- Drawer (bottom sheet, snapHeight: content, grab handle) -->
+  <rect x="0" y="440" width="375" height="372" rx="16" fill="#ffffff"/>
+  <rect x="163" y="454" width="48" height="5" rx="2.5" fill="#d4d4d8"/>
+
+  <text x="16" y="494" font-size="18" font-weight="700" fill="#18181b">Add expense</text>
+
+  <!-- Amount -->
+  <text x="16" y="524" font-size="11" font-weight="600" fill="#3f3f46">AMOUNT</text>
+  <rect x="16" y="530" width="343" height="56" rx="8" fill="#ffffff" stroke="#d4d4d8"/>
+  <rect x="28" y="546" width="48" height="24" rx="6" fill="#f4f4f5" stroke="#e4e4e7"/>
+  <text x="38" y="562" font-size="12" fill="#52525b">EUR &#9662;</text>
+  <text x="88" y="568" font-size="22" font-weight="700" fill="#18181b">23.40</text>
+
+  <!-- Category + Subcategory, side by side -->
+  <text x="16" y="608" font-size="11" font-weight="600" fill="#3f3f46">CATEGORY</text>
+  <rect x="16" y="614" width="163" height="40" rx="8" fill="#ffffff" stroke="#d4d4d8"/>
+  <text x="28" y="639" font-size="13" fill="#18181b">Groceries &#9662;</text>
+
+  <text x="196" y="608" font-size="11" font-weight="600" fill="#3f3f46">SUBCATEGORY</text>
+  <rect x="196" y="614" width="163" height="40" rx="8" fill="#ffffff" stroke="#d4d4d8"/>
+  <text x="208" y="639" font-size="13" fill="#18181b">Essen &#9662;</text>
+
+  <!-- Fund from jar toggle -->
+  <line x1="16" y1="678" x2="359" y2="678" stroke="#e4e4e7"/>
+  <text x="16" y="704" font-size="13" fill="#3f3f46">Fund from a saving jar</text>
+  <rect x="303" y="692" width="40" height="22" rx="11" fill="#e4e4e7"/>
+  <circle cx="313" cy="703" r="8" fill="#ffffff" stroke="#d4d4d8"/>
+
+  <!-- Buttons -->
+  <rect x="16" y="748" width="343" height="48" rx="8" fill="#18181b"/>
+  <text x="187" y="777" font-size="14" font-weight="600" fill="#ffffff" text-anchor="middle">Add expense</text>
+
+  <!-- Annotations -->
+  <text x="0" y="838" font-size="10" fill="#a1a1aa">Drawer, not Sheet &#8212; Drawer is the bottom-sheet component with a grab handle</text>
+  <text x="0" y="854" font-size="10" fill="#a1a1aa">and swipe-to-dismiss; Sheet is full-page (slideFrom bottom/top only, no side</text>
+  <text x="0" y="870" font-size="10" fill="#a1a1aa">variant) and is for full-screen drill-down, not a compact form like this.</text>
+</svg>

@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" font-family="-apple-system, 'Segoe UI', sans-serif">
+  <rect width="1200" height="900" fill="#fafafa"/>
+
+  <!-- Sidebar -->
+  <rect x="0" y="0" width="240" height="900" fill="#f4f4f5"/>
+  <line x1="240" y1="0" x2="240" y2="900" stroke="#e4e4e7"/>
+
+  <text x="24" y="40" font-size="20" font-weight="700" fill="#18181b">Ledger</text>
+
+  <rect x="16" y="60" width="208" height="40" rx="8" fill="#18181b"/>
+  <text x="34" y="85" font-size="14" font-weight="600" fill="#ffffff">+ Add expense</text>
+
+  <line x1="16" y1="116" x2="224" y2="116" stroke="#e4e4e7"/>
+
+  <rect x="16" y="132" width="208" height="40" rx="8" fill="#e4e4e7"/>
+  <text x="34" y="157" font-size="14" font-weight="600" fill="#18181b">Overview</text>
+  <text x="34" y="205" font-size="14" fill="#52525b">Budget</text>
+  <text x="34" y="253" font-size="14" fill="#52525b">Accounts</text>
+  <text x="34" y="301" font-size="14" fill="#52525b">Reports</text>
+
+  <line x1="16" y1="820" x2="224" y2="820" stroke="#e4e4e7"/>
+  <text x="34" y="848" font-size="14" fill="#52525b">Settings</text>
+
+  <!-- Headline -->
+  <text x="280" y="200" font-size="26" font-weight="700" fill="#18181b">Let's get your budget going</text>
+  <text x="280" y="228" font-size="14" fill="#71717a">You're already set up with a base currency and a first income &#8212;</text>
+  <text x="280" y="248" font-size="14" fill="#71717a">everything else here can be added anytime.</text>
+
+  <!-- Checklist card -->
+  <rect x="280" y="280" width="880" height="420" rx="10" fill="#ffffff" stroke="#e4e4e7"/>
+
+  <!-- Row: Base currency & incomes (done) -->
+  <circle cx="304" cy="308" r="9" fill="#18181b"/>
+  <path d="M 300 308 L 303 311 L 309 304" stroke="#ffffff" stroke-width="1.5" fill="none"/>
+  <text x="328" y="313" font-size="14" font-weight="600" fill="#18181b">Base currency &amp; incomes</text>
+  <text x="620" y="313" font-size="12" fill="#a1a1aa">EUR &#8226; Primary + 1 secondary</text>
+  <text x="1140" y="313" font-size="12" fill="#71717a" text-anchor="end">Edit</text>
+  <line x1="296" y1="332" x2="1132" y2="332" stroke="#f4f4f5"/>
+
+  <!-- Row: Expense categories (done) -->
+  <circle cx="304" cy="352" r="9" fill="#18181b"/>
+  <path d="M 300 352 L 303 355 L 309 348" stroke="#ffffff" stroke-width="1.5" fill="none"/>
+  <text x="328" y="357" font-size="14" font-weight="600" fill="#18181b">Expense categories</text>
+  <text x="620" y="357" font-size="12" fill="#a1a1aa">5 dynamic, 4 fixed</text>
+  <text x="1140" y="357" font-size="12" fill="#71717a" text-anchor="end">Edit</text>
+  <line x1="296" y1="376" x2="1132" y2="376" stroke="#f4f4f5"/>
+
+  <!-- Row: Saving plans (pending) -->
+  <circle cx="304" cy="396" r="9" fill="none" stroke="#a1a1aa" stroke-width="1.5"/>
+  <text x="328" y="401" font-size="14" fill="#3f3f46">Saving plans</text>
+  <text x="620" y="401" font-size="12" fill="#a1a1aa">Set aside money for goals</text>
+  <text x="1140" y="401" font-size="14" fill="#a1a1aa" text-anchor="end">&#8250;</text>
+  <line x1="296" y1="420" x2="1132" y2="420" stroke="#f4f4f5"/>
+
+  <!-- Row: Bank accounts (pending) -->
+  <circle cx="304" cy="440" r="9" fill="none" stroke="#a1a1aa" stroke-width="1.5"/>
+  <text x="328" y="445" font-size="14" fill="#3f3f46">Bank accounts</text>
+  <text x="1140" y="445" font-size="14" fill="#a1a1aa" text-anchor="end">&#8250;</text>
+  <line x1="296" y1="464" x2="1132" y2="464" stroke="#f4f4f5"/>
+
+  <!-- Row: Credit cards (pending) -->
+  <circle cx="304" cy="484" r="9" fill="none" stroke="#a1a1aa" stroke-width="1.5"/>
+  <text x="328" y="489" font-size="14" fill="#3f3f46">Credit cards</text>
+  <text x="1140" y="489" font-size="14" fill="#a1a1aa" text-anchor="end">&#8250;</text>
+  <line x1="296" y1="508" x2="1132" y2="508" stroke="#f4f4f5"/>
+
+  <!-- Row: Investments & assets (pending) -->
+  <circle cx="304" cy="528" r="9" fill="none" stroke="#a1a1aa" stroke-width="1.5"/>
+  <text x="328" y="533" font-size="14" fill="#3f3f46">Investments &amp; assets</text>
+  <text x="1140" y="533" font-size="14" fill="#a1a1aa" text-anchor="end">&#8250;</text>
+  <line x1="296" y1="552" x2="1132" y2="552" stroke="#f4f4f5"/>
+
+  <!-- Row: Deposits (pending) -->
+  <circle cx="304" cy="572" r="9" fill="none" stroke="#a1a1aa" stroke-width="1.5"/>
+  <text x="328" y="577" font-size="14" fill="#3f3f46">Deposits</text>
+  <text x="1140" y="577" font-size="14" fill="#a1a1aa" text-anchor="end">&#8250;</text>
+  <line x1="296" y1="596" x2="1132" y2="596" stroke="#f4f4f5"/>
+
+  <!-- Row: Loans (pending) -->
+  <circle cx="304" cy="616" r="9" fill="none" stroke="#a1a1aa" stroke-width="1.5"/>
+  <text x="328" y="621" font-size="14" fill="#3f3f46">Loans</text>
+  <text x="1140" y="621" font-size="14" fill="#a1a1aa" text-anchor="end">&#8250;</text>
+  <line x1="296" y1="640" x2="1132" y2="640" stroke="#f4f4f5"/>
+
+  <!-- Row: People (pending) -->
+  <circle cx="304" cy="660" r="9" fill="none" stroke="#a1a1aa" stroke-width="1.5"/>
+  <text x="328" y="665" font-size="14" fill="#3f3f46">People (money owed)</text>
+  <text x="1140" y="665" font-size="14" fill="#a1a1aa" text-anchor="end">&#8250;</text>
+
+  <text x="280" y="728" font-size="13" fill="#71717a">Start tracking expenses right now with the button above &#8212; finishing this list just gives you a fuller picture.</text>
+
+  <!-- Annotations -->
+  <text x="280" y="862" font-size="12" fill="#a1a1aa">This checklist replaces the Overview dashboard until enough sections are filled in; it never blocks expense tracking.</text>
+  <text x="280" y="882" font-size="12" fill="#a1a1aa">Once every row is done (or dismissed), it collapses to a small "Finish setup" link under the summary cards rather than vanishing.</text>
+</svg>

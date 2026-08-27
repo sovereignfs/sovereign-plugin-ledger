@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" font-family="-apple-system, 'Segoe UI', sans-serif">
+  <rect width="1200" height="900" fill="#fafafa"/>
+
+  <text x="48" y="56" font-size="18" font-weight="700" fill="#18181b">Ledger</text>
+
+  <circle cx="600" cy="200" r="28" fill="#18181b"/>
+  <path d="M 588 200 L 597 209 L 613 191" stroke="#ffffff" stroke-width="3" fill="none"/>
+
+  <text x="600" y="256" font-size="28" font-weight="700" fill="#18181b" text-anchor="middle">Your budget is ready</text>
+  <text x="600" y="284" font-size="14" fill="#71717a" text-anchor="middle">Start tracking expenses right away &#8212; add accounts, saving plans,</text>
+  <text x="600" y="304" font-size="14" fill="#71717a" text-anchor="middle">and more anytime from Overview.</text>
+
+  <rect x="340" y="340" width="520" height="164" rx="10" fill="#ffffff" stroke="#e4e4e7"/>
+
+  <text x="364" y="372" font-size="12" fill="#a1a1aa">Base currency</text>
+  <text x="836" y="372" font-size="14" font-weight="600" fill="#18181b" text-anchor="end">EUR &#8212; Euro</text>
+  <line x1="364" y1="386" x2="836" y2="386" stroke="#f4f4f5"/>
+
+  <text x="364" y="410" font-size="12" fill="#a1a1aa">Primary income</text>
+  <text x="836" y="410" font-size="14" font-weight="600" fill="#18181b" text-anchor="end">&#8364;4,200 / month</text>
+  <line x1="364" y1="424" x2="836" y2="424" stroke="#f4f4f5"/>
+
+  <text x="364" y="448" font-size="12" fill="#a1a1aa">Categories added</text>
+  <text x="836" y="448" font-size="14" font-weight="600" fill="#18181b" text-anchor="end">Groceries, Eating out, Transport</text>
+  <line x1="364" y1="462" x2="836" y2="462" stroke="#f4f4f5"/>
+
+  <text x="364" y="486" font-size="12" fill="#a1a1aa">Everything else</text>
+  <text x="836" y="486" font-size="14" fill="#71717a" text-anchor="end">Add anytime from Overview</text>
+
+  <rect x="340" y="536" width="520" height="48" rx="8" fill="#18181b"/>
+  <text x="600" y="565" font-size="15" font-weight="600" fill="#ffffff" text-anchor="middle">Go to Ledger</text>
+
+  <!-- Annotations -->
+  <text x="280" y="862" font-size="12" fill="#a1a1aa">"Go to Ledger" lands on Overview in the setup-checklist state (web-shell.md screen 2) &#8212;</text>
+  <text x="280" y="882" font-size="12" fill="#a1a1aa">the wizard's 3 fields are exactly the checklist's two "done" rows, nothing more required.</text>
+</svg>
