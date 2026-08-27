@@ -207,6 +207,62 @@ export async function deleteIncome(input: { incomeId: string }): Promise<ActionR
 // ---------------------------------------------------------------------------
 // Categories & kinds
 
+/**
+ * Creates a category and its first kind in one transaction — for callers
+ * (the setup wizard, L.4) that need to create both in the same gesture and
+ * have no way to learn a plain `createCategory`'s new id back (actions
+ * return only `ActionResult`, matching this app family's own convention of
+ * never echoing created ids to the client). Not a replacement for the
+ * separate `createCategory`/`createKind` below, which stay the lower-level
+ * primitives for adding a kind to an already-existing category.
+ */
+export async function createCategoryWithKind(input: {
+  name: string;
+  type: 'dynamic' | 'fixed';
+  predictedAmountMinor: number;
+  currency: string;
+}): Promise<ActionResult> {
+  const actor = await requireUser();
+  const name = cleanText(input.name, 'Category name');
+  if (typeof name !== 'string') return name;
+  if (input.type !== 'dynamic' && input.type !== 'fixed') {
+    return fail("Saving categories aren't supported yet — coming in a later task.");
+  }
+  const predictedAmountMinor = cleanAmountMinor(input.predictedAmountMinor, 'Budgeted amount');
+  if (typeof predictedAmountMinor !== 'number') return predictedAmountMinor;
+
+  const db = await getDb();
+  const now = Date.now();
+  const categoryId = newId();
+  await db.transaction(async (tx) => {
+    await tx.insert(schema.categories).values({
+      id: categoryId,
+      tenantId: actor.tenantId,
+      userId: actor.userId,
+      name,
+      type: input.type,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await tx.insert(schema.kinds).values({
+      id: newId(),
+      tenantId: actor.tenantId,
+      userId: actor.userId,
+      categoryId,
+      name,
+      predictedAmountMinor,
+      currency: input.currency,
+      recurrenceIntervalUnit: null,
+      recurrenceIntervalCount: null,
+      recurrenceAnchorDate: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+  });
+  refresh();
+  return ok('Category added.');
+}
+
 export async function createCategory(input: {
   name: string;
   type: 'dynamic' | 'fixed';

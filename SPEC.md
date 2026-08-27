@@ -102,8 +102,69 @@ wired to any UI yet — that's L.4 onward — so this is a compile/regression
 check, not a feature check). Full check suite (vitest, typecheck, lint,
 format:check, design-tokens) passes clean.
 
-🚧 L.4 (setup wizard) and L.5 (Web Overview + Budget) are next — dependent
-on this task, not started.
+✅ **L.4 shipped (0.4.0)** — the 4-screen setup wizard (base currency,
+primary income, first expense categories with suggested chips + pre-filled
+amounts, ready/summary), matching `docs/adhoc/setup-wizard.md` exactly.
+One new server action added, `createCategoryWithKind` (atomic
+category+kind creation, needed because plain `createCategory`/`createKind`
+never echo a created id back to the client for chaining — matches this
+app family's own "actions return only `ActionResult`" convention, so a
+combined action was the right fix, not a signature change to the existing
+ones). Two retroactive fixes bundled in, both cross-cutting gaps rather
+than L.4-specific: `app/error.tsx` (a hard platform rule this plugin was
+missing since L.1) and a new plugin-local `CategoryChip` toggle component
+(a confirmed real Design System Gap — `TagInput` is free-text,
+`SegmentedControl` is single-select, `Toggle` is a single switch; none fit
+a zero-to-many tappable pill option. Built as a plain `<button
+aria-pressed>` + CSS module, matching the same pattern already used for
+toggled buttons elsewhere in this app family, e.g.
+`sovereign-plugin-docs.local`'s `RichTextEditor` toolbar — not promoted to
+`packages/ui` since there's only one consumer so far).
+
+**A real, non-obvious bug found and fixed live, not caught by any static
+check:** every wizard-step action calls the shared `refresh()` helper
+(`revalidatePath('/ledger', 'layout')`), and Next.js automatically
+re-runs the current route's server component once that action resolves.
+The original `page.tsx` branched server-side between `<SetupWizard/>` and
+a "complete" placeholder based on a fresh DB check on every render — so
+the moment step 3's last category was created, the resulting automatic
+refresh re-ran that check, found setup now complete, and swapped the
+entire tree to the placeholder before the user ever saw the Ready/summary
+screen. Caught live (the browser genuinely jumped straight from category
+selection to "Setup complete", skipping step 4 entirely), not by
+inspection. Fixed architecturally: `page.tsx` now always mounts the same
+`SetupWizard` component regardless of status, passing the initial status
+as a prop; `SetupWizard` snapshots it once via `useState(initialStatus)`
+(whose initializer runs only on mount) and manages every subsequent step
+transition — including the final hand-off to the complete view — entirely
+in client state, immune to the parent's incidental server refreshes. Only
+a genuine full navigation (a real link, a hard reload) re-mounts the
+component and re-reads fresh status.
+
+**A second bug from the same root cause, `useActionState`'s dispatch
+called directly from a plain `onClick`:** React logged "An async function
+with useActionState was called outside of a transition" on every step
+1/2 submission — functionally the state still updated, but `isPending`
+wasn't guaranteed to track correctly, which the wireframes' own pending/
+loading-label requirement depends on. Fixed by wrapping each dispatch
+call in `startTransition`, exactly as React's own error message
+prescribes.
+
+Verified live end-to-end at every step, in two separate passes (the
+second in a brand-new tab with zero prior console history, to rule out
+stale message accumulation from the first debugging pass): fresh account
+(currency data cleared and restored via direct SQL, not a second
+throwaway account, since `pnpm sv seed` currently only reasons about
+board/document-style plugins) → step 1 → 2 → 3 (including the "+ Custom"
+category flow) → 4 → "Go to Ledger" → complete state, zero console errors
+at every transition; refreshing mid-wizard (after step 1 only) resumes at
+step 2 with the correct currency, not a restart; a hard reload on the
+complete state re-derives correctly with no flash of the wizard. Full
+check suite (13 tests, typecheck, lint, format:check, design-tokens) all
+pass clean.
+
+🚧 L.5 (Web Overview + Budget) is next, dependent on this task, not
+started. L.6 also depends on L.5.
 
 ---
 

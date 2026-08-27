@@ -1,0 +1,27 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--sv-touch-target-min);
+  padding: 0 var(--sv-space-4);
+  border: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  border-radius: var(--sv-radius-full);
+  background: var(--sv-color-surface);
+  color: var(--sv-color-text-primary);
+  font: inherit;
+  font-size: var(--sv-font-size-sm);
+  font-weight: var(--sv-font-weight-semibold);
+  cursor: pointer;
+}
+
+.chipSelected {
+  background: var(--sv-color-text-primary);
+  border-color: var(--sv-color-text-primary);
+  color: var(--sv-color-surface);
+}
+
+.chipDashed {
+  border-style: dashed;
+  color: var(--sv-color-text-muted);
+  font-weight: var(--sv-font-weight-regular);
+}

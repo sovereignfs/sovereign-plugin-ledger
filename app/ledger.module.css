@@ -1,0 +1,12 @@
+/* Layout-only styles — visual styling comes from @sovereignfs/ui components
+   and semantic tokens. No padding/max-width on page roots (PageContainer
+   owns those); no color literals. */
+
+.centered {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sv-space-4);
+  min-height: 40vh;
+}

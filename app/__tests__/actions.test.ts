@@ -222,4 +222,38 @@ describe('happy path', () => {
     expect(all.filter((c) => c.isBase === 1)).toHaveLength(1);
     expect(must(all.find((c) => c.code === 'USD'), 'USD').isBase).toBe(1);
   });
+
+  it('createCategoryWithKind creates both rows atomically, correctly owned', async () => {
+    actAs(owner);
+    const result = await actions.createCategoryWithKind({
+      name: 'Groceries',
+      type: 'dynamic',
+      predictedAmountMinor: 15_000,
+      currency: 'EUR',
+    });
+    expect(result.ok).toBe(true);
+
+    const category = must((await t.db.select().from(schema.categories))[0], 'category');
+    expect(category.userId).toBe(owner.id);
+    expect(category.type).toBe('dynamic');
+
+    const kind = must((await t.db.select().from(schema.kinds))[0], 'kind');
+    expect(kind.userId).toBe(owner.id);
+    expect(kind.categoryId).toBe(category.id);
+    expect(kind.predictedAmountMinor).toBe(15_000);
+  });
+
+  it('createCategoryWithKind rejects a saving-type category, creating neither row', async () => {
+    actAs(owner);
+    const result = await actions.createCategoryWithKind({
+      // @ts-expect-error — 'saving' is deliberately not in this action's accepted type union
+      type: 'saving',
+      name: 'Travel jar',
+      predictedAmountMinor: 5_000,
+      currency: 'EUR',
+    });
+    expect(result.ok).toBe(false);
+    expect(await t.db.select().from(schema.categories)).toHaveLength(0);
+    expect(await t.db.select().from(schema.kinds)).toHaveLength(0);
+  });
 });
