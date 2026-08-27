@@ -289,3 +289,274 @@ describe('happy path', () => {
     expect(await t.db.select().from(schema.kinds)).toHaveLength(0);
   });
 });
+
+describe('L.7 — accounts, assets, deposits, loans, people', () => {
+  it('denies every new mutation on another user\'s rows, with no side effects', async () => {
+    actAs(owner);
+    await actions.createAccount({
+      name: 'Checking',
+      type: 'bank',
+      balanceMinor: 10_000,
+      currency: 'EUR',
+    });
+    const account = must((await t.db.select().from(schema.accounts))[0], 'account');
+    await actions.createAsset({ name: 'Gold', type: 'physical', valueMinor: 5_000, currency: 'EUR' });
+    const asset = must((await t.db.select().from(schema.assets))[0], 'asset');
+    await actions.createDeposit({ name: 'Apartment', amountMinor: 3_000, currency: 'EUR' });
+    const deposit = must((await t.db.select().from(schema.deposits))[0], 'deposit');
+    await actions.createLoan({
+      name: 'Car loan',
+      lender: 'City Bank',
+      principalMinor: 10_000,
+      remainingBalanceMinor: 8_000,
+      installmentAmountMinor: 500,
+      currency: 'EUR',
+      startDate: '2025-01-01',
+      endDate: '2027-12-01',
+    });
+    const loan = must((await t.db.select().from(schema.loans))[0], 'loan');
+    await actions.createPerson({ name: 'Alex', currency: 'EUR' });
+    const person = must((await t.db.select().from(schema.people))[0], 'person');
+
+    const before = {
+      accounts: await t.db.select().from(schema.accounts),
+      assets: await t.db.select().from(schema.assets),
+      deposits: await t.db.select().from(schema.deposits),
+      loans: await t.db.select().from(schema.loans),
+      kinds: await t.db.select().from(schema.kinds),
+      people: await t.db.select().from(schema.people),
+      peopleTransactions: await t.db.select().from(schema.peopleTransactions),
+    };
+
+    actAs(outsider);
+    const denials = await Promise.all([
+      actions.updateAccount({ accountId: account.id, name: 'stolen' }),
+      actions.deleteAccount({ accountId: account.id }),
+      actions.updateAsset({ assetId: asset.id, name: 'stolen' }),
+      actions.deleteAsset({ assetId: asset.id }),
+      actions.updateDeposit({ depositId: deposit.id, name: 'stolen' }),
+      actions.deleteDeposit({ depositId: deposit.id }),
+      actions.updateLoan({ loanId: loan.id, name: 'stolen' }),
+      actions.deleteLoan({ loanId: loan.id }),
+      actions.deletePerson({ personId: person.id }),
+      actions.createPeopleTransaction({ personId: person.id, amountMinor: 100 }),
+    ]);
+    for (const result of denials) expect(result.ok).toBe(false);
+
+    expect(await t.db.select().from(schema.accounts)).toEqual(before.accounts);
+    expect(await t.db.select().from(schema.assets)).toEqual(before.assets);
+    expect(await t.db.select().from(schema.deposits)).toEqual(before.deposits);
+    expect(await t.db.select().from(schema.loans)).toEqual(before.loans);
+    expect(await t.db.select().from(schema.kinds)).toEqual(before.kinds);
+    expect(await t.db.select().from(schema.people)).toEqual(before.people);
+    expect(await t.db.select().from(schema.peopleTransactions)).toEqual(before.peopleTransactions);
+  });
+
+  it('creates and updates a bank account and a credit card', async () => {
+    actAs(owner);
+    expect(
+      (await actions.createAccount({ name: 'Checking', type: 'bank', balanceMinor: 10_000, currency: 'EUR' }))
+        .ok,
+    ).toBe(true);
+    expect(
+      (
+        await actions.createAccount({
+          name: 'Everyday Card',
+          type: 'credit_card',
+          balanceMinor: 34_000,
+          creditLimitMinor: 200_000,
+          currency: 'EUR',
+        })
+      ).ok,
+    ).toBe(true);
+
+    const card = must(
+      (await t.db.select().from(schema.accounts).where(eq(schema.accounts.type, 'credit_card')))[0],
+      'card',
+    );
+    expect(card.creditLimitMinor).toBe(200_000);
+
+    expect((await actions.updateAccount({ accountId: card.id, balanceMinor: 40_000 })).ok).toBe(true);
+    const updated = must(
+      (await t.db.select().from(schema.accounts).where(eq(schema.accounts.id, card.id)))[0],
+      'updated card',
+    );
+    expect(updated.balanceMinor).toBe(40_000);
+  });
+
+  it('createLoan creates its linked Fixed kind under a shared "Loans" category', async () => {
+    actAs(owner);
+    const result = await actions.createLoan({
+      name: 'Car loan',
+      lender: 'City Bank',
+      principalMinor: 1_000_000,
+      remainingBalanceMinor: 420_000,
+      installmentAmountMinor: 18_000,
+      currency: 'EUR',
+      startDate: '2025-01-01',
+      endDate: '2027-12-01',
+    });
+    expect(result.ok).toBe(true);
+
+    const loan = must((await t.db.select().from(schema.loans))[0], 'loan');
+    expect(loan.userId).toBe(owner.id);
+
+    const kind = must(
+      (await t.db.select().from(schema.kinds).where(eq(schema.kinds.id, loan.linkedKindId)))[0],
+      'linked kind',
+    );
+    expect(kind.name).toBe('Car loan');
+    expect(kind.predictedAmountMinor).toBe(18_000);
+
+    const category = must(
+      (await t.db.select().from(schema.categories).where(eq(schema.categories.id, kind.categoryId)))[0],
+      'linked category',
+    );
+    expect(category.name).toBe('Loans');
+    expect(category.type).toBe('fixed');
+  });
+
+  it('a second loan reuses the same shared "Loans" category, not a duplicate', async () => {
+    actAs(owner);
+    await actions.createLoan({
+      name: 'Car loan',
+      lender: 'City Bank',
+      principalMinor: 1_000_000,
+      remainingBalanceMinor: 420_000,
+      installmentAmountMinor: 18_000,
+      currency: 'EUR',
+      startDate: '2025-01-01',
+      endDate: '2027-12-01',
+    });
+    await actions.createLoan({
+      name: 'Student loan',
+      lender: 'State Bank',
+      principalMinor: 2_000_000,
+      remainingBalanceMinor: 1_500_000,
+      installmentAmountMinor: 25_000,
+      currency: 'EUR',
+      startDate: '2020-01-01',
+      endDate: '2030-01-01',
+    });
+
+    const loansCategories = await t.db
+      .select()
+      .from(schema.categories)
+      .where(eq(schema.categories.name, 'Loans'));
+    expect(loansCategories).toHaveLength(1);
+    const kindsUnderIt = await t.db
+      .select()
+      .from(schema.kinds)
+      .where(eq(schema.kinds.categoryId, must(loansCategories[0], 'Loans category').id));
+    expect(kindsUnderIt.map((k) => k.name).sort()).toEqual(['Car loan', 'Student loan']);
+  });
+
+  it('updateLoan keeps the linked kind\'s name/budget in sync', async () => {
+    actAs(owner);
+    await actions.createLoan({
+      name: 'Car loan',
+      lender: 'City Bank',
+      principalMinor: 1_000_000,
+      remainingBalanceMinor: 420_000,
+      installmentAmountMinor: 18_000,
+      currency: 'EUR',
+      startDate: '2025-01-01',
+      endDate: '2027-12-01',
+    });
+    const loan = must((await t.db.select().from(schema.loans))[0], 'loan');
+
+    expect(
+      (
+        await actions.updateLoan({
+          loanId: loan.id,
+          name: 'Car loan (refinanced)',
+          installmentAmountMinor: 15_000,
+        })
+      ).ok,
+    ).toBe(true);
+
+    const updatedLoan = must(
+      (await t.db.select().from(schema.loans).where(eq(schema.loans.id, loan.id)))[0],
+      'updated loan',
+    );
+    expect(updatedLoan.installmentAmountMinor).toBe(15_000);
+
+    const kind = must(
+      (await t.db.select().from(schema.kinds).where(eq(schema.kinds.id, loan.linkedKindId)))[0],
+      'linked kind',
+    );
+    expect(kind.name).toBe('Car loan (refinanced)');
+    expect(kind.predictedAmountMinor).toBe(15_000);
+  });
+
+  it('deleteLoan removes the loan and its linked kind, leaving no orphan', async () => {
+    actAs(owner);
+    await actions.createLoan({
+      name: 'Car loan',
+      lender: 'City Bank',
+      principalMinor: 1_000_000,
+      remainingBalanceMinor: 420_000,
+      installmentAmountMinor: 18_000,
+      currency: 'EUR',
+      startDate: '2025-01-01',
+      endDate: '2027-12-01',
+    });
+    const loan = must((await t.db.select().from(schema.loans))[0], 'loan');
+
+    expect((await actions.deleteLoan({ loanId: loan.id })).ok).toBe(true);
+    expect(await t.db.select().from(schema.loans)).toHaveLength(0);
+    expect(
+      await t.db.select().from(schema.kinds).where(eq(schema.kinds.id, loan.linkedKindId)),
+    ).toHaveLength(0);
+    // The shared "Loans" category itself is left behind (documented, minor
+    // cosmetic gap — see LOANS_CATEGORY_NAME's doc comment) — only the
+    // kind is expected to be gone.
+    expect(await t.db.select().from(schema.categories).where(eq(schema.categories.name, 'Loans'))).toHaveLength(1);
+  });
+
+  it('createPeopleTransaction keeps the cached balance in sync, both directions', async () => {
+    actAs(owner);
+    await actions.createPerson({ name: 'Alex', currency: 'EUR' });
+    const person = must((await t.db.select().from(schema.people))[0], 'person');
+
+    expect(
+      (await actions.createPeopleTransaction({ personId: person.id, amountMinor: 18_000 })).ok,
+    ).toBe(true);
+    let updated = must(
+      (await t.db.select().from(schema.people).where(eq(schema.people.id, person.id)))[0],
+      'person after +180',
+    );
+    expect(updated.balanceMinor).toBe(18_000);
+
+    expect(
+      (await actions.createPeopleTransaction({ personId: person.id, amountMinor: -6_000 })).ok,
+    ).toBe(true);
+    updated = must(
+      (await t.db.select().from(schema.people).where(eq(schema.people.id, person.id)))[0],
+      'person after -60',
+    );
+    expect(updated.balanceMinor).toBe(12_000);
+
+    expect(await t.db.select().from(schema.peopleTransactions)).toHaveLength(2);
+  });
+
+  it('createPeopleTransaction rejects a zero amount', async () => {
+    actAs(owner);
+    await actions.createPerson({ name: 'Alex', currency: 'EUR' });
+    const person = must((await t.db.select().from(schema.people))[0], 'person');
+    const result = await actions.createPeopleTransaction({ personId: person.id, amountMinor: 0 });
+    expect(result.ok).toBe(false);
+    expect(await t.db.select().from(schema.peopleTransactions)).toHaveLength(0);
+  });
+
+  it('deletePerson cascades their transaction history', async () => {
+    actAs(owner);
+    await actions.createPerson({ name: 'Alex', currency: 'EUR' });
+    const person = must((await t.db.select().from(schema.people))[0], 'person');
+    await actions.createPeopleTransaction({ personId: person.id, amountMinor: 5_000 });
+
+    expect((await actions.deletePerson({ personId: person.id })).ok).toBe(true);
+    expect(await t.db.select().from(schema.people)).toHaveLength(0);
+    expect(await t.db.select().from(schema.peopleTransactions)).toHaveLength(0);
+  });
+});

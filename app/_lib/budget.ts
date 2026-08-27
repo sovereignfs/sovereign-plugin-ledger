@@ -75,6 +75,15 @@ export async function getBudgetData(db: LedgerDb, userId: string): Promise<Budge
   const fixed: BudgetCategory[] = [];
 
   for (const category of categoriesWithKinds) {
+    // A category can end up with zero kinds — e.g. the shared "Loans"
+    // category (actions.ts's LOANS_CATEGORY_NAME) once its last loan is
+    // deleted, since deleteLoan only removes that loan's own kind, never
+    // the category itself. Found live: rendering a zero-kind category fell
+    // back to an empty-string currency, which crashed the whole page via
+    // `Intl.NumberFormat`'s "Invalid currency code" — skip it instead;
+    // there's nothing meaningful to show for a category with no kinds.
+    if (category.kinds.length === 0) continue;
+
     const kinds: BudgetKind[] = category.kinds.map((k) => {
       const kindTransactions = transactionsByKindId.get(k.id) ?? [];
       const actualAmountMinor = kindTransactions

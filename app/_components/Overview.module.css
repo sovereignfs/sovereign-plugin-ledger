@@ -172,6 +172,30 @@
   border-bottom: none;
 }
 
+.checklistRowLink {
+  display: flex;
+  align-items: center;
+  gap: var(--sv-space-3);
+  padding: var(--sv-space-3) var(--sv-space-4);
+  border-bottom: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  color: inherit;
+  text-decoration: none;
+}
+
+.checklistRowLink:last-child {
+  border-bottom: none;
+}
+
+.checklistRowLink:hover {
+  background: var(--sv-color-surface-sunken);
+}
+
+.checklistRowLink svg {
+  margin-left: auto;
+  color: var(--sv-color-text-muted);
+  flex-shrink: 0;
+}
+
 .checklistDot {
   display: flex;
   align-items: center;

@@ -115,6 +115,24 @@ describe('getBudgetData', () => {
     expect(rent.recentTransactions).toEqual([]);
   });
 
+  it('skips a category with zero kinds rather than crashing on an empty currency', async () => {
+    // Reproduces the shared "Loans" category left behind once its last
+    // loan (and thus its only kind) is deleted (actions.ts's deleteLoan).
+    await seedBudget();
+    const now = Date.now();
+    await t.db.insert(schema.categories).values({
+      id: 'cat-empty-loans',
+      tenantId,
+      userId,
+      name: 'Loans',
+      type: 'fixed',
+      createdAt: now,
+      updatedAt: now,
+    });
+    const data = await getBudgetData(t.ledger, userId);
+    expect(data.fixed.map((c) => c.name)).toEqual(['Rent']);
+  });
+
   it('returns empty dynamic/fixed lists when the user has no categories yet', async () => {
     const data = await getBudgetData(t.ledger, userId);
     expect(data).toEqual({ dynamic: [], fixed: [] });

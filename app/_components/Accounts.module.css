@@ -1,0 +1,196 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-2);
+  padding: var(--sv-space-6);
+}
+
+.netWorth {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sv-space-3);
+  margin-bottom: var(--sv-space-4);
+}
+
+.netWorthValue {
+  font-size: var(--sv-font-size-lg);
+  font-weight: var(--sv-font-weight-bold);
+}
+
+.section {
+  margin-bottom: var(--sv-space-2);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--sv-space-1);
+}
+
+.sectionLabel {
+  font-size: var(--sv-font-size-xs);
+  font-weight: var(--sv-font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sv-color-text-muted);
+}
+
+.sectionAddButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--sv-radius-md);
+  border: none;
+  background: transparent;
+  color: var(--sv-color-text-muted);
+  cursor: pointer;
+}
+
+.sectionAddButton:hover {
+  background: var(--sv-color-surface-sunken);
+  color: var(--sv-color-text-primary);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sv-space-3);
+  width: 100%;
+  padding: var(--sv-space-2) var(--sv-space-3);
+  margin: 0 calc(var(--sv-space-3) * -1);
+  border: none;
+  border-radius: var(--sv-radius-md);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  font-size: var(--sv-font-size-sm);
+}
+
+.row:hover {
+  background: var(--sv-color-surface-sunken);
+}
+
+.rowSelected {
+  background: var(--sv-color-surface-sunken);
+}
+
+.rowName {
+  color: var(--sv-color-text-primary);
+}
+
+.rowSubtitle {
+  color: var(--sv-color-text-muted);
+  font-weight: 400;
+}
+
+.rowValue {
+  font-weight: var(--sv-font-weight-semibold);
+  color: var(--sv-color-text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.emptyState {
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+  padding: var(--sv-space-2) 0;
+}
+
+/* Detail column */
+
+.detailHeader {
+  padding: var(--sv-space-6) var(--sv-space-5) var(--sv-space-4);
+  border-bottom: var(--sv-border-width-hairline) solid var(--sv-color-border);
+}
+
+.detailTitle {
+  font-size: var(--sv-font-size-lg);
+  font-weight: var(--sv-font-weight-bold);
+  margin: 0 0 var(--sv-space-1);
+}
+
+.detailSubtitle {
+  font-size: var(--sv-font-size-sm);
+  color: var(--sv-color-text-muted);
+  margin: 0;
+}
+
+.detailBody {
+  padding: var(--sv-space-4) var(--sv-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-6);
+}
+
+.statGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sv-space-4);
+}
+
+.statLabel {
+  font-size: var(--sv-font-size-xs);
+  font-weight: var(--sv-font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sv-color-text-muted);
+  margin: 0 0 var(--sv-space-1);
+}
+
+.statValue {
+  font-size: var(--sv-font-size-lg);
+  font-weight: var(--sv-font-weight-bold);
+  margin: 0;
+}
+
+.progressLabel {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--sv-font-size-sm);
+  color: var(--sv-color-text-muted);
+  margin-bottom: var(--sv-space-2);
+}
+
+.linkedNote {
+  font-size: var(--sv-font-size-sm);
+  color: var(--sv-color-text-muted);
+}
+
+.transactionRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sv-space-3);
+  padding: var(--sv-space-2) 0;
+  border-bottom: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  font-size: var(--sv-font-size-sm);
+}
+
+.transactionRow:last-child {
+  border-bottom: none;
+}
+
+.transactionDate {
+  color: var(--sv-color-text-muted);
+}
+
+.transactionAmount {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  gap: var(--sv-space-3);
+}
+
+.feedbackError {
+  color: var(--sv-color-error-text);
+  font-size: var(--sv-font-size-sm);
+}

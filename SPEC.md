@@ -325,8 +325,102 @@ exact original values — confirmed via a final reload showing the original
 `getExpenseFormOptions` on top of the existing 29. Full check suite
 (32 tests, typecheck, lint, format:check, design-tokens) all pass clean.
 
-🚧 L.7 (Accounts) is next, dependent on L.3, `[parallel]` with L.5/L.6 per
-this doc's own dependency note — already unblocked.
+✅ **L.7 shipped (0.7.0)** — the unified net-worth screen (`AccountsView`/
+`AccountsMain`/`AccountsDetail`) per `web-shell.md` screen 4: banking,
+credit cards, assets, deposits, loans, and people, each with a create
+dialog, list+detail promotion, and delete (`ConfirmDialog`); loans also
+get a full edit flow. `getNetWorthMinor` (`app/_lib/accounts.ts`) is now
+the single, shared net-worth calculation — Overview's own summary card
+was quietly duplicating this exact math since L.5 and now calls the same
+function instead of maintaining a second copy.
+
+**Loans reuse one shared "Loans" fixed category across every loan a user
+has, rather than one dedicated category per loan** — a design refinement
+made before writing any code, not the plan this doc originally sketched.
+Each loan gets its own kind (subcategory) under that shared category
+(`LOANS_CATEGORY_NAME`, found-or-created on the first loan), matching how
+every other multi-item Fixed grouping already renders on the Budget page:
+one "Loans" row, expandable to each loan's own installment. Editing a
+loan's name or installment keeps its linked kind in sync
+(`updateLoan`); deleting a loan removes the loan row and its own kind
+(never the shared category, which is a documented, minor cosmetic gap if
+every loan is later removed — see the fix below for why that gap turned
+out not to be purely cosmetic).
+
+**"Record a payment" from the wireframe was deliberately not built as a
+separate action.** A loan's installment is a normal Fixed budget kind
+under "Loans" — the user logs it through L.6's existing Add-expense
+dialog exactly like any other fixed expense, rather than this task
+inventing a second, parallel payment-recording mutation that would need
+its own decision about whether/how it touches `remainingBalanceMinor`.
+`remainingBalanceMinor` itself is a plain editable field via "Edit loan" —
+manually updated, not auto-derived from logged payments. Neither
+deliverable text nor the review checklist required "Record a payment" as
+its own action, so this is a scope decision, not a miss.
+
+**A real crash found live, not by inspection:** deleting a loan (via the
+brand-new delete flow above) leaves its shared "Loans" category behind
+with zero kinds if it was the last one — and the very first thing that
+category touched, `formatMoney`'s `Intl.NumberFormat`, threw `RangeError:
+Invalid currency code` on the empty-string fallback `kinds[0]?.currency ??
+''` in `getBudgetData`, taking down the entire Budget route via its error
+boundary. Reproduced by literally deleting the loan just created during
+this task's own live verification, then navigating to Budget. Fixed by
+having both `getBudgetData` and `getOverviewData`'s `topCategories` skip
+any category with zero kinds outright — there's nothing meaningful to
+show for one, and it also resolves the "orphaned empty row" cosmetic
+concern this doc had originally accepted as unavoidable. Two regression
+tests added (`budget.test.ts`, `overview.test.ts`) seeding exactly this
+empty-category shape.
+
+**A second real bug found live, in the loan create/edit date fields:**
+picking "Oct 15" in `CreateLoanDialog`'s `DatePicker` round-tripped to
+"Oct 14" the moment `EditLoanDialog` re-displayed it. Root cause:
+`toDateOnly` converted the picked `Date` (local midnight) through
+`.toISOString().slice(0, 10)`, which reads the UTC calendar date — in any
+timezone ahead of UTC (reproduced in Europe/Berlin, UTC+2), local midnight
+is still the previous day in UTC, silently shifting the stored date back
+by one. `EditLoanDialog`'s own `new Date(\`${loan.endDate}T00:00:00Z\`)`
+parse had the identical bug in the opposite direction for timezones
+behind UTC. Fixed with a proper local-calendar-only pair,
+`toDateOnly`/`fromDateOnly` (`app/_lib/format.ts`), replacing every ad hoc
+`.toISOString()`/`T00:00:00Z` conversion in `CreateLoanDialog`,
+`EditLoanDialog`, and `AccountsDetail`'s month/year display — a
+date-only field must never round-trip through a UTC instant.
+
+**Only loans get a wired-up edit dialog.** `updateAccount`/`updateAsset`/
+`updateDeposit` exist in the actions layer (for consistency with every
+other entity type's CRUD shape) but have no edit UI in this task — a
+deliberate scope cut matching the wireframe, which only draws "Edit loan"
+as an explicit affordance; every other entity type is view + delete only
+for now.
+
+**Overview's checklist rows for accounts/credit cards/assets/deposits/
+loans/people are now real, not permanently "coming soon."** Each reflects
+whether the user has at least one row of that type (done, with a count)
+or links into `/ledger/accounts` (pending, no longer disabled) — only
+Saving plans stays disabled pending L.12. This is the direct payoff of
+`/ledger/accounts` now existing; the L.5-era placeholder rows are gone.
+
+Verified live end-to-end: created a bank account and confirmed net worth
+updated correctly; created a loan and confirmed its linked "Loans" fixed
+expense appeared on the Budget page with the right budgeted amount; the
+loan detail view's paid-off percentage and progress bar computed
+correctly; edited the loan and confirmed the linked kind's name/budget
+stayed in sync; deleted the loan and confirmed both the crash (before the
+fix) and the correct empty state (after) on Budget/Overview; created a
+person, recorded a signed transaction, and confirmed `BalanceChip`
+rendered "Owed EUR 18.00" correctly; deleted the person and confirmed
+their transaction history was gone too. All test data (accounts, the
+loan, the person, the empty "Loans" category) removed afterward via
+direct SQL against the dev sqld endpoint, restoring the four original
+seed transactions and zero-accounts baseline. 17 new tests (14 action
+tests + 3 query-module tests) on top of the existing 29, for 46 total.
+Full check suite (typecheck, lint, format:check, design-tokens) all pass
+clean.
+
+🚧 L.8 (Reports + month-end review) is next, dependent on L.6 and L.7 —
+both now shipped.
 
 ---
 

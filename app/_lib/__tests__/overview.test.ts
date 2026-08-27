@@ -159,6 +159,26 @@ describe('getOverviewData', () => {
 
     const pendingRow = data.checklist.find((c) => c.key === 'bank-accounts');
     expect(pendingRow?.done).toBe(false);
-    expect(pendingRow?.comingSoon).toBe(true);
+    expect(pendingRow?.comingSoon).toBe(false);
+    expect(pendingRow?.href).toBe('/ledger/accounts');
+
+    const savingRow = data.checklist.find((c) => c.key === 'saving-plans');
+    expect(savingRow?.comingSoon).toBe(true);
+  });
+
+  it('excludes a zero-kind category (e.g. an empty shared "Loans" category) from top categories', async () => {
+    await seedBudget();
+    const now = Date.now();
+    await t.db.insert(schema.categories).values({
+      id: 'cat-empty-loans',
+      tenantId,
+      userId,
+      name: 'Loans',
+      type: 'fixed',
+      createdAt: now,
+      updatedAt: now,
+    });
+    const data = await getOverviewData(t.ledger, userId);
+    expect(data.topCategories.map((c) => c.name)).not.toContain('Loans');
   });
 });

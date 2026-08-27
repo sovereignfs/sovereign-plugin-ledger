@@ -11,18 +11,16 @@ import styles from './LedgerSidebar.module.css';
 const NAV: Array<{ href: string; label: string; icon: IconName }> = [
   { href: '/ledger', label: 'Overview', icon: 'layout-dashboard' },
   { href: '/ledger/budget', label: 'Budget', icon: 'list' },
+  { href: '/ledger/accounts', label: 'Accounts', icon: 'table' },
 ];
 
 /**
  * Rows for sections with no shipped page yet — rendered as disabled, not as
  * `<Link>`s to a route that would 404 (sv-ui-design's "no dead nav" rule).
- * Accounts/Reports become real nav items at L.7/L.8; Settings has no task
- * assigned yet at all.
+ * Reports becomes a real nav item at L.8; Settings has no task assigned
+ * yet at all.
  */
-const COMING_SOON: Array<{ label: string; icon: IconName }> = [
-  { label: 'Accounts', icon: 'table' },
-  { label: 'Reports', icon: 'file-text' },
-];
+const COMING_SOON: Array<{ label: string; icon: IconName }> = [{ label: 'Reports', icon: 'file-text' }];
 
 /**
  * Persistent secondary nav — same precedent as Tally's/Kanban's own

@@ -11,12 +11,12 @@
  *    needs. A forged id belonging to another user simply matches no row.
  * 3. Returns `ActionResult` — domain failures are values, never thrown.
  *
- * Dynamic and Fixed categories/kinds only in this task — saving-type
- * creation is deliberately rejected here (`createCategory`/`createKind`),
- * reserved for L.12's jar-auto-provisioning logic.
+ * Dynamic and Fixed categories/kinds only via `createCategory`/`createKind`
+ * — saving-type creation is deliberately rejected there, reserved for
+ * L.12's jar-auto-provisioning logic.
  */
 import { revalidatePath } from 'next/cache';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import * as schema from './_db/schema';
 import { fail, ok, type ActionResult } from './_lib/action-result';
 import { requireUser } from './_lib/authz';
@@ -29,6 +29,24 @@ const NOT_FOUND_INCOME = 'Income not found.';
 const NOT_FOUND_CATEGORY = 'Category not found.';
 const NOT_FOUND_KIND = 'Kind not found.';
 const NOT_FOUND_TRANSACTION = 'Transaction not found.';
+const NOT_FOUND_ACCOUNT = 'Account not found.';
+const NOT_FOUND_ASSET = 'Asset not found.';
+const NOT_FOUND_DEPOSIT = 'Deposit not found.';
+const NOT_FOUND_LOAN = 'Loan not found.';
+const NOT_FOUND_PERSON = 'Person not found.';
+
+/**
+ * Every loan's linked kind lives under one shared Fixed category per user,
+ * found-or-created on the first loan — not one dedicated category per loan.
+ * A user with several loans sees them as sibling subcategories under one
+ * "Loans" row on the Budget page, the same grouping shape as any other
+ * multi-kind category, rather than cluttering Budget's top-level list with
+ * one row per loan. Deleting a loan removes only its own kind, never this
+ * shared category (see `deleteLoan`) — an empty "Loans" category can be
+ * left behind once every loan is gone, a minor known cosmetic gap, not a
+ * correctness bug (its predicted/actual both correctly show €0).
+ */
+const LOANS_CATEGORY_NAME = 'Loans';
 
 function refresh(): void {
   revalidatePath('/ledger', 'layout');
@@ -52,6 +70,14 @@ function cleanCurrencyCode(raw: unknown): string | ActionResult {
   const value = typeof raw === 'string' ? raw.trim().toUpperCase() : '';
   if (!/^[A-Z]{3}$/.test(value)) return fail('Currency code must be a 3-letter code (e.g. EUR).');
   return value;
+}
+
+/** Unlike `cleanAmountMinor`: allows negative (a people-transaction delta), never zero. */
+function cleanSignedAmountMinor(raw: unknown, label: string): number | ActionResult {
+  if (typeof raw !== 'number' || !Number.isInteger(raw) || raw === 0) {
+    return fail(`${label} must be a non-zero whole number of minor units (e.g. cents).`);
+  }
+  return raw;
 }
 
 // ---------------------------------------------------------------------------
@@ -430,6 +456,506 @@ export async function deleteTransaction(input: { transactionId: string }): Promi
   if (deleted.length === 0) return fail(NOT_FOUND_TRANSACTION);
   refresh();
   return ok('Expense removed.');
+}
+
+// ---------------------------------------------------------------------------
+// Accounts (banking + credit cards)
+
+export async function createAccount(input: {
+  name: string;
+  institution?: string;
+  type: 'bank' | 'credit_card';
+  balanceMinor: number;
+  currency: string;
+  creditLimitMinor?: number;
+}): Promise<ActionResult> {
+  const actor = await requireUser();
+  const name = cleanText(input.name, 'Account name');
+  if (typeof name !== 'string') return name;
+  if (input.type !== 'bank' && input.type !== 'credit_card') {
+    return fail('Account type must be "bank" or "credit_card".');
+  }
+  const balanceMinor = cleanAmountMinor(input.balanceMinor, 'Balance');
+  if (typeof balanceMinor !== 'number') return balanceMinor;
+
+  const db = await getDb();
+  const now = Date.now();
+  await db.insert(schema.accounts).values({
+    id: newId(),
+    tenantId: actor.tenantId,
+    userId: actor.userId,
+    name,
+    institution: input.institution?.trim() || null,
+    type: input.type,
+    balanceMinor,
+    currency: input.currency,
+    creditLimitMinor: input.creditLimitMinor ?? null,
+    createdAt: now,
+    updatedAt: now,
+  });
+  refresh();
+  return ok('Account added.');
+}
+
+export async function updateAccount(input: {
+  accountId: string;
+  name?: string;
+  institution?: string;
+  balanceMinor?: number;
+  creditLimitMinor?: number;
+}): Promise<ActionResult> {
+  const actor = await requireUser();
+  const patch: Partial<typeof schema.accounts.$inferInsert> & { updatedAt: number } = {
+    updatedAt: Date.now(),
+  };
+  if (input.name !== undefined) {
+    const name = cleanText(input.name, 'Account name');
+    if (typeof name !== 'string') return name;
+    patch.name = name;
+  }
+  if (input.institution !== undefined) patch.institution = input.institution.trim() || null;
+  if (input.balanceMinor !== undefined) {
+    const balanceMinor = cleanAmountMinor(input.balanceMinor, 'Balance');
+    if (typeof balanceMinor !== 'number') return balanceMinor;
+    patch.balanceMinor = balanceMinor;
+  }
+  if (input.creditLimitMinor !== undefined) patch.creditLimitMinor = input.creditLimitMinor;
+
+  const db = await getDb();
+  const updated = await db
+    .update(schema.accounts)
+    .set(patch)
+    .where(and(eq(schema.accounts.id, input.accountId), eq(schema.accounts.userId, actor.userId)))
+    .returning({ id: schema.accounts.id });
+  if (updated.length === 0) return fail(NOT_FOUND_ACCOUNT);
+  refresh();
+  return ok('Account updated.');
+}
+
+export async function deleteAccount(input: { accountId: string }): Promise<ActionResult> {
+  const actor = await requireUser();
+  const db = await getDb();
+  const deleted = await db
+    .delete(schema.accounts)
+    .where(and(eq(schema.accounts.id, input.accountId), eq(schema.accounts.userId, actor.userId)))
+    .returning({ id: schema.accounts.id });
+  if (deleted.length === 0) return fail(NOT_FOUND_ACCOUNT);
+  refresh();
+  return ok('Account removed.');
+}
+
+// ---------------------------------------------------------------------------
+// Assets
+
+export async function createAsset(input: {
+  name: string;
+  type: 'physical' | 'security';
+  valueMinor: number;
+  currency: string;
+}): Promise<ActionResult> {
+  const actor = await requireUser();
+  const name = cleanText(input.name, 'Asset name');
+  if (typeof name !== 'string') return name;
+  if (input.type !== 'physical' && input.type !== 'security') {
+    return fail('Asset type must be "physical" or "security".');
+  }
+  const valueMinor = cleanAmountMinor(input.valueMinor, 'Value');
+  if (typeof valueMinor !== 'number') return valueMinor;
+
+  const db = await getDb();
+  const now = Date.now();
+  await db.insert(schema.assets).values({
+    id: newId(),
+    tenantId: actor.tenantId,
+    userId: actor.userId,
+    name,
+    type: input.type,
+    valueMinor,
+    currency: input.currency,
+    createdAt: now,
+    updatedAt: now,
+  });
+  refresh();
+  return ok('Asset added.');
+}
+
+export async function updateAsset(input: {
+  assetId: string;
+  name?: string;
+  valueMinor?: number;
+}): Promise<ActionResult> {
+  const actor = await requireUser();
+  const patch: Partial<typeof schema.assets.$inferInsert> & { updatedAt: number } = {
+    updatedAt: Date.now(),
+  };
+  if (input.name !== undefined) {
+    const name = cleanText(input.name, 'Asset name');
+    if (typeof name !== 'string') return name;
+    patch.name = name;
+  }
+  if (input.valueMinor !== undefined) {
+    const valueMinor = cleanAmountMinor(input.valueMinor, 'Value');
+    if (typeof valueMinor !== 'number') return valueMinor;
+    patch.valueMinor = valueMinor;
+  }
+
+  const db = await getDb();
+  const updated = await db
+    .update(schema.assets)
+    .set(patch)
+    .where(and(eq(schema.assets.id, input.assetId), eq(schema.assets.userId, actor.userId)))
+    .returning({ id: schema.assets.id });
+  if (updated.length === 0) return fail(NOT_FOUND_ASSET);
+  refresh();
+  return ok('Asset updated.');
+}
+
+export async function deleteAsset(input: { assetId: string }): Promise<ActionResult> {
+  const actor = await requireUser();
+  const db = await getDb();
+  const deleted = await db
+    .delete(schema.assets)
+    .where(and(eq(schema.assets.id, input.assetId), eq(schema.assets.userId, actor.userId)))
+    .returning({ id: schema.assets.id });
+  if (deleted.length === 0) return fail(NOT_FOUND_ASSET);
+  refresh();
+  return ok('Asset removed.');
+}
+
+// ---------------------------------------------------------------------------
+// Deposits
+
+export async function createDeposit(input: {
+  name: string;
+  amountMinor: number;
+  currency: string;
+}): Promise<ActionResult> {
+  const actor = await requireUser();
+  const name = cleanText(input.name, 'Deposit name');
+  if (typeof name !== 'string') return name;
+  const amountMinor = cleanAmountMinor(input.amountMinor, 'Amount');
+  if (typeof amountMinor !== 'number') return amountMinor;
+
+  const db = await getDb();
+  const now = Date.now();
+  await db.insert(schema.deposits).values({
+    id: newId(),
+    tenantId: actor.tenantId,
+    userId: actor.userId,
+    name,
+    amountMinor,
+    currency: input.currency,
+    createdAt: now,
+    updatedAt: now,
+  });
+  refresh();
+  return ok('Deposit added.');
+}
+
+export async function updateDeposit(input: {
+  depositId: string;
+  name?: string;
+  amountMinor?: number;
+}): Promise<ActionResult> {
+  const actor = await requireUser();
+  const patch: Partial<typeof schema.deposits.$inferInsert> & { updatedAt: number } = {
+    updatedAt: Date.now(),
+  };
+  if (input.name !== undefined) {
+    const name = cleanText(input.name, 'Deposit name');
+    if (typeof name !== 'string') return name;
+    patch.name = name;
+  }
+  if (input.amountMinor !== undefined) {
+    const amountMinor = cleanAmountMinor(input.amountMinor, 'Amount');
+    if (typeof amountMinor !== 'number') return amountMinor;
+    patch.amountMinor = amountMinor;
+  }
+
+  const db = await getDb();
+  const updated = await db
+    .update(schema.deposits)
+    .set(patch)
+    .where(and(eq(schema.deposits.id, input.depositId), eq(schema.deposits.userId, actor.userId)))
+    .returning({ id: schema.deposits.id });
+  if (updated.length === 0) return fail(NOT_FOUND_DEPOSIT);
+  refresh();
+  return ok('Deposit updated.');
+}
+
+export async function deleteDeposit(input: { depositId: string }): Promise<ActionResult> {
+  const actor = await requireUser();
+  const db = await getDb();
+  const deleted = await db
+    .delete(schema.deposits)
+    .where(and(eq(schema.deposits.id, input.depositId), eq(schema.deposits.userId, actor.userId)))
+    .returning({ id: schema.deposits.id });
+  if (deleted.length === 0) return fail(NOT_FOUND_DEPOSIT);
+  refresh();
+  return ok('Deposit removed.');
+}
+
+// ---------------------------------------------------------------------------
+// Loans — creating one auto-creates its linked Fixed kind (see
+// `LOANS_CATEGORY_NAME`'s doc comment); editing keeps the kind's name/
+// budget in sync; deleting removes the kind too, never leaving an orphan.
+
+export async function createLoan(input: {
+  name: string;
+  lender: string;
+  principalMinor: number;
+  remainingBalanceMinor: number;
+  installmentAmountMinor: number;
+  currency: string;
+  startDate: string;
+  endDate: string;
+}): Promise<ActionResult> {
+  const actor = await requireUser();
+  const name = cleanText(input.name, 'Loan name');
+  if (typeof name !== 'string') return name;
+  const lender = cleanText(input.lender, 'Lender');
+  if (typeof lender !== 'string') return lender;
+  const principalMinor = cleanAmountMinor(input.principalMinor, 'Principal');
+  if (typeof principalMinor !== 'number') return principalMinor;
+  const remainingBalanceMinor = cleanAmountMinor(
+    input.remainingBalanceMinor,
+    'Remaining balance',
+  );
+  if (typeof remainingBalanceMinor !== 'number') return remainingBalanceMinor;
+  const installmentAmountMinor = cleanAmountMinor(
+    input.installmentAmountMinor,
+    'Installment amount',
+  );
+  if (typeof installmentAmountMinor !== 'number') return installmentAmountMinor;
+  if (!input.startDate || !input.endDate) return fail('Start and end dates are required.');
+
+  const db = await getDb();
+  const now = Date.now();
+  await db.transaction(async (tx) => {
+    const [existingCategory] = await tx
+      .select({ id: schema.categories.id })
+      .from(schema.categories)
+      .where(
+        and(
+          eq(schema.categories.userId, actor.userId),
+          eq(schema.categories.type, 'fixed'),
+          eq(schema.categories.name, LOANS_CATEGORY_NAME),
+        ),
+      );
+    const categoryId = existingCategory?.id ?? newId();
+    if (!existingCategory) {
+      await tx.insert(schema.categories).values({
+        id: categoryId,
+        tenantId: actor.tenantId,
+        userId: actor.userId,
+        name: LOANS_CATEGORY_NAME,
+        type: 'fixed',
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    const kindId = newId();
+    await tx.insert(schema.kinds).values({
+      id: kindId,
+      tenantId: actor.tenantId,
+      userId: actor.userId,
+      categoryId,
+      name,
+      predictedAmountMinor: installmentAmountMinor,
+      currency: input.currency,
+      recurrenceIntervalUnit: null,
+      recurrenceIntervalCount: null,
+      recurrenceAnchorDate: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await tx.insert(schema.loans).values({
+      id: newId(),
+      tenantId: actor.tenantId,
+      userId: actor.userId,
+      name,
+      lender,
+      principalMinor,
+      remainingBalanceMinor,
+      installmentAmountMinor,
+      currency: input.currency,
+      startDate: input.startDate,
+      endDate: input.endDate,
+      linkedKindId: kindId,
+      createdAt: now,
+      updatedAt: now,
+    });
+  });
+  refresh();
+  return ok('Loan added.');
+}
+
+export async function updateLoan(input: {
+  loanId: string;
+  name?: string;
+  lender?: string;
+  remainingBalanceMinor?: number;
+  installmentAmountMinor?: number;
+  endDate?: string;
+}): Promise<ActionResult> {
+  const actor = await requireUser();
+  const db = await getDb();
+
+  const [loan] = await db
+    .select({ linkedKindId: schema.loans.linkedKindId })
+    .from(schema.loans)
+    .where(and(eq(schema.loans.id, input.loanId), eq(schema.loans.userId, actor.userId)));
+  if (!loan) return fail(NOT_FOUND_LOAN);
+
+  const now = Date.now();
+  const loanPatch: Partial<typeof schema.loans.$inferInsert> & { updatedAt: number } = {
+    updatedAt: now,
+  };
+  const kindPatch: Partial<typeof schema.kinds.$inferInsert> & { updatedAt: number } = {
+    updatedAt: now,
+  };
+  let touchesKind = false;
+
+  if (input.name !== undefined) {
+    const name = cleanText(input.name, 'Loan name');
+    if (typeof name !== 'string') return name;
+    loanPatch.name = name;
+    kindPatch.name = name;
+    touchesKind = true;
+  }
+  if (input.lender !== undefined) {
+    const lender = cleanText(input.lender, 'Lender');
+    if (typeof lender !== 'string') return lender;
+    loanPatch.lender = lender;
+  }
+  if (input.remainingBalanceMinor !== undefined) {
+    const remainingBalanceMinor = cleanAmountMinor(
+      input.remainingBalanceMinor,
+      'Remaining balance',
+    );
+    if (typeof remainingBalanceMinor !== 'number') return remainingBalanceMinor;
+    loanPatch.remainingBalanceMinor = remainingBalanceMinor;
+  }
+  if (input.installmentAmountMinor !== undefined) {
+    const installmentAmountMinor = cleanAmountMinor(
+      input.installmentAmountMinor,
+      'Installment amount',
+    );
+    if (typeof installmentAmountMinor !== 'number') return installmentAmountMinor;
+    loanPatch.installmentAmountMinor = installmentAmountMinor;
+    kindPatch.predictedAmountMinor = installmentAmountMinor;
+    touchesKind = true;
+  }
+  if (input.endDate !== undefined) loanPatch.endDate = input.endDate;
+
+  await db.transaction(async (tx) => {
+    await tx.update(schema.loans).set(loanPatch).where(eq(schema.loans.id, input.loanId));
+    if (touchesKind) {
+      await tx.update(schema.kinds).set(kindPatch).where(eq(schema.kinds.id, loan.linkedKindId));
+    }
+  });
+  refresh();
+  return ok('Loan updated.');
+}
+
+export async function deleteLoan(input: { loanId: string }): Promise<ActionResult> {
+  const actor = await requireUser();
+  const db = await getDb();
+
+  const [loan] = await db
+    .select({ linkedKindId: schema.loans.linkedKindId })
+    .from(schema.loans)
+    .where(and(eq(schema.loans.id, input.loanId), eq(schema.loans.userId, actor.userId)));
+  if (!loan) return fail(NOT_FOUND_LOAN);
+
+  await db.transaction(async (tx) => {
+    // Loan row first — it's the side of the FK referencing the kind, so the
+    // kind can't be deleted while a loan still points at it.
+    await tx.delete(schema.loans).where(eq(schema.loans.id, input.loanId));
+    await tx.delete(schema.kinds).where(eq(schema.kinds.id, loan.linkedKindId));
+  });
+  refresh();
+  return ok('Loan removed.');
+}
+
+// ---------------------------------------------------------------------------
+// People — a single signed ledger per person; `ledger_people_transactions`
+// is append-only (no delete/update action), matching the schema's own
+// documented convention for jar/people transaction rows.
+
+export async function createPerson(input: {
+  name: string;
+  currency: string;
+}): Promise<ActionResult> {
+  const actor = await requireUser();
+  const name = cleanText(input.name, 'Person name');
+  if (typeof name !== 'string') return name;
+
+  const db = await getDb();
+  const now = Date.now();
+  await db.insert(schema.people).values({
+    id: newId(),
+    tenantId: actor.tenantId,
+    userId: actor.userId,
+    name,
+    balanceMinor: 0,
+    currency: input.currency,
+    createdAt: now,
+    updatedAt: now,
+  });
+  refresh();
+  return ok('Person added.');
+}
+
+export async function deletePerson(input: { personId: string }): Promise<ActionResult> {
+  const actor = await requireUser();
+  const db = await getDb();
+  const deleted = await db
+    .delete(schema.people)
+    .where(and(eq(schema.people.id, input.personId), eq(schema.people.userId, actor.userId)))
+    .returning({ id: schema.people.id });
+  if (deleted.length === 0) return fail(NOT_FOUND_PERSON);
+  refresh();
+  return ok('Person removed.');
+}
+
+export async function createPeopleTransaction(input: {
+  personId: string;
+  amountMinor: number;
+  note?: string;
+  occurredAt?: number;
+}): Promise<ActionResult> {
+  const actor = await requireUser();
+  const amountMinor = cleanSignedAmountMinor(input.amountMinor, 'Amount');
+  if (typeof amountMinor !== 'number') return amountMinor;
+
+  const db = await getDb();
+  const [person] = await db
+    .select({ id: schema.people.id })
+    .from(schema.people)
+    .where(and(eq(schema.people.id, input.personId), eq(schema.people.userId, actor.userId)));
+  if (!person) return fail(NOT_FOUND_PERSON);
+
+  const now = Date.now();
+  await db.transaction(async (tx) => {
+    await tx.insert(schema.peopleTransactions).values({
+      id: newId(),
+      tenantId: actor.tenantId,
+      userId: actor.userId,
+      personId: input.personId,
+      amountMinor,
+      note: input.note?.trim() || null,
+      occurredAt: input.occurredAt ?? now,
+    });
+    await tx
+      .update(schema.people)
+      .set({ balanceMinor: sql`${schema.people.balanceMinor} + ${amountMinor}`, updatedAt: now })
+      .where(eq(schema.people.id, input.personId));
+  });
+  refresh();
+  return ok('Recorded.');
 }
 
 // ---------------------------------------------------------------------------
