@@ -69,7 +69,41 @@ console errors. `pnpm exec vitest run plugins/sovereign-plugin-ledger.local`
 short-circuit, no-rate-yet, latest-rate-picked, and all-rates-in-the-future),
 typecheck, lint, format:check, and design-tokens-check all pass clean.
 
-🚧 L.3 (server data layer & actions skeleton) is the next task, not started.
+✅ **L.3 shipped (0.3.0)** — query modules (`app/_lib/queries.ts`) and server
+actions (`app/actions.ts`) for currencies, incomes, Dynamic/Fixed
+categories+kinds, and transactions, plus `action-result.ts`/`authz.ts`/
+`ids.ts` mirroring `sovereign-plugin-kanban.local`'s exact shapes.
+
+Ownership is enforced directly in every mutation's own `WHERE` clause
+(`id = ? AND user_id = ?`), not a separate pre-check — a forged id
+belonging to another user simply matches no row and returns a "not found"
+`ActionResult`, never a thrown error. No action's input type accepts a
+`userId` parameter at all; the owner always comes from `requireUser()`'s
+resolved session. `createCategory`/`createKind` reject `type: 'saving'` —
+reserved for L.12 — checking the category's real `type` column rather than
+just assuming no saving category exists yet.
+
+`app/__tests__/actions.test.ts` (11 tests total, up from L.2's 5): every
+mutating action denied against another user's rows in one batch assertion
+with a before/after row-count diff proving zero side effects; an
+unauthenticated call rejected; both saving-rejection paths (a direct
+`createCategory` call, and a kind creation attempt against an
+already-existing saving-type category row inserted directly — covering the
+case where `createCategory`'s own guard isn't the only thing standing
+between the database and a saving-type kind); and two happy-path tests
+including `setBaseCurrency` never leaving two currencies flagged as base
+at once. All against the real generated migrations on the same ephemeral
+libsql DB pattern as L.2, SDK mocked to impersonate switchable users
+(`sovereign-plugin-kanban.local`'s own `actions.test.ts` pattern).
+
+Verified live: `/ledger` still renders cleanly with the new `'use server'`
+actions module present, no compile or console errors (the actions aren't
+wired to any UI yet — that's L.4 onward — so this is a compile/regression
+check, not a feature check). Full check suite (vitest, typecheck, lint,
+format:check, design-tokens) passes clean.
+
+🚧 L.4 (setup wizard) and L.5 (Web Overview + Budget) are next — dependent
+on this task, not started.
 
 ---
 

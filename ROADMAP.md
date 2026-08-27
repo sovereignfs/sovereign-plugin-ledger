@@ -1,6 +1,6 @@
 # Ledger — Roadmap
 
-**Manifest version:** 0.2.0 · **Last updated:** 2026-08-27
+**Manifest version:** 0.3.0 · **Last updated:** 2026-08-27
 
 Chronological build index — one row per PR, platform-`ROADMAP.md` style. Full
 task detail lives in [SPEC.md](SPEC.md); the product concept in
@@ -19,7 +19,7 @@ depend on the previous row unless noted.
 | ----- | -------------------------------------- | ------ | --------------------------------------------------------- |
 | 0.1.0 | Plugin scaffold & manifest             | ✅     | [L.1](SPEC.md#l1--plugin-scaffold--manifest)               |
 | 0.2.0 | Data model & migrations                | ✅     | [L.2](SPEC.md#l2--data-model--migrations)                  |
-| 0.3.0 | Server data layer & actions skeleton   | ⬜     | [L.3](SPEC.md#l3--server-data-layer--actions-skeleton)     |
+| 0.3.0 | Server data layer & actions skeleton   | ✅     | [L.3](SPEC.md#l3--server-data-layer--actions-skeleton)     |
 
 ## Phase B — Core budget loop
 
