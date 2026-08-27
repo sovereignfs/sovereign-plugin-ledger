@@ -22,6 +22,7 @@ import { fail, ok, type ActionResult } from './_lib/action-result';
 import { requireUser } from './_lib/authz';
 import { getDb } from './_lib/db';
 import { newId } from './_lib/ids';
+import { listCategoriesWithKinds } from './_lib/queries';
 
 const NOT_FOUND_CURRENCY = 'Currency not found.';
 const NOT_FOUND_INCOME = 'Income not found.';
@@ -429,4 +430,48 @@ export async function deleteTransaction(input: { transactionId: string }): Promi
   if (deleted.length === 0) return fail(NOT_FOUND_TRANSACTION);
   refresh();
   return ok('Expense removed.');
+}
+
+// ---------------------------------------------------------------------------
+// Read-only actions
+
+export interface ExpenseFormKindOption {
+  id: string;
+  name: string;
+  currency: string;
+}
+
+export interface ExpenseFormCategoryOption {
+  id: string;
+  name: string;
+  kinds: ExpenseFormKindOption[];
+}
+
+/**
+ * The only read (not a mutation) in this file — every other action here
+ * changes data. Needed because the "+ Add expense" trigger lives in
+ * `LedgerSidebar`, shared shell chrome rendered identically from every page
+ * (Overview, Budget, and eventually Accounts/Reports/Settings) rather than
+ * a single page's own server component — there's no single data-fetching
+ * pipeline to preload this into ahead of time the way Budget's own category
+ * list is preloaded for itself. Fetched lazily, only when the dialog
+ * actually opens, so pages that never open it never pay for this query.
+ */
+export async function getExpenseFormOptions(): Promise<{
+  categories: ExpenseFormCategoryOption[];
+}> {
+  const actor = await requireUser();
+  const db = await getDb();
+  const categories = await listCategoriesWithKinds(db, actor.userId);
+  return {
+    categories: categories.map((category) => ({
+      id: category.id,
+      name: category.name,
+      kinds: category.kinds.map((kind) => ({
+        id: kind.id,
+        name: kind.name,
+        currency: kind.currency,
+      })),
+    })),
+  };
 }

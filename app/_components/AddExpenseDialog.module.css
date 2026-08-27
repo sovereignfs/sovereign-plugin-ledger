@@ -1,0 +1,53 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-4);
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sv-space-8) 0;
+}
+
+.row {
+  display: flex;
+  gap: var(--sv-space-4);
+}
+
+.row > * {
+  flex: 1;
+  min-width: 0;
+}
+
+.jarRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sv-space-4);
+  padding-top: var(--sv-space-2);
+  border-top: var(--sv-border-width-hairline) solid var(--sv-color-border);
+}
+
+.jarLabel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-1);
+}
+
+.jarHint {
+  font-size: var(--sv-font-size-xs);
+  color: var(--sv-color-text-muted);
+}
+
+.feedbackError {
+  color: var(--sv-color-error-text);
+  font-size: var(--sv-font-size-sm);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sv-space-3);
+}

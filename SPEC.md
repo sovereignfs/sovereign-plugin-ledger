@@ -265,7 +265,68 @@ tests across 7 files (13 pre-existing + 16 new: period/money helpers,
 `getOverviewData`, `getBudgetData`), typecheck, lint, format:check, and
 design-tokens-check all pass clean.
 
-🚧 L.6 (Expense entry) is next, dependent on this task.
+✅ **L.6 shipped (0.6.0)** — the Add-expense overlay (`AddExpenseDialog`,
+`Dialog size="md"`), wired to the sidebar's "+ Add expense" button, which
+is no longer disabled. Amount (`CurrencyInput`, currency shown read-only
+in the field's own label — see below), category/subcategory `Select`
+pickers (subcategory resets to the new category's first kind whenever
+category changes), `DatePicker` (defaults to today), a disabled "Fund from
+a saving jar" `Toggle` with the wireframe's exact helper copy, and an
+optional note. Submits through L.3's existing `createTransaction` — no new
+mutation needed.
+
+**A new read-only server action, `getExpenseFormOptions`** — the first
+non-mutating action in this file. Needed because "+ Add expense" lives in
+`LedgerSidebar`, shared shell chrome rendered identically from every page
+(Overview, Budget, and eventually Accounts/Reports/Settings), not a single
+page's own server component with a natural place to preload this into.
+Fetched lazily, only when the dialog actually opens, so a page that never
+opens it never pays for the query — deliberately different from Budget's
+own "preload everything up front" choice in L.5, because that dataset was
+scoped to one page's own render, and this one has to be reachable from
+every page under the shell without every one of them independently
+fetching and threading category data down through `LedgerShell` just for
+a dialog they may never open.
+
+**The wireframe's inline "EUR ▾" currency picker inside the amount field
+was deliberately not built.** `CurrencyInput` has no currency prop by
+design (confirmed against the real component before assuming otherwise),
+and every kind's currency is still fixed at creation time — letting a user
+pick a different currency here would just produce an amount that disagrees
+with the subcategory's own budget currency, a foot-gun with no upside
+given nothing today can create a kind in a currency other than the base
+one anyway. The selected subcategory's currency is shown read-only in the
+Amount field's own label instead (`Amount (EUR)`), the same pattern
+`IncomeStep`/`EditBudgetDialog` already use.
+
+**A real correction to this task's own review checklist, caught before any
+code was written wrong:** the checklist called for `useCommitOnEnterOrBlur`
+on the amount/note fields, but CLAUDE.md's own hard rule for that hook
+carves out precisely this shape — a field inside a form with its own
+always-visible submit button should NOT commit on blur. This dialog has
+exactly that ("Add expense"), so amount/note are plain controlled fields,
+submitted together on button click; using the hook here would have fought
+the form's own submit flow for no reason. Checklist wording corrected
+above rather than silently ignored.
+
+Verified live end-to-end, including both directions of `router.refresh()`
+established in L.5: submitting from Overview's checklist state (zero
+transactions) correctly flips it straight to the populated dashboard in
+the same render, with no intermediate flash; submitting from the Budget
+page updates that category's own row and progress bar in place, preserving
+whatever else was on screen; category selection correctly resets
+subcategory to the new category's own kind; the disabled jar toggle and
+its helper text render exactly per the wireframe. All three submissions
+used during verification were removed afterward via direct SQL against the
+dev sqld endpoint, restoring the four original seed transactions to their
+exact original values — confirmed via a final reload showing the original
+€125.90 spent and the original Recent Activity list. 3 new tests
+(unauthenticated rejection, cross-user isolation, and shape) for
+`getExpenseFormOptions` on top of the existing 29. Full check suite
+(32 tests, typecheck, lint, format:check, design-tokens) all pass clean.
+
+🚧 L.7 (Accounts) is next, dependent on L.3, `[parallel]` with L.5/L.6 per
+this doc's own dependency note — already unblocked.
 
 ---
 
@@ -700,8 +761,15 @@ task adds is shared).
 category/subcategory pickers).
 
 **Review checklist:** submitting creates a `ledger_transactions` row
-against the right kind; the dialog's amount/note fields commit on blur, not
-just Enter (`useCommitOnEnterOrBlur`).
+against the right kind. ~~The dialog's amount/note fields commit on blur,
+not just Enter (`useCommitOnEnterOrBlur`).~~ **Corrected during
+implementation:** CLAUDE.md's own quick-entry-input rule carves out
+exactly this case — "a field inside a form with its own always-visible
+submit button... should NOT commit on blur." This dialog has one ("Add
+expense"), so amount/note are plain controlled fields submitted together
+on click, not `useCommitOnEnterOrBlur` fields — the original wording here
+misidentified this dialog as needing that hook before the exception was
+fully understood.
 
 ---
 

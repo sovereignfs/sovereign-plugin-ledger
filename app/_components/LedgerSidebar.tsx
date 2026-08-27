@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState } from 'react';
 import { Button, Icon } from '@sovereignfs/ui';
 import type { IconName } from '@sovereignfs/ui';
+import { AddExpenseDialog } from './AddExpenseDialog';
 import styles from './LedgerSidebar.module.css';
 
 const NAV: Array<{ href: string; label: string; icon: IconName }> = [
@@ -27,11 +29,12 @@ const COMING_SOON: Array<{ label: string; icon: IconName }> = [
  * `TallySidebar`/`KanbanSidebar`, composed directly into `LedgerShell`
  * rather than a route-group layout (see that component's own doc comment).
  * "+ Add expense" is pinned above the nav list per web-shell.md's Direction
- * (an overlay trigger, not a nav item) — disabled until L.6 builds the
- * dialog it would open.
+ * (an overlay trigger, not a nav item) — opens `AddExpenseDialog`, built in
+ * L.6.
  */
 export function LedgerSidebar() {
   const pathname = usePathname();
+  const [addExpenseOpen, setAddExpenseOpen] = useState(false);
 
   function isActive(href: string): boolean {
     return href === '/ledger' ? pathname === '/ledger' : pathname.startsWith(href);
@@ -39,12 +42,11 @@ export function LedgerSidebar() {
 
   return (
     <nav className={styles.nav} aria-label="Ledger sections">
-      <span title="Coming in a future update">
-        <Button className={styles.addExpense} disabled>
-          <Icon name="plus" size="sm" aria-hidden />
-          Add expense
-        </Button>
-      </span>
+      <Button className={styles.addExpense} onClick={() => setAddExpenseOpen(true)}>
+        <Icon name="plus" size="sm" aria-hidden />
+        Add expense
+      </Button>
+      <AddExpenseDialog open={addExpenseOpen} onClose={() => setAddExpenseOpen(false)} />
 
       <div className={styles.divider} />
 

@@ -150,6 +150,26 @@ describe('authorization — a session can never mutate another user\'s rows', ()
     actAs(null);
     await expect(actions.createCurrency({ code: 'EUR' })).rejects.toThrow('Not authenticated');
   });
+
+  it('rejects an unauthenticated caller for the read-only getExpenseFormOptions too', async () => {
+    actAs(null);
+    await expect(actions.getExpenseFormOptions()).rejects.toThrow('Not authenticated');
+  });
+
+  it("getExpenseFormOptions never returns another user's categories", async () => {
+    const fixture = await setup();
+    actAs(outsider);
+    await actions.createCategoryWithKind({
+      name: 'Rent',
+      type: 'fixed',
+      predictedAmountMinor: 170_000,
+      currency: 'EUR',
+    });
+
+    actAs(owner);
+    const { categories } = await actions.getExpenseFormOptions();
+    expect(categories.map((c) => c.id)).toEqual([fixture.categoryId]);
+  });
 });
 
 describe('saving-type categories/kinds are rejected (reserved for L.12)', () => {
@@ -241,6 +261,18 @@ describe('happy path', () => {
     expect(kind.userId).toBe(owner.id);
     expect(kind.categoryId).toBe(category.id);
     expect(kind.predictedAmountMinor).toBe(15_000);
+  });
+
+  it('getExpenseFormOptions returns the category/kind tree shaped for the expense-form pickers', async () => {
+    const fixture = await setup();
+    const { categories } = await actions.getExpenseFormOptions();
+    expect(categories).toEqual([
+      {
+        id: fixture.categoryId,
+        name: 'Groceries',
+        kinds: [{ id: fixture.kindId, name: 'Groceries', currency: 'EUR' }],
+      },
+    ]);
   });
 
   it('createCategoryWithKind rejects a saving-type category, creating neither row', async () => {
