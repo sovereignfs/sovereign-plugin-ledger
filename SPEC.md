@@ -38,7 +38,38 @@ this plugin's own code:
   Fixed by updating `launch.json` to `5020` to match this pod's real
   configuration.
 
-🚧 L.2 (data model & migrations) is the next task, not started.
+✅ **L.2 shipped (0.2.0)** — full Phase 1 schema (all 15 `ledger_*` tables),
+migrated on both dialects, plus the FX-rate-as-of-date helper and a dev
+seed script.
+
+**A real bug was found and fixed mid-task, before anything was
+committed**, while writing the seed script: the original schema draft used
+`tenant_id` as if it were the per-user scoping column. It isn't —
+`docs/plugin-database.md` and `sovereign-plugin-kanban.local`'s own
+`authz.ts` (`Actor { userId, tenantId }`) confirm `tenant_id` is a
+platform-required, multi-tenancy-readiness column that's constant in this
+v1 single-tenant world; the real per-user field is a separate `user_id`.
+The bug wasn't just naming — `ledger_period_reviews`' primary key, as
+originally drafted on `(tenant_id, year, month)` alone, would have
+collided across every user on the instance, since every user shares the
+same constant `tenant_id`. Every table and every "per-user" index got a
+`user_id` column and was re-keyed on it before migrations were generated;
+see the Data model section's correction #5 for the full account. No
+migration with the bug was ever generated or committed.
+
+Verified live against the real dev sqld instance, not just the ephemeral
+test DB: restarted `pnpm dev` so it picked up the new migrations, ran
+`scripts/seed.ts` against the real `plugin_fs_sovereign_ledger` namespace
+(looked up `owner@sovereign.local`'s real id via the already-seeded
+platform dev accounts), confirmed all 15 tables and every seeded row via
+direct SQL against the sqld HTTP endpoint, confirmed re-running the seed
+script is a clean no-op, and confirmed `/ledger` still renders with zero
+console errors. `pnpm exec vitest run plugins/sovereign-plugin-ledger.local`
+(5 tests: schema sanity + 4 FX-rate-helper cases covering same-currency
+short-circuit, no-rate-yet, latest-rate-picked, and all-rates-in-the-future),
+typecheck, lint, format:check, and design-tokens-check all pass clean.
+
+🚧 L.3 (server data layer & actions skeleton) is the next task, not started.
 
 ---
 
@@ -98,7 +129,7 @@ separate permission grant of its own.
 
 No `sdk.directory` or any multi-user/membership surface — Ledger is
 strictly single-user (confirmed directly, not a phased deferral), so every
-authorization check is just "this row's `tenant_id` matches the caller's
+authorization check is just "this row's `user_id` matches the caller's
 session," never a membership or role check.
 
 ### Hard platform rules that apply here
@@ -106,11 +137,13 @@ session," never a membership or role check.
 - **SDK boundary:** import only `@sovereignfs/sdk` and `@sovereignfs/ui` —
   never `runtime/src` (ESLint-enforced).
 - **Every server action authorizes inside the action**
-  (`sdk.auth.requireSession()`, then the row's `tenant_id` must equal the
-  session's user id) — route-level gating is never sufficient.
-- **All tables slug-prefixed `ledger_`; `tenant_id` on every user-scoped
-  table** — except `ledger_fx_rates`, deliberately untenanted (see Data
-  model).
+  (`sdk.auth.requireSession()`, then the row's `user_id` must equal the
+  session's user id — `tenant_id` is a separate, constant-in-v1 column, not
+  the authorization boundary; see Data model) — route-level gating is never
+  sufficient.
+- **All tables slug-prefixed `ledger_`; `tenant_id` and `user_id` on every
+  user-scoped table** — except `ledger_fx_rates`, deliberately untenanted
+  (see Data model).
 - Page padding/max-width come from `PageContainer` — no local root
   padding/max-width.
 - Quick-entry inputs that commit on Enter must also commit on blur
@@ -129,52 +162,65 @@ All tables live in Ledger's isolated plugin database. `type: sovereign` →
 `manifestDatabaseIsolation()` (`packages/manifest/src/schema.ts`) is
 **unconditionally** `'isolated'` for any non-`platform` plugin type — this
 is not a manifest field and not a design choice to make; it resolves
-CONCEPT.md's "DB isolation mode" open question outright. `tenant_id`
-(= the owning user's id) scopes every table **except** `ledger_fx_rates`,
-which is deliberately untenanted: exchange rates are public, instance-wide
+CONCEPT.md's "DB isolation mode" open question outright.
+
+**`tenant_id` vs. `user_id` — a real distinction, not just naming.**
+`tenant_id` is a platform-required, multi-tenancy-readiness column
+(`docs/plugin-database.md`) — constant across this v1 single-tenant
+instance, not the per-user scoping field. The actual owner of a row is
+`user_id` (the session's real user id, `Actor.userId` in the data layer,
+mirroring `sovereign-plugin-kanban.local`'s own `authz.ts`). Every table
+below except `ledger_fx_rates` carries both; every "per-user" index and
+constraint is keyed on `user_id`, never `tenant_id` alone — since
+`tenant_id` is constant in v1, an index or primary key relying on it alone
+would silently span every user on the instance rather than scoping to one.
+`ledger_fx_rates` has neither: exchange rates are public, instance-wide
 data, same rationale already used by `sovereign-plugin-sheets.local`'s own
 `finance_rate_cache`.
 
 ```
-ledger_currencies          id, tenant_id, code, is_base, timestamps
+ledger_currencies          id, tenant_id, user_id, code, is_base, timestamps
 ledger_fx_rates            [UNTENANTED] id, currency_code, pivot_code, rate,
                            as_of_date, source (nullable)
-ledger_incomes             id, tenant_id, label, amount, currency,
+ledger_incomes             id, tenant_id, user_id, label, amount, currency,
                            kind ('primary' | 'secondary'), timestamps
-ledger_categories          id, tenant_id, name, type ('dynamic' | 'fixed' | 'saving'),
-                           timestamps
-ledger_kinds               id, tenant_id, category_id, name, predicted_amount,
-                           currency, recurrence_interval_unit, recurrence_interval_count,
-                           recurrence_anchor_date (fixed-type only, else null),
-                           timestamps
-ledger_transactions        id, tenant_id, kind_id, amount, currency,
+ledger_categories          id, tenant_id, user_id, name,
+                           type ('dynamic' | 'fixed' | 'saving'), timestamps
+ledger_kinds               id, tenant_id, user_id, category_id, name,
+                           predicted_amount, currency, recurrence_interval_unit,
+                           recurrence_interval_count, recurrence_anchor_date
+                           (fixed-type only, else null), timestamps
+ledger_transactions        id, tenant_id, user_id, kind_id, amount, currency,
                            occurred_at, note, timestamps
-ledger_saving_jars         id, tenant_id, kind_id, balance, currency, timestamps
-ledger_jar_transactions    id, tenant_id, jar_id, amount (signed), category_id
-                           (nullable), note, occurred_at
-ledger_accounts            id, tenant_id, name, institution (nullable),
+ledger_saving_jars         id, tenant_id, user_id, kind_id, balance, currency,
+                           timestamps
+ledger_jar_transactions    id, tenant_id, user_id, jar_id, amount (signed),
+                           category_id (nullable), note, occurred_at
+ledger_accounts            id, tenant_id, user_id, name, institution (nullable),
                            type ('bank' | 'credit_card'), balance, currency,
                            credit_limit (nullable), timestamps
-ledger_assets              id, tenant_id, name, type ('physical' | 'security'),
-                           value, currency, timestamps
-ledger_deposits            id, tenant_id, name, amount, currency, timestamps
-ledger_loans               id, tenant_id, name, lender, principal,
+ledger_assets              id, tenant_id, user_id, name,
+                           type ('physical' | 'security'), value, currency,
+                           timestamps
+ledger_deposits            id, tenant_id, user_id, name, amount, currency,
+                           timestamps
+ledger_loans               id, tenant_id, user_id, name, lender, principal,
                            remaining_balance, installment_amount, currency,
                            start_date, end_date, linked_kind_id, timestamps
-ledger_people              id, tenant_id, name, balance (cached, signed),
+ledger_people              id, tenant_id, user_id, name, balance (cached, signed),
                            currency, timestamps
-ledger_people_transactions id, tenant_id, person_id, amount (signed), note,
-                           occurred_at
-ledger_period_reviews      tenant_id, year, month, reviewed_at (not null)
+ledger_people_transactions id, tenant_id, user_id, person_id, amount (signed),
+                           note, occurred_at
+ledger_period_reviews      tenant_id, user_id, year, month, reviewed_at (not null)
 ```
 
-Indexes: `ledger_transactions(tenant_id, kind_id, occurred_at)`,
-`ledger_jar_transactions(tenant_id, jar_id, occurred_at)`,
-`ledger_people_transactions(tenant_id, person_id, occurred_at)`,
-`ledger_fx_rates` unique on `(currency_code, pivot_code, as_of_date)` plus a
-lookup index on `(currency_code, pivot_code, as_of_date desc)` for "the rate
-in effect on this transaction's date," and `ledger_period_reviews` unique on
-`(tenant_id, year, month)`.
+Indexes: `ledger_transactions(user_id, kind_id, occurred_at)`,
+`ledger_jar_transactions(user_id, jar_id, occurred_at)`,
+`ledger_people_transactions(user_id, person_id, occurred_at)`,
+`ledger_fx_rates` a lookup index on `(currency_code, pivot_code, as_of_date)`
+for "the rate in effect on this transaction's date," and
+`ledger_period_reviews` primary key on `(user_id, year, month)` — not
+`(tenant_id, year, month)`, which would collide across every user.
 
 Timestamps (`created_at`/`updated_at`) on every table that has them above;
 `ledger_jar_transactions`/`ledger_people_transactions`/`ledger_period_reviews`
@@ -209,7 +255,12 @@ these four points changed real behavior, not just shape):
 4. **`ledger_period_reviews` only has rows for reviewed periods** — no
    nullable `reviewed_at` on a pre-populated per-period row, no backfill
    job. "Needs review" (`web-shell.md` screen 5 / `mobile-fork.md` screen 6)
-   is simply the absence of a row for a past `(tenant_id, year, month)`.
+   is simply the absence of a row for a past `(user_id, year, month)`.
+5. **Found during L.2 implementation, before anything was committed: every
+   table needed a separate `user_id`.** The original draft used `tenant_id`
+   as if it were the per-user scoping column — it isn't (see above). Fixed
+   across every table and every index/primary key before the L.2 migration
+   was generated; no shipped migration ever had the bug.
 
 **Jar and people transaction amounts are stored signed** (positive =
 contribution / increases what's owed to the user; negative = withdrawal /
@@ -369,15 +420,15 @@ build on.
   here**, since it needs L.12's jar-auto-provisioning logic first), and
   transactions.
 - Server actions for the same, each starting with
-  `sdk.auth.requireSession()` + a `tenant_id`-ownership check, returning
+  `sdk.auth.requireSession()` + a `user_id`-ownership check, returning
   `ActionResult`.
 - Authorization unit tests: a session can never read or mutate another
   user's rows through any action.
 
 **Dependencies:** L.2.
 
-**Review checklist:** authz tests prove cross-tenant denial per action; no
-action trusts a client-supplied `tenant_id`; attempting to create a
+**Review checklist:** authz tests prove cross-user denial per action; no
+action trusts a client-supplied `user_id`; attempting to create a
 saving-type kind through this layer is rejected (reserved for L.12).
 
 ---
@@ -505,7 +556,7 @@ report on meaningfully).
 **Review checklist:** the three savings figures are computed correctly
 against seeded multi-month dev data; "Mark reviewed" is idempotent (marking
 an already-reviewed period again doesn't error or duplicate a row, given
-the unique `(tenant_id, year, month)` constraint).
+the primary key on `(user_id, year, month)`).
 
 ---
 

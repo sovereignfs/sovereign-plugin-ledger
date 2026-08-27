@@ -82,15 +82,20 @@ platform repo's `docs/architecture-rules.md`.
   Never reach into the platform's `runtime/src` — the monorepo's ESLint
   config enforces this at lint time.
 - **Every server action** starts with `sdk.auth.requireSession()`, then
-  checks that the row's `tenant_id` equals the session's user id. Ledger is
-  strictly single-user — there is no membership/role model to check,
-  unlike a shared-resource plugin. Route-level gating is never sufficient
-  on its own.
+  checks that the row's `user_id` equals the session's user id. `tenant_id`
+  is a separate, platform-required column that's constant in this
+  single-tenant v1 — it is NOT the authorization boundary, and an index or
+  primary key relying on it alone would silently span every user on the
+  instance (see `SPEC.md`'s Data model section — this was a real bug caught
+  before anything shipped). Ledger is strictly single-user — there is no
+  membership/role model to check, unlike a shared-resource plugin.
+  Route-level gating is never sufficient on its own.
 - **Mutations return `ActionResult`** — domain failures are values, never
   thrown.
-- **`ledger_fx_rates` is the one deliberately untenanted table** — exchange
-  rates are public, instance-wide data. Every other table carries
-  `tenant_id`. Don't "fix" this into being tenant-scoped; it's intentional.
+- **`ledger_fx_rates` is the one table with neither `tenant_id` nor
+  `user_id`** — exchange rates are public, instance-wide data. Every other
+  table carries both. Don't "fix" this into being user-scoped; it's
+  intentional.
 - **Jar and people transaction amounts are signed** (not a direction enum
   plus an always-positive magnitude) — see `SPEC.md`'s Data model section.
 - **A jar-funded expense produces exactly one row** (a
