@@ -419,8 +419,77 @@ tests + 3 query-module tests) on top of the existing 29, for 46 total.
 Full check suite (typecheck, lint, format:check, design-tokens) all pass
 clean.
 
-🚧 L.8 (Reports + month-end review) is next, dependent on L.6 and L.7 —
-both now shipped.
+✅ **L.8 shipped (0.8.0)** — period list + detail (`ReportsView`/
+`ReportsMain`/`ReportsDetail`) per `web-shell.md` screen 5: every month
+with any transaction activity, most recent first, each with a
+`StatusBadge` ("Needs review"/"Reviewed") sourced from
+`ledger_period_reviews`; the selected period's detail shows the three
+savings figures, a top-categories breakdown with budget-variance labels,
+"Mark as reviewed," and "Adjust budget" (navigates to `/ledger/budget`,
+no duplicate editor). Month-end review has no sidebar item of its own,
+matching the wireframe's explicit direction — it's a status folded into
+the period itself.
+
+**The three savings figures, worked out precisely rather than guessed
+from the wireframe's numbers alone:** *Projected savings* = income minus
+the sum of every kind's budgeted amount. *Actual savings* = income minus
+actual spend (`ledger_transactions`) this period. *Actual, net of jars* =
+actual savings further adjusted for jar withdrawals only — a
+jar-contribution has no effect on this figure (moving cash into a jar
+doesn't change total household savings, only where it sits), while a
+jar-withdrawal-funded expense reduces it, since that spending is real but
+never appears in `ledger_transactions` at all (SPEC.md's Data model
+correction #3). Verified this derivation against the wireframe's own
+numbers (Actual 980 → net-of-jars 720, a 260 gap, consistent with a 260
+withdrawal that period) before writing any code, not after. Always equal
+to `actualSavingsMinor` today, since no `ledger_jar_transactions` row can
+exist before L.12 ships saving jars — inert, not hardcoded to zero.
+
+**A known, explicitly-documented simplification, not a silent gap:**
+income and budgeted amounts have no history (same shape as
+`predictedAmountMinor`'s already-documented non-effective-dating
+limitation from L.2) — every period's "income" and "projected savings"
+reflect the user's *current* declared income and budget, not what was
+actually true in that historical month. A real limitation for anyone
+whose income or budget has changed over time; not solved here, same as
+the schema's own original call.
+
+Two smaller, deliberate scope decisions: Insights (the wireframe's
+"Eating out has run over budget 3 months running..." card) is omitted
+outright rather than stubbed, same as L.5 — it depends on L.13, which
+doesn't exist yet. And there's no gate on which periods are
+review-eligible — the current, still-in-progress month appears in the
+list like any other and can be marked reviewed early if a user wants to;
+nothing in the schema or data model naturally distinguishes "this month
+is done" from "still accumulating," so adding one would have been
+speculative.
+
+`markPeriodReviewed` uses `onConflictDoNothing` targeting the
+`(userId, year, month)` primary key — the review checklist's explicit
+idempotency requirement, verified live: clicking "Mark as reviewed" twice
+never throws and never duplicates a row (confirmed directly against the
+dev sqld endpoint: exactly one row after two clicks).
+
+Verified live end-to-end against real seeded dev data: Projected savings
+€2,170.00 (€4,200 income − €2,030 total budgeted), Actual savings
+€4,074.10 (€4,200 − €125.90 spent), Actual net of jars identical (no jars
+exist), and each top category's variance label computed correctly
+(Groceries -28%, Transport -63%, Eating out -95% vs. budget) — all
+independently checked against the seed data's real numbers before
+trusting the screen. "Mark as reviewed" flips the `StatusBadge` to
+"Reviewed" immediately and persists across a fresh reload; "Adjust
+budget" navigates cleanly to `/ledger/budget`. Test data removed
+afterward via direct SQL, restoring the zero-reviews baseline. 9 new
+tests (5 for `getReportsData`'s savings-figure/variance-label math, 4 for
+`markPeriodReviewed`'s idempotency and cross-user isolation) on top of
+the existing 46, for 55 total. Full check suite (typecheck, lint,
+format:check, design-tokens) all pass clean.
+
+This closes out Phase C (Net worth & reporting) — L.5 through L.8 are
+all now shipped, covering the full web core budget loop end to end.
+
+🚧 L.9 (Mobile fork) is next, dependent on L.5, L.6, L.7, and L.8 — all
+now shipped.
 
 ---
 

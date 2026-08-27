@@ -12,15 +12,8 @@ const NAV: Array<{ href: string; label: string; icon: IconName }> = [
   { href: '/ledger', label: 'Overview', icon: 'layout-dashboard' },
   { href: '/ledger/budget', label: 'Budget', icon: 'list' },
   { href: '/ledger/accounts', label: 'Accounts', icon: 'table' },
+  { href: '/ledger/reports', label: 'Reports', icon: 'file-text' },
 ];
-
-/**
- * Rows for sections with no shipped page yet — rendered as disabled, not as
- * `<Link>`s to a route that would 404 (sv-ui-design's "no dead nav" rule).
- * Reports becomes a real nav item at L.8; Settings has no task assigned
- * yet at all.
- */
-const COMING_SOON: Array<{ label: string; icon: IconName }> = [{ label: 'Reports', icon: 'file-text' }];
 
 /**
  * Persistent secondary nav — same precedent as Tally's/Kanban's own
@@ -63,13 +56,6 @@ export function LedgerSidebar() {
             </Link>
           );
         })}
-        {COMING_SOON.map((item) => (
-          <div key={item.label} className={styles.linkDisabled} title="Coming in a future update">
-            <Icon name={item.icon} size="sm" aria-hidden />
-            {item.label}
-            <span className={styles.soon}>Soon</span>
-          </div>
-        ))}
       </div>
 
       <div className={styles.spacer} />

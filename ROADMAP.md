@@ -1,6 +1,6 @@
 # Ledger — Roadmap
 
-**Manifest version:** 0.7.0 · **Last updated:** 2026-08-27
+**Manifest version:** 0.8.0 · **Last updated:** 2026-08-27
 
 Chronological build index — one row per PR, platform-`ROADMAP.md` style. Full
 task detail lives in [SPEC.md](SPEC.md); the product concept in
@@ -34,7 +34,7 @@ depend on the previous row unless noted.
 | Slot  | Task                                  | Status | Spec task                                          |
 | ----- | -------------------------------------- | ------ | ---------------------------------------------------- |
 | 0.7.0 | Accounts                               | ✅     | [L.7](SPEC.md#l7--accounts)                          |
-| 0.8.0 | Reports + month-end review             | ⬜     | [L.8](SPEC.md#l8--reports--month-end-review)         |
+| 0.8.0 | Reports + month-end review             | ✅     | [L.8](SPEC.md#l8--reports--month-end-review)         |
 
 ## Phase D — Mobile
 

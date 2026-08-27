@@ -15,11 +15,22 @@ export interface MonthRange {
   end: number;
 }
 
-export function getCurrentMonthRange(now: number = Date.now()): MonthRange {
-  const d = new Date(now);
-  const start = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1);
-  const end = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1);
+/** `month` is 1-indexed (January = 1), matching `ledger_period_reviews.month`. */
+export function getMonthRange(year: number, month: number): MonthRange {
+  const start = Date.UTC(year, month - 1, 1);
+  const end = Date.UTC(year, month, 1);
   return { start, end };
+}
+
+export function getCurrentMonthRange(now: number = Date.now()): MonthRange {
+  const { year, month } = getUtcYearMonth(now);
+  return getMonthRange(year, month);
+}
+
+/** 1-indexed `month`, UTC calendar — the same period key `ledger_period_reviews` uses. */
+export function getUtcYearMonth(timestampMs: number): { year: number; month: number } {
+  const d = new Date(timestampMs);
+  return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1 };
 }
 
 /** `YYYY-MM-DD`, UTC — the date-only shape `getRateAsOf` expects. */

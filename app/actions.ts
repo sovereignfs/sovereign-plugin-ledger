@@ -959,6 +959,39 @@ export async function createPeopleTransaction(input: {
 }
 
 // ---------------------------------------------------------------------------
+// Period reviews — `ledger_period_reviews` rows exist only for reviewed
+// periods (SPEC.md's Data model correction #4), so "mark reviewed" is a
+// plain insert; `onConflictDoNothing` on the primary key is what makes
+// marking an already-reviewed period again a no-op instead of a thrown
+// unique-constraint error (the L.8 review checklist's explicit idempotency
+// requirement).
+
+export async function markPeriodReviewed(input: {
+  year: number;
+  month: number;
+}): Promise<ActionResult> {
+  const actor = await requireUser();
+  if (!Number.isInteger(input.year) || !Number.isInteger(input.month)) {
+    return fail('Invalid period.');
+  }
+  const db = await getDb();
+  await db
+    .insert(schema.periodReviews)
+    .values({
+      tenantId: actor.tenantId,
+      userId: actor.userId,
+      year: input.year,
+      month: input.month,
+      reviewedAt: Date.now(),
+    })
+    .onConflictDoNothing({
+      target: [schema.periodReviews.userId, schema.periodReviews.year, schema.periodReviews.month],
+    });
+  refresh();
+  return ok('Marked as reviewed.');
+}
+
+// ---------------------------------------------------------------------------
 // Read-only actions
 
 export interface ExpenseFormKindOption {

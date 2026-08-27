@@ -560,3 +560,39 @@ describe('L.7 — accounts, assets, deposits, loans, people', () => {
     expect(await t.db.select().from(schema.peopleTransactions)).toHaveLength(0);
   });
 });
+
+describe('L.8 — markPeriodReviewed', () => {
+  it('inserts a review row for the given period', async () => {
+    actAs(owner);
+    const result = await actions.markPeriodReviewed({ year: 2026, month: 7 });
+    expect(result.ok).toBe(true);
+    const rows = await t.db.select().from(schema.periodReviews);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ userId: owner.id, year: 2026, month: 7 });
+  });
+
+  it('is idempotent — marking an already-reviewed period again does not error or duplicate', async () => {
+    actAs(owner);
+    expect((await actions.markPeriodReviewed({ year: 2026, month: 7 })).ok).toBe(true);
+    expect((await actions.markPeriodReviewed({ year: 2026, month: 7 })).ok).toBe(true);
+    expect(await t.db.select().from(schema.periodReviews)).toHaveLength(1);
+  });
+
+  it('denies an unauthenticated caller', async () => {
+    actAs(null);
+    await expect(actions.markPeriodReviewed({ year: 2026, month: 7 })).rejects.toThrow(
+      'Not authenticated',
+    );
+  });
+
+  it("never mixes up two different users' review rows for the same period", async () => {
+    actAs(owner);
+    await actions.markPeriodReviewed({ year: 2026, month: 7 });
+    actAs(outsider);
+    await actions.markPeriodReviewed({ year: 2026, month: 7 });
+
+    const rows = await t.db.select().from(schema.periodReviews);
+    expect(rows).toHaveLength(2);
+    expect(rows.map((r) => r.userId).sort()).toEqual([outsider.id, owner.id].sort());
+  });
+});

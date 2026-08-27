@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "fs.sovereign.ledger",
   "name": "Ledger",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "A budget-based personal finance tracker — plan a budget, track expenses, and see your net worth.",
   "type": "sovereign",
   "runtime": "native",
