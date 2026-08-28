@@ -233,13 +233,37 @@ mechanism the FX-rate fetch needs.
 
 ## 7. Open questions
 
-- **Naming/trademark risk is real here, unlike Tally's.** "Ledger" is also
-  the brand of a very well-known hardware crypto wallet company
-  (Ledger SAS, ledger.com) with strong fintech/crypto brand recognition —
-  a materially higher collision risk than Tally's own naming check turned
-  up. Worth a real trademark/registry check before this plugin is ever
-  published to `registry/plugins.json` or given a public repo name, even
-  though it's low-stakes as a `.local` dev plugin today.
+- **Naming/trademark risk — researched 2026-08-28, not legally resolved.**
+  "Ledger" is also the brand of a very well-known hardware crypto wallet
+  company (Ledger SAS, ledger.com). An informal web check found the risk
+  lower than it first looked, though this is not a substitute for a real
+  trademark search or counsel:
+  - Ledger SAS's actual registered marks (USPTO #5910665 `LEDGER`,
+    `LEDGER WALLET`) are narrowly scoped to hardware devices "for
+    generating and securing cryptographic private keys" — not personal
+    finance/budgeting software as a category.
+  - A live App Store app, "Ledger - Money, Budget Tracker," and several
+    Google Play apps (LedgerPro, Pocket Ledger, Money Ledger, Ledgr)
+    already use the bare name in this exact product category.
+  - `ledger-cli`, an open-source double-entry accounting tool, has used
+    the name since 2003 — over a decade before Ledger SAS existed
+    (2014) — and "ledger" is itself a standard accounting term.
+  - Other unrelated companies (e.g. Ledger Teams, Inc., a
+    team-collaboration SaaS since rebranded to Team Pulse) have also
+    held `LEDGER` marks without apparent conflict.
+  - Cutting the other way: this plugin's own multi-currency scope
+    (§4 above) explicitly includes crypto exchange rates, nudging it
+    slightly closer to Ledger SAS's actual brand territory than a
+    purely-fiat app would be — though tracking a valuation is
+    functionally unlike their core "secure a private key on hardware"
+    product.
+
+  Net: low risk for the current state (private `.local` dev plugin,
+  never marketed as a standalone product — always one tile inside the
+  Sovereign platform). Still worth a real trademark/registry check
+  before this plugin is ever published to `registry/plugins.json` or
+  given a public repo name — this research de-risks the question, it
+  doesn't clear it.
 - ~~**Default Category/Kind seed set.**~~ **Resolved** in
   `docs/adhoc/setup-wizard.md` screen 3: suggested categories are tappable
   chips with pre-filled, editable budget amounts — never auto-created
