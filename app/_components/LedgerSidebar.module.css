@@ -50,25 +50,6 @@
   font-weight: 600;
 }
 
-.linkDisabled {
-  display: flex;
-  align-items: center;
-  gap: var(--sv-space-2);
-  padding: var(--sv-space-2) var(--sv-space-3);
-  font-size: var(--sv-font-size-sm);
-  font-weight: 500;
-  color: var(--sv-color-text-muted);
-  opacity: 0.6;
-  cursor: default;
-}
-
-.soon {
-  margin-left: auto;
-  font-size: var(--sv-font-size-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
 .spacer {
   flex: 1;
 }

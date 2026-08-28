@@ -37,3 +37,17 @@ export function getUtcYearMonth(timestampMs: number): { year: number; month: num
 export function todayDateOnly(now: number = Date.now()): string {
   return new Date(now).toISOString().slice(0, 10);
 }
+
+/** True when `now`'s UTC calendar date is the 1st of the month — the
+ *  month-end report job's (L.11) own gate, since the scheduler only offers
+ *  a fixed interval, not a cron-style day-of-month trigger. */
+export function isFirstOfMonthUtc(now: number = Date.now()): boolean {
+  return new Date(now).getUTCDate() === 1;
+}
+
+/** The calendar month immediately before `now`'s UTC month — December of
+ *  the prior year when `now` falls in January. */
+export function getPreviousYearMonth(now: number = Date.now()): { year: number; month: number } {
+  const { year, month } = getUtcYearMonth(now);
+  return month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
+}

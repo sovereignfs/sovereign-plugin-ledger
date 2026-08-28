@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { BudgetView } from '../_components/BudgetView';
+import { listMobileApps } from '../_lib/apps';
 import { requireUser } from '../_lib/authz';
 import { getBudgetData } from '../_lib/budget';
 import { getDb } from '../_lib/db';
@@ -18,6 +19,6 @@ export default async function BudgetPage() {
   const status = await getSetupStatus(db, actor.userId);
   if (!status.complete) redirect('/ledger');
 
-  const data = await getBudgetData(db, actor.userId);
-  return <BudgetView data={data} />;
+  const [data, apps] = await Promise.all([getBudgetData(db, actor.userId), listMobileApps()]);
+  return <BudgetView data={data} apps={apps} />;
 }

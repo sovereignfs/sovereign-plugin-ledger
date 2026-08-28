@@ -1,0 +1,211 @@
+/* Shared across every mobile-fork screen (Overview/Budget/Accounts/Reports)
+   — one stylesheet rather than four near-identical copies. */
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-5);
+  padding: var(--sv-space-4);
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title {
+  font-size: var(--sv-font-size-2xl);
+  font-weight: var(--sv-font-weight-bold);
+  margin: 0;
+}
+
+.subtitle {
+  font-size: var(--sv-font-size-sm);
+  color: var(--sv-color-text-muted);
+  margin: 0;
+}
+
+/* Hand-rolled back header for a drill-down screen — no shared DS component
+   exists yet for this shape (mobile-fork.md's own open question). */
+.backHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--sv-space-1);
+  margin: 0 calc(var(--sv-space-4) * -1) 0;
+  padding: 0 var(--sv-space-4) var(--sv-space-1);
+}
+
+.backButton {
+  display: flex;
+  align-items: center;
+  gap: var(--sv-space-1);
+  border: none;
+  background: transparent;
+  color: var(--sv-color-text-primary);
+  font-size: var(--sv-font-size-md);
+  font-weight: var(--sv-font-weight-semibold);
+  cursor: pointer;
+  padding: var(--sv-space-1) 0;
+}
+
+.card {
+  border: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  border-radius: var(--sv-radius-md);
+  padding: var(--sv-space-4);
+  background: var(--sv-color-surface);
+}
+
+.cardTitle {
+  font-size: var(--sv-font-size-xs);
+  font-weight: var(--sv-font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sv-color-text-muted);
+  margin: 0 0 var(--sv-space-3);
+}
+
+.cardRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: var(--sv-font-size-sm);
+  padding: var(--sv-space-1) 0;
+}
+
+.cardRowTotal {
+  border-top: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  margin-top: var(--sv-space-1);
+  padding-top: var(--sv-space-2);
+  font-weight: var(--sv-font-weight-semibold);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sectionTitle {
+  font-size: var(--sv-font-size-md);
+  font-weight: var(--sv-font-weight-semibold);
+  margin: 0;
+}
+
+.sectionAddButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--sv-touch-target-min);
+  height: var(--sv-touch-target-min);
+  border: none;
+  border-radius: var(--sv-radius-md);
+  background: transparent;
+  color: var(--sv-color-text-muted);
+  cursor: pointer;
+}
+
+.sectionAddButton:hover {
+  background: var(--sv-color-surface-sunken);
+  color: var(--sv-color-text-primary);
+}
+
+.link {
+  font-size: var(--sv-font-size-sm);
+  color: var(--sv-color-text-muted);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sv-space-3);
+  width: 100%;
+  padding: var(--sv-space-3) 0;
+  border-bottom: var(--sv-border-width-hairline) solid var(--sv-color-border);
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.rowText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-1);
+  min-width: 0;
+}
+
+.rowTitle {
+  font-size: var(--sv-font-size-sm);
+  font-weight: var(--sv-font-weight-semibold);
+  color: var(--sv-color-text-primary);
+}
+
+.rowSubtitle {
+  font-size: var(--sv-font-size-xs);
+  color: var(--sv-color-text-muted);
+}
+
+.rowValue {
+  display: flex;
+  align-items: center;
+  gap: var(--sv-space-2);
+  font-size: var(--sv-font-size-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--sv-color-text-primary);
+  flex-shrink: 0;
+}
+
+.rowValue svg {
+  color: var(--sv-color-text-muted);
+}
+
+.emptyState {
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+}
+
+.activityRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sv-space-3);
+  padding: var(--sv-space-2) 0;
+  font-size: var(--sv-font-size-sm);
+}
+
+.activityDate {
+  color: var(--sv-color-text-muted);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-3);
+}
+
+.feedbackError {
+  color: var(--sv-color-error-text);
+  font-size: var(--sv-font-size-sm);
+}
+
+/* L.13 — rule-based insights. */
+.insightText {
+  font-size: var(--sv-font-size-sm);
+  color: var(--sv-color-text-primary);
+  margin: 0;
+}

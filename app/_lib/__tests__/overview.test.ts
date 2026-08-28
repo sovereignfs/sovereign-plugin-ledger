@@ -163,7 +163,49 @@ describe('getOverviewData', () => {
     expect(pendingRow?.href).toBe('/ledger/accounts');
 
     const savingRow = data.checklist.find((c) => c.key === 'saving-plans');
-    expect(savingRow?.comingSoon).toBe(true);
+    expect(savingRow).toMatchObject({ done: false, comingSoon: false, href: '/ledger/budget' });
+  });
+
+  it('marks saving-plans done once a saving jar exists (L.12 shipped)', async () => {
+    await seedBudget();
+    const now = Date.now();
+    await t.db.insert(schema.categories).values({
+      id: 'cat-travel',
+      tenantId,
+      userId,
+      name: 'Travel jar',
+      type: 'saving',
+      createdAt: now,
+      updatedAt: now,
+    });
+    await t.db.insert(schema.kinds).values({
+      id: 'kind-travel',
+      tenantId,
+      userId,
+      categoryId: 'cat-travel',
+      name: 'Travel jar',
+      predictedAmountMinor: 10_000,
+      currency: 'EUR',
+      recurrenceIntervalUnit: null,
+      recurrenceIntervalCount: null,
+      recurrenceAnchorDate: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await t.db.insert(schema.savingJars).values({
+      id: 'jar-travel',
+      tenantId,
+      userId,
+      kindId: 'kind-travel',
+      balanceMinor: 0,
+      currency: 'EUR',
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const data = await getOverviewData(t.ledger, userId);
+    const savingRow = data.checklist.find((c) => c.key === 'saving-plans');
+    expect(savingRow).toMatchObject({ done: true, comingSoon: false, detail: '1 jar', href: undefined });
   });
 
   it('excludes a zero-kind category (e.g. an empty shared "Loans" category) from top categories', async () => {

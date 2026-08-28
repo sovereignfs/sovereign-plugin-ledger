@@ -1,0 +1,19 @@
+.content {
+  min-height: 100dvh;
+  padding-bottom: calc(var(--sv-shell-footer-height, 64px) + var(--sv-space-6));
+}
+
+.footerFixed {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 101;
+}
+
+.drawerIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--sv-radius-md);
+  object-fit: cover;
+}

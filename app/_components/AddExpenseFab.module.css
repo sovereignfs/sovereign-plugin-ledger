@@ -1,0 +1,21 @@
+.fab {
+  position: fixed;
+  right: var(--sv-space-4);
+  bottom: calc(var(--sv-shell-footer-height, 64px) + var(--sv-space-4));
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--sv-radius-full);
+  border: none;
+  background: var(--sv-color-text-primary);
+  color: var(--sv-color-surface);
+  box-shadow: var(--sv-shadow-overlay);
+  cursor: pointer;
+}
+
+.fab:active {
+  transform: scale(0.96);
+}

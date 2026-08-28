@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { startTransition, useActionState } from 'react';
-import { Button, StatusBadge } from '@sovereignfs/ui';
+import { Button, Card, StatusBadge } from '@sovereignfs/ui';
 import { markPeriodReviewed } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
 import { formatMoney } from '../_lib/format';
@@ -12,16 +12,19 @@ import styles from './Reports.module.css';
 
 /**
  * The three savings figures + category breakdown for a selected period.
- * Insights (the wireframe's "Eating out has run over budget 3 months
- * running..." card) are omitted outright, not stubbed — they depend on
- * L.13's rule-based insights, which don't exist yet.
+ * `insights` (L.13) is the same current, un-scoped-to-this-period list
+ * `getInsights` returns everywhere else — not recomputed "as of" this
+ * specific period from historical data, a deliberate simplification for a
+ * "small rule set" feature (see `insights.ts`'s own doc comment).
  */
 export function ReportsDetail({
   period,
   baseCurrencyCode,
+  insights,
 }: {
   period: PeriodReport;
   baseCurrencyCode: string;
+  insights: string[];
 }) {
   const router = useRouter();
   const [state, dispatch, pending] = useActionState<ActionResult | null, undefined>(async () => {
@@ -89,6 +92,19 @@ export function ReportsDetail({
             ))
           )}
         </section>
+
+        {insights.length > 0 && (
+          <section>
+            <p className={styles.sectionLabel}>Insights</p>
+            <div className={styles.insightsList}>
+              {insights.map((insight) => (
+                <Card key={insight} padding="md">
+                  <p className={styles.insightText}>{insight}</p>
+                </Card>
+              ))}
+            </div>
+          </section>
+        )}
 
         {state && !state.ok && <p>{state.error}</p>}
 

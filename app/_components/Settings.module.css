@@ -1,0 +1,210 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-2);
+  padding: var(--sv-space-6);
+}
+
+.section {
+  margin-bottom: var(--sv-space-2);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--sv-space-1);
+}
+
+.sectionLabel {
+  font-size: var(--sv-font-size-xs);
+  font-weight: var(--sv-font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sv-color-text-muted);
+}
+
+.sectionAddButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--sv-radius-md);
+  border: none;
+  background: transparent;
+  color: var(--sv-color-text-muted);
+  cursor: pointer;
+}
+
+.sectionAddButton:hover {
+  background: var(--sv-color-surface-sunken);
+  color: var(--sv-color-text-primary);
+}
+
+/* Flat, non-selectable rows (Currencies, Incomes) — inline actions instead
+   of click-to-select, unlike Categories' rows below. */
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sv-space-3);
+  width: 100%;
+  padding: var(--sv-space-2) var(--sv-space-3);
+  margin: 0 calc(var(--sv-space-3) * -1);
+  border-radius: var(--sv-radius-md);
+  font-size: var(--sv-font-size-sm);
+}
+
+.rowMain {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sv-space-2);
+  min-width: 0;
+}
+
+.rowName {
+  color: var(--sv-color-text-primary);
+  font-weight: var(--sv-font-weight-semibold);
+}
+
+.rowSubtitle {
+  color: var(--sv-color-text-muted);
+}
+
+.rowActions {
+  display: flex;
+  align-items: center;
+  gap: var(--sv-space-2);
+  flex-shrink: 0;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--sv-space-2);
+  border-radius: var(--sv-radius-sm);
+  background: var(--sv-color-surface-sunken);
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-xs);
+  font-weight: var(--sv-font-weight-semibold);
+  white-space: nowrap;
+}
+
+.textButton {
+  border: none;
+  background: transparent;
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-xs);
+  font-weight: var(--sv-font-weight-semibold);
+  cursor: pointer;
+  padding: 2px var(--sv-space-1);
+}
+
+.textButton:hover {
+  color: var(--sv-color-text-primary);
+}
+
+.iconButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--sv-radius-md);
+  border: none;
+  background: transparent;
+  color: var(--sv-color-text-muted);
+  cursor: pointer;
+}
+
+.iconButton:hover {
+  background: var(--sv-color-surface-sunken);
+  color: var(--sv-color-error-text);
+}
+
+.iconButton:disabled {
+  color: var(--sv-color-text-muted);
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.iconButton:disabled:hover {
+  background: transparent;
+}
+
+/* Selectable rows (Categories) */
+
+.selectableRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sv-space-3);
+  width: 100%;
+  padding: var(--sv-space-2) var(--sv-space-3);
+  margin: 0 calc(var(--sv-space-3) * -1);
+  border: none;
+  border-radius: var(--sv-radius-md);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  font-size: var(--sv-font-size-sm);
+}
+
+.selectableRow:hover {
+  background: var(--sv-color-surface-sunken);
+}
+
+.rowSelected {
+  background: var(--sv-color-surface-sunken);
+}
+
+.emptyState {
+  color: var(--sv-color-text-muted);
+  font-size: var(--sv-font-size-sm);
+  padding: var(--sv-space-2) 0;
+}
+
+/* Detail column (Categories only) */
+
+.detailHeader {
+  padding: var(--sv-space-6) var(--sv-space-5) var(--sv-space-4);
+  border-bottom: var(--sv-border-width-hairline) solid var(--sv-color-border);
+}
+
+.detailTitle {
+  font-size: var(--sv-font-size-lg);
+  font-weight: var(--sv-font-weight-bold);
+  margin: 0 0 var(--sv-space-1);
+}
+
+.detailSubtitle {
+  font-size: var(--sv-font-size-sm);
+  color: var(--sv-color-text-muted);
+  margin: 0;
+}
+
+.detailBody {
+  padding: var(--sv-space-4) var(--sv-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-6);
+}
+
+.linkedNote {
+  font-size: var(--sv-font-size-sm);
+  color: var(--sv-color-text-muted);
+}
+
+.actions {
+  display: flex;
+  gap: var(--sv-space-3);
+}
+
+.feedbackError {
+  color: var(--sv-color-error-text);
+  font-size: var(--sv-font-size-sm);
+}

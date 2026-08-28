@@ -35,6 +35,7 @@ describe('ledger schema (real migrations, ephemeral sqlite)', () => {
         'ledger_jar_transactions',
         'ledger_kinds',
         'ledger_loans',
+        'ledger_month_end_notifications',
         'ledger_people',
         'ledger_people_transactions',
         'ledger_period_reviews',

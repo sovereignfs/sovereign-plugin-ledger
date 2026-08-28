@@ -1,6 +1,8 @@
+import { eq } from 'drizzle-orm';
+import * as schema from '../_db/schema';
 import type { LedgerDb } from '../_db/client';
 import { getCurrentMonthRange } from './period';
-import { listCategoriesWithKinds, listTransactions } from './queries';
+import { listCategoriesWithKinds, listSavingCategoriesWithKinds, listTransactions } from './queries';
 
 export interface BudgetTransaction {
   id: string;
@@ -39,9 +41,31 @@ export interface BudgetCategory {
   recentTransactions: BudgetTransaction[];
 }
 
+export interface BudgetJarTransaction {
+  id: string;
+  occurredAt: number;
+  /** Signed — positive = contribution, negative = withdrawal. */
+  amountMinor: number;
+  note: string | null;
+}
+
+export interface BudgetSavingCategory {
+  id: string;
+  name: string;
+  /** The saving kind's own `predictedAmountMinor` — the monthly saving target. */
+  targetAmountMinor: number;
+  currency: string;
+  jarId: string;
+  jarBalanceMinor: number;
+  /** Most recent 5 across this jar's own history, matching
+   *  `BudgetCategory.recentTransactions`'s own "most recent 5" shape. */
+  recentJarTransactions: BudgetJarTransaction[];
+}
+
 export interface BudgetData {
   dynamic: BudgetCategory[];
   fixed: BudgetCategory[];
+  saving: BudgetSavingCategory[];
 }
 
 /**
@@ -55,10 +79,14 @@ export interface BudgetData {
  * just as fast, so that's the deliberate deviation here.
  */
 export async function getBudgetData(db: LedgerDb, userId: string): Promise<BudgetData> {
-  const [categoriesWithKinds, allTransactions] = await Promise.all([
-    listCategoriesWithKinds(db, userId),
-    listTransactions(db, userId),
-  ]);
+  const [categoriesWithKinds, allTransactions, savingCategoriesWithKinds, jars, allJarTransactions] =
+    await Promise.all([
+      listCategoriesWithKinds(db, userId),
+      listTransactions(db, userId),
+      listSavingCategoriesWithKinds(db, userId),
+      db.select().from(schema.savingJars).where(eq(schema.savingJars.userId, userId)),
+      db.select().from(schema.jarTransactions).where(eq(schema.jarTransactions.userId, userId)),
+    ]);
 
   const { start, end } = getCurrentMonthRange();
   const kindNameById = new Map(
@@ -126,5 +154,45 @@ export async function getBudgetData(db: LedgerDb, userId: string): Promise<Budge
     else dynamic.push(entry);
   }
 
-  return { dynamic, fixed };
+  const jarByKindId = new Map(jars.map((jar) => [jar.kindId, jar] as const));
+  const jarTransactionsByJarId = new Map<string, typeof allJarTransactions>();
+  for (const tx of allJarTransactions) {
+    const list = jarTransactionsByJarId.get(tx.jarId) ?? [];
+    list.push(tx);
+    jarTransactionsByJarId.set(tx.jarId, list);
+  }
+
+  const saving: BudgetSavingCategory[] = [];
+  for (const category of savingCategoriesWithKinds) {
+    // Every saving category is created with exactly one kind and one linked
+    // jar (`createCategoryWithKind`'s own transaction) — skip defensively
+    // rather than assume that invariant holds forever, same posture as the
+    // zero-kind Dynamic/Fixed skip above.
+    const kind = category.kinds[0];
+    if (!kind) continue;
+    const jar = jarByKindId.get(kind.id);
+    if (!jar) continue;
+
+    const recentJarTransactions: BudgetJarTransaction[] = (jarTransactionsByJarId.get(jar.id) ?? [])
+      .sort((a, b) => b.occurredAt - a.occurredAt)
+      .slice(0, 5)
+      .map((tx) => ({
+        id: tx.id,
+        occurredAt: tx.occurredAt,
+        amountMinor: tx.amountMinor,
+        note: tx.note,
+      }));
+
+    saving.push({
+      id: category.id,
+      name: category.name,
+      targetAmountMinor: kind.predictedAmountMinor,
+      currency: kind.currency,
+      jarId: jar.id,
+      jarBalanceMinor: jar.balanceMinor,
+      recentJarTransactions,
+    });
+  }
+
+  return { dynamic, fixed, saving };
 }

@@ -139,3 +139,67 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
+/* L.12 — saving jar dialogs (create + contribute/withdraw). */
+
+.dialogBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-4);
+}
+
+.actions {
+  display: flex;
+  gap: var(--sv-space-3);
+}
+
+.feedbackError {
+  color: var(--sv-color-error-text);
+  font-size: var(--sv-font-size-sm);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--sv-space-1);
+}
+
+.sectionAddButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--sv-radius-md);
+  border: none;
+  background: transparent;
+  color: var(--sv-color-text-muted);
+  cursor: pointer;
+}
+
+.sectionAddButton:hover {
+  background: var(--sv-color-surface-sunken);
+  color: var(--sv-color-text-primary);
+}
+
+.jarStatGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sv-space-4);
+}
+
+.statLabel {
+  font-size: var(--sv-font-size-xs);
+  font-weight: var(--sv-font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sv-color-text-muted);
+  margin: 0 0 var(--sv-space-1);
+}
+
+.statValue {
+  font-size: var(--sv-font-size-lg);
+  font-weight: var(--sv-font-weight-bold);
+  margin: 0;
+}

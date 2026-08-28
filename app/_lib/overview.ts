@@ -17,8 +17,11 @@ export interface OverviewChecklistItem {
    *  row (nothing to navigate to) and for a row whose section has no
    *  shipped page at all yet (rendered disabled, never a dead link). */
   href?: string;
-  /** True only for a row whose section has no task shipped yet — Saving
-   *  plans (L.12). Rendered as a disabled "coming soon" row. */
+  /** True for a row whose section has no task shipped yet at all — rendered
+   *  as a disabled "coming soon" row. Every current checklist row now maps
+   *  to a shipped section, so this is always `false` today; kept as a
+   *  generic mechanism for whatever future row needs it next, not removed
+   *  just because nothing currently sets it. */
   comingSoon: boolean;
 }
 
@@ -196,9 +199,10 @@ export async function getOverviewData(db: LedgerDb, userId: string): Promise<Ove
     {
       key: 'saving-plans',
       label: 'Saving plans',
-      detail: 'Set aside money for goals',
-      done: false,
-      comingSoon: true,
+      detail: jars.length > 0 ? `${jars.length} jar${jars.length === 1 ? '' : 's'}` : 'Set aside money for goals',
+      done: jars.length > 0,
+      href: jars.length > 0 ? undefined : '/ledger/budget',
+      comingSoon: false,
     },
     accountsRow('bank-accounts', 'Bank accounts', bankingCount, 'account'),
     accountsRow('credit-cards', 'Credit cards', creditCardCount, 'card'),

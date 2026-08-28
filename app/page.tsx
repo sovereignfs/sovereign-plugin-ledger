@@ -1,8 +1,9 @@
-import { LedgerShell } from './_components/LedgerShell';
 import { OverviewView } from './_components/OverviewView';
 import { SetupWizard } from './_components/SetupWizard';
+import { listMobileApps } from './_lib/apps';
 import { requireUser } from './_lib/authz';
 import { getDb } from './_lib/db';
+import { getInsights } from './_lib/insights';
 import { getOverviewData } from './_lib/overview';
 import { getSetupStatus } from './_lib/setup-status';
 
@@ -37,10 +38,10 @@ export default async function LedgerHomePage() {
     return <SetupWizard initialStatus={status} />;
   }
 
-  const data = await getOverviewData(db, actor.userId);
-  return (
-    <LedgerShell>
-      <OverviewView data={data} />
-    </LedgerShell>
-  );
+  const [data, apps, insights] = await Promise.all([
+    getOverviewData(db, actor.userId),
+    listMobileApps(),
+    getInsights(db, actor.userId),
+  ]);
+  return <OverviewView data={data} apps={apps} insights={insights} />;
 }

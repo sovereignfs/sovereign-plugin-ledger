@@ -10,8 +10,10 @@
   aria-labelledby="title desc"
 >
   <title id="title">Ledger</title>
-  <desc id="desc">Wallet icon.</desc>
-  <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
-  <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
-  <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
+  <desc id="desc">Ruled ledger page with an amount column.</desc>
+  <rect x="4" y="3" width="16" height="18" rx="2" />
+  <path d="M15 3v18" />
+  <path d="M7 8h5" />
+  <path d="M7 13h5" />
+  <path d="M7 18h5" />
 </svg>

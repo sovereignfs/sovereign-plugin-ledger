@@ -28,6 +28,7 @@ import {
   pgTable,
   primaryKey,
   text,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 export const currencies = pgTable(
@@ -54,7 +55,9 @@ export const fxRates = pgTable(
     asOfDate: text('as_of_date').notNull(),
     source: text('source'),
   },
-  (t) => [index('ledger_fx_rates_lookup_idx').on(t.currencyCode, t.pivotCode, t.asOfDate)],
+  (t) => [
+    uniqueIndex('ledger_fx_rates_lookup_idx').on(t.currencyCode, t.pivotCode, t.asOfDate),
+  ],
 );
 
 export const incomes = pgTable(
@@ -284,6 +287,18 @@ export const periodReviews = pgTable(
     year: integer('year').notNull(),
     month: integer('month').notNull(),
     reviewedAt: bigint('reviewed_at', { mode: 'number' }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.year, t.month] })],
+);
+
+export const monthEndNotifications = pgTable(
+  'ledger_month_end_notifications',
+  {
+    tenantId: text('tenant_id').notNull(),
+    userId: text('user_id').notNull(),
+    year: integer('year').notNull(),
+    month: integer('month').notNull(),
+    sentAt: bigint('sent_at', { mode: 'number' }).notNull(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.year, t.month] })],
 );

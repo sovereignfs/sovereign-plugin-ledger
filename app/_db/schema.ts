@@ -34,7 +34,15 @@
  *   enforced in the data layer, not the schema — matching this app family's
  *   existing convention (see `sovereign-plugin-kanban.local`'s schema.ts).
  */
-import { index, integer, primaryKey, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import {
+  index,
+  integer,
+  primaryKey,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 
 export const currencies = sqliteTable(
   'ledger_currencies',
@@ -57,8 +65,10 @@ export const currencies = sqliteTable(
  * per-user (no `tenant_id`/`user_id` at all). Every currency's rate is
  * stored against one pivot currency (see CONCEPT.md/SPEC.md) rather than
  * every pairwise combination; a cross-rate is derived at query time. The
- * unique-shaped lookup index below also serves the "rate in effect as of a
- * given date" lookup (see `fx-rates.ts`) — one index does both jobs.
+ * unique index below is both the idempotency guard `fetch-fx-rates.ts`
+ * (L.10) relies on via `onConflictDoNothing` and the "rate in effect as of
+ * a given date" lookup shape (see `fx-rates.ts`) — one index does both
+ * jobs.
  */
 export const fxRates = sqliteTable(
   'ledger_fx_rates',
@@ -72,7 +82,9 @@ export const fxRates = sqliteTable(
     /** Provenance of the rate (e.g. 'frankfurter', 'coingecko'). Nullable — not always known. */
     source: text('source'),
   },
-  (t) => [index('ledger_fx_rates_lookup_idx').on(t.currencyCode, t.pivotCode, t.asOfDate)],
+  (t) => [
+    uniqueIndex('ledger_fx_rates_lookup_idx').on(t.currencyCode, t.pivotCode, t.asOfDate),
+  ],
 );
 
 export const incomes = sqliteTable(
@@ -341,6 +353,30 @@ export const periodReviews = sqliteTable(
     year: integer('year').notNull(),
     month: integer('month').notNull(),
     reviewedAt: integer('reviewed_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.year, t.month] })],
+);
+
+/**
+ * L.10's "already sent" marker for `app/_jobs/month-end-report.ts` (L.11) —
+ * deliberately a separate table from `periodReviews` above, not a column
+ * added to it: that table's own "absence of a row = needs review" invariant
+ * (its own doc comment) would break if a row could also exist for a period
+ * that was auto-notified but never user-reviewed. The insert into this
+ * table via `onConflictDoNothing` IS the idempotency claim — a row landing
+ * is what licenses the job to actually send; this is a cross-replica
+ * coordination primitive (each replica of a multi-node deployment ticks
+ * independently — the schedule docs' own note), not just a same-process
+ * dedup guard.
+ */
+export const monthEndNotifications = sqliteTable(
+  'ledger_month_end_notifications',
+  {
+    tenantId: text('tenant_id').notNull(),
+    userId: text('user_id').notNull(),
+    year: integer('year').notNull(),
+    month: integer('month').notNull(),
+    sentAt: integer('sent_at').notNull(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.year, t.month] })],
 );

@@ -4,33 +4,11 @@ import { Button, CurrencyInput, FormField, Select } from '@sovereignfs/ui';
 import { startTransition, useActionState, useState } from 'react';
 import { createCurrency, createIncome } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
+import { CURRENCY_OPTIONS } from '../_lib/currency-options';
 import type { IncompleteSetupStatus } from '../_lib/setup-status';
 import { CategoriesStep } from './CategoriesStep';
 import { ReadyStep } from './ReadyStep';
 import styles from './SetupWizard.module.css';
-
-export const CURRENCY_OPTIONS: Array<{ code: string; name: string }> = [
-  { code: 'USD', name: 'US Dollar' },
-  { code: 'EUR', name: 'Euro' },
-  { code: 'GBP', name: 'British Pound' },
-  { code: 'JPY', name: 'Japanese Yen' },
-  { code: 'CHF', name: 'Swiss Franc' },
-  { code: 'CAD', name: 'Canadian Dollar' },
-  { code: 'AUD', name: 'Australian Dollar' },
-  { code: 'NZD', name: 'New Zealand Dollar' },
-  { code: 'CNY', name: 'Chinese Yuan' },
-  { code: 'INR', name: 'Indian Rupee' },
-  { code: 'SGD', name: 'Singapore Dollar' },
-  { code: 'HKD', name: 'Hong Kong Dollar' },
-  { code: 'SEK', name: 'Swedish Krona' },
-  { code: 'NOK', name: 'Norwegian Krone' },
-  { code: 'DKK', name: 'Danish Krone' },
-  { code: 'ZAR', name: 'South African Rand' },
-  { code: 'BRL', name: 'Brazilian Real' },
-  { code: 'MXN', name: 'Mexican Peso' },
-  { code: 'LKR', name: 'Sri Lankan Rupee' },
-  { code: 'AED', name: 'UAE Dirham' },
-];
 
 function Progress({ step }: { step: 1 | 2 | 3 }) {
   return (
