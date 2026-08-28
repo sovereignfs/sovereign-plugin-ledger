@@ -208,3 +208,78 @@ describe('getReportsData', () => {
     expect(data.periods).toEqual([]);
   });
 });
+
+describe('getReportsData — actual net of jars (L.12)', () => {
+  it('a jar withdrawal reduces actualSavingsNetOfJarsMinor but not actualSavingsMinor', async () => {
+    await seedTwoMonths();
+    await t.db.insert(schema.savingJars).values({
+      id: 'jar-travel',
+      tenantId,
+      userId,
+      kindId: 'kind-groceries', // any existing kind id — jars aren't FK'd to a specific budget kind for this purpose
+      balanceMinor: 20_000,
+      currency: 'EUR',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+    // A jar-funded expense in August: a withdrawal, never a ledger_transactions row.
+    await t.db.insert(schema.jarTransactions).values({
+      id: 'jartx-withdrawal',
+      tenantId,
+      userId,
+      jarId: 'jar-travel',
+      amountMinor: -3_000,
+      categoryId: null,
+      note: null,
+      occurredAt: AUGUST,
+    });
+
+    const data = await getReportsData(t.ledger, userId);
+    const august = must(
+      data.periods.find((p) => p.year === 2026 && p.month === 8),
+      'August',
+    );
+    // actualSavingsMinor is unaffected — the withdrawal was never a ledger_transactions row.
+    expect(august.actualSavingsMinor).toBe(400_000 - 175_000);
+    // actual-net-of-jars is reduced by exactly the withdrawal amount.
+    expect(august.actualSavingsNetOfJarsMinor).toBe(august.actualSavingsMinor - 3_000);
+
+    // July had no jar activity — untouched.
+    const july = must(
+      data.periods.find((p) => p.year === 2026 && p.month === 7),
+      'July',
+    );
+    expect(july.actualSavingsNetOfJarsMinor).toBe(july.actualSavingsMinor);
+  });
+
+  it('a jar contribution does not affect actual-net-of-jars — only withdrawals do', async () => {
+    await seedTwoMonths();
+    await t.db.insert(schema.savingJars).values({
+      id: 'jar-travel',
+      tenantId,
+      userId,
+      kindId: 'kind-groceries',
+      balanceMinor: 5_000,
+      currency: 'EUR',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+    await t.db.insert(schema.jarTransactions).values({
+      id: 'jartx-contribution',
+      tenantId,
+      userId,
+      jarId: 'jar-travel',
+      amountMinor: 5_000,
+      categoryId: null,
+      note: null,
+      occurredAt: AUGUST,
+    });
+
+    const data = await getReportsData(t.ledger, userId);
+    const august = must(
+      data.periods.find((p) => p.year === 2026 && p.month === 8),
+      'August',
+    );
+    expect(august.actualSavingsNetOfJarsMinor).toBe(august.actualSavingsMinor);
+  });
+});

@@ -9,15 +9,21 @@ function monthLabel(): string {
 }
 
 /**
- * web-shell.md screen 1. Insights and the month-end review nudge are both
- * omitted here, not stubbed — they depend on L.13 (rule-based insights) and
- * L.8 (period reviews) respectively, neither of which exists yet. The
- * wireframe's "Recent activity" also shows an illustrative income row
- * ("Salary — Primary income", +€2,400) — incomes are a declared recurring
- * amount in this data model, not a logged event, so there's no transaction
- * row to ever render for one; every real row here is a spend.
+ * web-shell.md screen 1. The month-end review nudge is omitted here, not
+ * stubbed — L.8's period reviews have no "needs attention" signal
+ * meaningful on Overview specifically (Reports' own list already surfaces
+ * this). The wireframe's "Recent activity" also shows an illustrative
+ * income row ("Salary — Primary income", +€2,400) — incomes are a
+ * declared recurring amount in this data model, not a logged event, so
+ * there's no transaction row to ever render for one; every real row here
+ * is a spend.
+ *
+ * Insights (L.13) render only when there's at least one — an empty
+ * Insights section reads as "nothing to flag right now," which doesn't
+ * need its own empty-state placeholder the way a genuinely-empty list
+ * (Recent activity, Budget this month) does.
  */
-export function OverviewDashboard({ data }: { data: OverviewData }) {
+export function OverviewDashboard({ data, insights }: { data: OverviewData; insights: string[] }) {
   const base = data.baseCurrencyCode;
 
   return (
@@ -98,6 +104,21 @@ export function OverviewDashboard({ data }: { data: OverviewData }) {
           })
         )}
       </section>
+
+      {insights.length > 0 && (
+        <section>
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionTitle}>Insights</h2>
+          </div>
+          <div className={styles.insightsList}>
+            {insights.map((insight) => (
+              <Card key={insight} padding="md">
+                <p className={styles.insightText}>{insight}</p>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section>
         <div className={styles.sectionHeader}>

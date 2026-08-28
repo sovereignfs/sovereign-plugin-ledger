@@ -7,7 +7,7 @@ import { createLoan } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
 import { toDateOnly } from '../_lib/format';
 import styles from './Accounts.module.css';
-import { CURRENCY_OPTIONS } from './SetupWizard';
+import { CURRENCY_OPTIONS } from '../_lib/currency-options';
 
 export function CreateLoanDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();

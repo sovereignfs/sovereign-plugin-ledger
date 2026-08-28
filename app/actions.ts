@@ -16,13 +16,13 @@
  * L.12's jar-auto-provisioning logic.
  */
 import { revalidatePath } from 'next/cache';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import * as schema from './_db/schema';
 import { fail, ok, type ActionResult } from './_lib/action-result';
 import { requireUser } from './_lib/authz';
 import { getDb } from './_lib/db';
 import { newId } from './_lib/ids';
-import { listCategoriesWithKinds } from './_lib/queries';
+import { listCategoriesWithKinds, listSavingCategoriesWithKinds } from './_lib/queries';
 
 const NOT_FOUND_CURRENCY = 'Currency not found.';
 const NOT_FOUND_INCOME = 'Income not found.';
@@ -34,6 +34,8 @@ const NOT_FOUND_ASSET = 'Asset not found.';
 const NOT_FOUND_DEPOSIT = 'Deposit not found.';
 const NOT_FOUND_LOAN = 'Loan not found.';
 const NOT_FOUND_PERSON = 'Person not found.';
+const NOT_FOUND_JAR = 'Saving jar not found.';
+const LOAN_LINKED_KIND = 'A loan is linked to this — delete the loan from Accounts first.';
 
 /**
  * Every loan's linked kind lives under one shared Fixed category per user,
@@ -144,13 +146,23 @@ export async function setBaseCurrency(input: { currencyId: string }): Promise<Ac
 export async function deleteCurrency(input: { currencyId: string }): Promise<ActionResult> {
   const actor = await requireUser();
   const db = await getDb();
-  const deleted = await db
+
+  const [currency] = await db
+    .select({ isBase: schema.currencies.isBase })
+    .from(schema.currencies)
+    .where(
+      and(eq(schema.currencies.id, input.currencyId), eq(schema.currencies.userId, actor.userId)),
+    );
+  if (!currency) return fail(NOT_FOUND_CURRENCY);
+  if (currency.isBase === 1) {
+    return fail('Cannot delete your base currency — set a different currency as base first.');
+  }
+
+  await db
     .delete(schema.currencies)
     .where(
       and(eq(schema.currencies.id, input.currencyId), eq(schema.currencies.userId, actor.userId)),
-    )
-    .returning({ id: schema.currencies.id });
-  if (deleted.length === 0) return fail(NOT_FOUND_CURRENCY);
+    );
   refresh();
   return ok('Currency removed.');
 }
@@ -236,25 +248,29 @@ export async function deleteIncome(input: { incomeId: string }): Promise<ActionR
 
 /**
  * Creates a category and its first kind in one transaction — for callers
- * (the setup wizard, L.4) that need to create both in the same gesture and
- * have no way to learn a plain `createCategory`'s new id back (actions
- * return only `ActionResult`, matching this app family's own convention of
- * never echoing created ids to the client). Not a replacement for the
- * separate `createCategory`/`createKind` below, which stay the lower-level
+ * (the setup wizard, L.4; `CreateSavingJarDialog`, L.12) that need to
+ * create both in the same gesture and have no way to learn a plain
+ * `createCategory`'s new id back (actions return only `ActionResult`,
+ * matching this app family's own convention of never echoing created ids
+ * to the client). Not a replacement for the separate
+ * `createCategory`/`createKind` below, which stay the lower-level
  * primitives for adding a kind to an already-existing category.
+ *
+ * `type: 'saving'` also creates the linked `ledger_saving_jars` row in the
+ * same transaction (L.12's own deliverable) — one jar per saving kind,
+ * starting balance zero; `predictedAmountMinor` is the jar's monthly
+ * target, same field Dynamic/Fixed already use for their own budgeted
+ * amount, not a separate column.
  */
 export async function createCategoryWithKind(input: {
   name: string;
-  type: 'dynamic' | 'fixed';
+  type: 'dynamic' | 'fixed' | 'saving';
   predictedAmountMinor: number;
   currency: string;
 }): Promise<ActionResult> {
   const actor = await requireUser();
   const name = cleanText(input.name, 'Category name');
   if (typeof name !== 'string') return name;
-  if (input.type !== 'dynamic' && input.type !== 'fixed') {
-    return fail("Saving categories aren't supported yet — coming in a later task.");
-  }
   const predictedAmountMinor = cleanAmountMinor(input.predictedAmountMinor, 'Budgeted amount');
   if (typeof predictedAmountMinor !== 'number') return predictedAmountMinor;
 
@@ -271,8 +287,9 @@ export async function createCategoryWithKind(input: {
       createdAt: now,
       updatedAt: now,
     });
+    const kindId = newId();
     await tx.insert(schema.kinds).values({
-      id: newId(),
+      id: kindId,
       tenantId: actor.tenantId,
       userId: actor.userId,
       categoryId,
@@ -285,6 +302,18 @@ export async function createCategoryWithKind(input: {
       createdAt: now,
       updatedAt: now,
     });
+    if (input.type === 'saving') {
+      await tx.insert(schema.savingJars).values({
+        id: newId(),
+        tenantId: actor.tenantId,
+        userId: actor.userId,
+        kindId,
+        balanceMinor: 0,
+        currency: input.currency,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
   });
   refresh();
   return ok('Category added.');
@@ -318,6 +347,29 @@ export async function createCategory(input: {
 export async function deleteCategory(input: { categoryId: string }): Promise<ActionResult> {
   const actor = await requireUser();
   const db = await getDb();
+
+  const kindRows = await db
+    .select({ id: schema.kinds.id })
+    .from(schema.kinds)
+    .where(
+      and(eq(schema.kinds.categoryId, input.categoryId), eq(schema.kinds.userId, actor.userId)),
+    );
+  if (kindRows.length > 0) {
+    const [linkedLoan] = await db
+      .select({ id: schema.loans.id })
+      .from(schema.loans)
+      .where(
+        and(
+          inArray(
+            schema.loans.linkedKindId,
+            kindRows.map((k) => k.id),
+          ),
+          eq(schema.loans.userId, actor.userId),
+        ),
+      );
+    if (linkedLoan) return fail(LOAN_LINKED_KIND);
+  }
+
   const deleted = await db
     .delete(schema.categories)
     .where(
@@ -394,6 +446,13 @@ export async function updateKindBudget(input: {
 export async function deleteKind(input: { kindId: string }): Promise<ActionResult> {
   const actor = await requireUser();
   const db = await getDb();
+
+  const [linkedLoan] = await db
+    .select({ id: schema.loans.id })
+    .from(schema.loans)
+    .where(and(eq(schema.loans.linkedKindId, input.kindId), eq(schema.loans.userId, actor.userId)));
+  if (linkedLoan) return fail(LOAN_LINKED_KIND);
+
   const deleted = await db
     .delete(schema.kinds)
     .where(and(eq(schema.kinds.id, input.kindId), eq(schema.kinds.userId, actor.userId)))
@@ -456,6 +515,61 @@ export async function deleteTransaction(input: { transactionId: string }): Promi
   if (deleted.length === 0) return fail(NOT_FOUND_TRANSACTION);
   refresh();
   return ok('Expense removed.');
+}
+
+// ---------------------------------------------------------------------------
+// Saving jars (L.12) — `ledger_jar_transactions` amounts are signed
+// (positive = contribution, negative = withdrawal, SPEC.md's Data model
+// notes), mirroring `createPeopleTransaction`'s pattern below. Unlike a
+// person's balance (an open-ended debt/credit that can legitimately go
+// negative), a jar can't hold negative money — a withdrawal larger than
+// the jar's own balance is rejected rather than letting the jar overdraw,
+// the actual point of envelope-style budgeting.
+
+export async function createJarTransaction(input: {
+  jarId: string;
+  amountMinor: number;
+  note?: string;
+  occurredAt?: number;
+}): Promise<ActionResult> {
+  const actor = await requireUser();
+  const amountMinor = cleanSignedAmountMinor(input.amountMinor, 'Amount');
+  if (typeof amountMinor !== 'number') return amountMinor;
+
+  const db = await getDb();
+  const [jar] = await db
+    .select({
+      id: schema.savingJars.id,
+      balanceMinor: schema.savingJars.balanceMinor,
+      categoryId: schema.kinds.categoryId,
+    })
+    .from(schema.savingJars)
+    .innerJoin(schema.kinds, eq(schema.kinds.id, schema.savingJars.kindId))
+    .where(and(eq(schema.savingJars.id, input.jarId), eq(schema.savingJars.userId, actor.userId)));
+  if (!jar) return fail(NOT_FOUND_JAR);
+  if (amountMinor < 0 && Math.abs(amountMinor) > jar.balanceMinor) {
+    return fail('This jar doesn’t have enough balance for that withdrawal.');
+  }
+
+  const now = Date.now();
+  await db.transaction(async (tx) => {
+    await tx.insert(schema.jarTransactions).values({
+      id: newId(),
+      tenantId: actor.tenantId,
+      userId: actor.userId,
+      jarId: input.jarId,
+      amountMinor,
+      categoryId: jar.categoryId,
+      note: input.note?.trim() || null,
+      occurredAt: input.occurredAt ?? now,
+    });
+    await tx
+      .update(schema.savingJars)
+      .set({ balanceMinor: sql`${schema.savingJars.balanceMinor} + ${amountMinor}`, updatedAt: now })
+      .where(eq(schema.savingJars.id, input.jarId));
+  });
+  refresh();
+  return ok(amountMinor > 0 ? 'Contribution recorded.' : 'Withdrawal recorded.');
 }
 
 // ---------------------------------------------------------------------------
@@ -1006,6 +1120,14 @@ export interface ExpenseFormCategoryOption {
   kinds: ExpenseFormKindOption[];
 }
 
+export interface ExpenseFormJarOption {
+  id: string;
+  /** The jar's own saving category name (e.g. "Travel jar"). */
+  name: string;
+  balanceMinor: number;
+  currency: string;
+}
+
 /**
  * The only read (not a mutation) in this file — every other action here
  * changes data. Needed because the "+ Add expense" trigger lives in
@@ -1015,13 +1137,27 @@ export interface ExpenseFormCategoryOption {
  * pipeline to preload this into ahead of time the way Budget's own category
  * list is preloaded for itself. Fetched lazily, only when the dialog
  * actually opens, so pages that never open it never pay for this query.
+ *
+ * `jars` (L.12) backs the "fund from a saving jar" toggle's picker — a jar
+ * with a zero balance is still included (its own withdrawal validation in
+ * `createJarTransaction` is what actually blocks an over-large one),
+ * consistent with every other picker in this app never pre-filtering
+ * options on business-rule eligibility.
  */
 export async function getExpenseFormOptions(): Promise<{
   categories: ExpenseFormCategoryOption[];
+  jars: ExpenseFormJarOption[];
 }> {
   const actor = await requireUser();
   const db = await getDb();
-  const categories = await listCategoriesWithKinds(db, actor.userId);
+  const [categories, savingCategories, jars] = await Promise.all([
+    listCategoriesWithKinds(db, actor.userId),
+    listSavingCategoriesWithKinds(db, actor.userId),
+    db.select().from(schema.savingJars).where(eq(schema.savingJars.userId, actor.userId)),
+  ]);
+  const savingCategoryByKindId = new Map(
+    savingCategories.flatMap((category) => category.kinds.map((kind) => [kind.id, category] as const)),
+  );
   return {
     categories: categories.map((category) => ({
       id: category.id,
@@ -1032,5 +1168,17 @@ export async function getExpenseFormOptions(): Promise<{
         currency: kind.currency,
       })),
     })),
+    jars: jars
+      .map((jar) => {
+        const category = savingCategoryByKindId.get(jar.kindId);
+        if (!category) return null;
+        return {
+          id: jar.id,
+          name: category.name,
+          balanceMinor: jar.balanceMinor,
+          currency: jar.currency,
+        };
+      })
+      .filter((jar) => jar !== null),
   };
 }

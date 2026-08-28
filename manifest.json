@@ -2,14 +2,19 @@
   "schemaVersion": 1,
   "id": "fs.sovereign.ledger",
   "name": "Ledger",
-  "version": "0.8.0",
+  "version": "0.14.0",
   "description": "A budget-based personal finance tracker — plan a budget, track expenses, and see your net worth.",
   "type": "sovereign",
   "runtime": "native",
   "routePrefix": "/ledger",
   "shell": "default",
+  "shellConfig": { "mobileFooter": false },
   "icon": "icon.svg",
   "permissions": ["auth:session", "db:readWrite", "mailer:send", "notifications:send"],
+  "schedules": [
+    { "id": "fetch-fx-rates", "intervalMinutes": 1440, "entry": "app/_jobs/fetch-fx-rates.ts" },
+    { "id": "month-end-report", "intervalMinutes": 1440, "entry": "app/_jobs/month-end-report.ts" }
+  ],
   "repository": "https://github.com/sovereignfs/sovereign-plugin-ledger",
   "compatibility": {
     "minPlatformVersion": "0.94.16"

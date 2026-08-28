@@ -133,8 +133,93 @@ describe('getBudgetData', () => {
     expect(data.fixed.map((c) => c.name)).toEqual(['Rent']);
   });
 
-  it('returns empty dynamic/fixed lists when the user has no categories yet', async () => {
+  it('returns empty dynamic/fixed/saving lists when the user has no categories yet', async () => {
     const data = await getBudgetData(t.ledger, userId);
-    expect(data).toEqual({ dynamic: [], fixed: [] });
+    expect(data).toEqual({ dynamic: [], fixed: [], saving: [] });
+  });
+});
+
+describe('getBudgetData — saving jars (L.12)', () => {
+  async function seedSavingJar() {
+    const now = Date.now();
+    await t.db.insert(schema.categories).values({
+      id: 'cat-travel',
+      tenantId,
+      userId,
+      name: 'Travel jar',
+      type: 'saving',
+      createdAt: now,
+      updatedAt: now,
+    });
+    await t.db.insert(schema.kinds).values({
+      id: 'kind-travel',
+      tenantId,
+      userId,
+      categoryId: 'cat-travel',
+      name: 'Travel jar',
+      predictedAmountMinor: 10_000,
+      currency: 'EUR',
+      recurrenceIntervalUnit: null,
+      recurrenceIntervalCount: null,
+      recurrenceAnchorDate: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await t.db.insert(schema.savingJars).values({
+      id: 'jar-travel',
+      tenantId,
+      userId,
+      kindId: 'kind-travel',
+      balanceMinor: 5_000,
+      currency: 'EUR',
+      createdAt: now,
+      updatedAt: now,
+    });
+    await t.db.insert(schema.jarTransactions).values([
+      {
+        id: 'jartx-1',
+        tenantId,
+        userId,
+        jarId: 'jar-travel',
+        amountMinor: 6_000,
+        categoryId: 'cat-travel',
+        note: 'Initial deposit',
+        occurredAt: now - 1000,
+      },
+      {
+        id: 'jartx-2',
+        tenantId,
+        userId,
+        jarId: 'jar-travel',
+        amountMinor: -1_000,
+        categoryId: 'cat-travel',
+        note: 'Bus ticket',
+        occurredAt: now,
+      },
+    ]);
+  }
+
+  it('includes a saving category with its target, jar balance, and recent jar history', async () => {
+    await seedSavingJar();
+    const data = await getBudgetData(t.ledger, userId);
+    expect(data.saving).toHaveLength(1);
+    const jar = must(data.saving[0], 'travel jar');
+    expect(jar).toMatchObject({
+      name: 'Travel jar',
+      targetAmountMinor: 10_000,
+      currency: 'EUR',
+      jarId: 'jar-travel',
+      jarBalanceMinor: 5_000,
+    });
+    expect(jar.recentJarTransactions.map((tx) => tx.id)).toEqual(['jartx-2', 'jartx-1']);
+  });
+
+  it('never mixes saving categories into dynamic/fixed', async () => {
+    await seedBudget();
+    await seedSavingJar();
+    const data = await getBudgetData(t.ledger, userId);
+    expect(data.dynamic.map((c) => c.name)).toEqual(['Groceries']);
+    expect(data.fixed.map((c) => c.name)).toEqual(['Rent']);
+    expect(data.saving.map((c) => c.name)).toEqual(['Travel jar']);
   });
 });

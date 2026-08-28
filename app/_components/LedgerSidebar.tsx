@@ -61,11 +61,16 @@ export function LedgerSidebar() {
       <div className={styles.spacer} />
 
       <div className={styles.divider} />
-      <div className={styles.linkDisabled} title="Coming in a future update">
+      <Link
+        href="/ledger/settings"
+        className={[styles.link, isActive('/ledger/settings') ? styles.linkActive : '']
+          .filter(Boolean)
+          .join(' ')}
+        aria-current={isActive('/ledger/settings') ? 'page' : undefined}
+      >
         <Icon name="settings" size="sm" aria-hidden />
         Settings
-        <span className={styles.soon}>Soon</span>
-      </div>
+      </Link>
     </nav>
   );
 }

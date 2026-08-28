@@ -1,6 +1,6 @@
 # Ledger — Roadmap
 
-**Manifest version:** 0.8.0 · **Last updated:** 2026-08-27
+**Manifest version:** 0.14.0 · **Last updated:** 2026-08-28
 
 Chronological build index — one row per PR, platform-`ROADMAP.md` style. Full
 task detail lives in [SPEC.md](SPEC.md); the product concept in
@@ -40,21 +40,27 @@ depend on the previous row unless noted.
 
 | Slot  | Task                                  | Status | Spec task                              |
 | ----- | -------------------------------------- | ------ | ----------------------------------------- |
-| 0.9.0 | Mobile fork                            | ⬜     | [L.9](SPEC.md#l9--mobile-fork)            |
+| 0.9.0 | Mobile fork                            | ✅     | [L.9](SPEC.md#l9--mobile-fork)            |
 
 ## Phase E — Automation
 
 | Slot   | Task                                  | Status | Spec task                                                 |
 | ------ | -------------------------------------- | ------ | ------------------------------------------------------------ |
-| 0.10.0 | FX rate background job                 | ⬜     | [L.10](SPEC.md#l10--fx-rate-background-job)                 |
-| 0.11.0 | Month-end report generation            | ⬜     | [L.11](SPEC.md#l11--month-end-report-generation)             |
+| 0.10.0 | FX rate background job                 | ✅     | [L.10](SPEC.md#l10--fx-rate-background-job)                 |
+| 0.11.0 | Month-end report generation            | ✅     | [L.11](SPEC.md#l11--month-end-report-generation)             |
 
 ## Phase F — Saving jars & insights
 
 | Slot   | Task                                  | Status | Spec task                                    |
 | ------ | -------------------------------------- | ------ | ----------------------------------------------- |
-| 0.12.0 | Saving jars                            | ⬜     | [L.12](SPEC.md#l12--saving-jars)                |
-| 0.13.0 | Rule-based insights                    | ⬜     | [L.13](SPEC.md#l13--rule-based-insights)        |
+| 0.12.0 | Saving jars                            | ✅     | [L.12](SPEC.md#l12--saving-jars)                |
+| 0.13.0 | Rule-based insights                    | ✅     | [L.13](SPEC.md#l13--rule-based-insights)        |
+
+## Phase G — Settings
+
+| Slot   | Task                                  | Status | Spec task                        |
+| ------ | -------------------------------------- | ------ | ----------------------------------- |
+| 0.14.0 | Settings                               | ✅     | [L.14](SPEC.md#l14--settings)       |
 
 ---
 

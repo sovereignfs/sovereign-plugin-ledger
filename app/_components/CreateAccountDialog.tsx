@@ -14,7 +14,7 @@ import {
 import { createAccount } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
 import styles from './Accounts.module.css';
-import { CURRENCY_OPTIONS } from './SetupWizard';
+import { CURRENCY_OPTIONS } from '../_lib/currency-options';
 
 export function CreateAccountDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();

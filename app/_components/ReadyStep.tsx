@@ -2,7 +2,7 @@
 
 import { Button, Icon } from '@sovereignfs/ui';
 import { formatMoney } from '../_lib/format';
-import { CURRENCY_OPTIONS } from './SetupWizard';
+import { CURRENCY_OPTIONS } from '../_lib/currency-options';
 import styles from './SetupWizard.module.css';
 
 export function ReadyStep({

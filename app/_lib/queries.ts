@@ -42,6 +42,36 @@ export async function listCategoriesWithKinds(
   }));
 }
 
+/**
+ * Saving-type categories only (L.12) — the mirror image of
+ * `listCategoriesWithKinds`'s own exclusion filter, kept as a separate
+ * function rather than a shared `type` parameter so every existing caller
+ * of `listCategoriesWithKinds` (Overview, Budget's Dynamic/Fixed sections,
+ * the expense-entry form) keeps its current dynamic+fixed-only behavior
+ * with no risk of a saving category silently leaking in.
+ */
+export async function listSavingCategoriesWithKinds(
+  db: LedgerDb,
+  userId: string,
+): Promise<CategoryWithKinds[]> {
+  const categories = await db
+    .select()
+    .from(schema.categories)
+    .where(and(eq(schema.categories.userId, userId), eq(schema.categories.type, 'saving')));
+  const kinds = await db.select().from(schema.kinds).where(eq(schema.kinds.userId, userId));
+
+  const kindsByCategory = new Map<string, KindRow[]>();
+  for (const kind of kinds) {
+    const list = kindsByCategory.get(kind.categoryId) ?? [];
+    list.push(kind);
+    kindsByCategory.set(kind.categoryId, list);
+  }
+  return categories.map((category) => ({
+    ...category,
+    kinds: kindsByCategory.get(category.id) ?? [],
+  }));
+}
+
 /** All of the caller's transactions, most recent first — e.g. a "recent activity" feed. */
 export async function listTransactions(db: LedgerDb, userId: string) {
   return db

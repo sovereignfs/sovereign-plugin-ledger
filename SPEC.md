@@ -488,8 +488,494 @@ format:check, design-tokens) all pass clean.
 This closes out Phase C (Net worth & reporting) — L.5 through L.8 are
 all now shipped, covering the full web core budget loop end to end.
 
-🚧 L.9 (Mobile fork) is next, dependent on L.5, L.6, L.7, and L.8 — all
-now shipped.
+✅ **L.9 shipped (0.9.0)** — the `ResponsiveSurface` mobile tree per
+`mobile-fork.md`: a self-rendered `MobileFooter` (`Overview`/`Budget`
+left, `Accounts`/`Reports` right, platform's own center Apps launcher),
+an Apps drawer sourced from `sdk.plugins.list()`, a floating "+ Add
+expense" FAB, and all four sections — Overview, Budget, Accounts,
+Reports — reshaped for mobile with drill-down navigation.
+
+**One deliberate deviation from this task's own original deliverable
+text, decided independently and then strongly validated by a precedent
+found mid-task:** the plan called for
+`shellConfig: { mobileHeader: false, mobileFooter: false }` — a fully
+self-rendered header too, for a per-screen title. Only `mobileFooter:
+false` shipped; the platform's real `MobileHeader` (with a working
+notification bell and account menu) stays. `MobileHeader`'s API has no
+slot for a plugin-controlled title beyond replacing the whole component,
+and `NotificationBell`/`AccountMenu` live in `runtime/src`, not
+`@sovereignfs/ui` — confirmed directly against the package's own
+exports — so self-rendering the header means rebuilding a full
+notification center and account menu from SDK primitives from scratch,
+exactly what `sovereign-plugin-kanban.local`'s `shell: minimal` build
+had to do. That's a real, substantial side-build for a "per-screen
+title" benefit plain in-content headings (`<h1>` on each mobile screen)
+deliver at negligible cost. Discovered only after making this call that
+`sovereign-plugin-tally.local` — the same `shell: default` situation —
+had already made and documented the identical trade-off, almost
+word-for-word, in its own `TallyMobileShell.tsx` doc comment. Not a
+coincidence worth ignoring: this is now the second `shell: default`
+plugin to independently reach the same conclusion, worth treating as the
+default answer for any future one.
+
+**Two real bugs found and fixed before anything shipped, both self-caught
+via live verification, not reported:**
+
+- **Broken plugin icons in the Apps drawer.** The first `app/_lib/apps.ts`
+  mapped `iconUrl: app.icon` straight from `sdk.plugins.list()` and
+  rendered it as an `<img src>` — broken images, since
+  `PluginAvailability.icon` is each plugin's raw `manifest.icon` value
+  (e.g. `"icon.svg"`, relative to that plugin's own directory), never a
+  servable URL on its own. Root-caused via `runtime/src/sdk-host.ts`'s
+  `toPluginAvailability()`; the real served path is always
+  `/plugin-icons/<id>.svg` (`runtime/app/api/plugins/sidebar/route.ts`'s
+  own convention). Fixed by carrying `hasIcon: boolean` instead and
+  constructing the URL at render time — which, once found, turned out to
+  exactly match Tally's own `TallyMobileShell.tsx` implementation.
+- **Over-built Apps drawer, corrected before it caused a bug.** The first
+  draft added a synthetic "Home" tile and excluded the Launcher plugin
+  from the list, mirroring Kanban's `shell: minimal` pattern, and used
+  `onClick` + manual `router.push` for every drawer item. Tally's
+  `shell: default` precedent does neither — no Home tile, no Launcher
+  exclusion (the real platform header's brand badge already provides a
+  way home), plain `href` navigation (a full page load, correct for
+  crossing plugin boundaries). Rewritten to match Tally's simpler,
+  more-applicable-to-this-shell-type approach exactly.
+
+**Drill-down reuses each section's existing desktop selection state
+directly** (`BudgetView`/`AccountsView`/`ReportsView`'s own
+`selectedId`/`selected` `useState`, already driving the desktop detail
+column) rather than a separate mobile-only `step`-state stack as the
+task text sketched — `ResponsiveSurface` forks only the *presentation*.
+The mobile detail screens (`MobileBudgetScreen`/`MobileAccountsScreen`/
+`MobileReportsScreen`) reuse `CategoryDetail`/`AccountsDetail`/
+`ReportsDetail` verbatim behind a hand-rolled `‹ Label` back header (no
+shared DS component for this shape exists yet) — one source of truth for
+detail content instead of a second, mobile-specific copy, and
+guaranteed feature parity with desktop for free (including
+`ReportsDetail`'s own "Adjust budget →" button, which needed no mobile-
+specific handling at all — a plain `router.push('/ledger/budget')`
+lands on the same footer destination either way).
+
+**`AddExpenseDialog` forks `Dialog`↔`Drawer` via `useIsMobile`** — Drawer
+specifically for Add-expense, matching the explicit wireframe direction
+("Drawer, not Sheet") for the single most frequent action in the app.
+The other seven create/edit dialogs (`CreateAccountDialog`,
+`CreateAssetDialog`, `CreateDepositDialog`, `CreateLoanDialog`,
+`CreatePersonDialog`, `EditLoanDialog`, `EditBudgetDialog`,
+`RecordPersonTransactionDialog`) deliberately stay `Dialog`-only —
+`Dialog` already renders as a full-screen sheet on mobile on its own
+(`packages/ui`'s own doc comment), confirmed looking correct live, so
+forking each of them to `Drawer` too would have been unrequested scope
+with no UX gain.
+
+A real-looking bug investigated and ruled out before writing any fix:
+`MobileFooter`'s `z-index: 101` sits *above* `Dialog`/`Drawer`'s scrim
+`z-index: 100`, which looked like the footer would bleed through an open
+dialog. It doesn't — both `Dialog` and `Drawer`'s mobile scrim already
+stop their `bottom` edge at `var(--sv-shell-footer-height)` (published by
+`MobileFooter` itself), so the two never geometrically overlap and the
+z-index values never actually compete. Confirmed via live computed-style
+inspection (`scrimBottom` exactly matching the footer's measured height)
+before concluding this, not by reasoning alone.
+
+Verified live end-to-end at 375px width, not just via the check suite:
+all four mobile screens render correctly; Budget and Accounts drill-down
+confirmed (a real "Test Mobile Account" created via the mobile
+full-screen `CreateAccountDialog`, drilled into, deleted, cleanly back to
+the empty state); Reports opens straight into the latest period's detail
+(matching desktop's own "default to most recent" behavior) with working
+back navigation; the FAB opens `AddExpenseDialog` as a `Drawer` with the
+footer correctly still visible beneath it (`Drawer`'s own documented
+design); the Apps drawer shows correct fallback icons for every other
+installed plugin with Ledger itself excluded; footer active-state
+(`.navItemActive`) tracks the current route correctly across all four
+sections; zero console errors throughout. Desktop's `ThreeColumnLayout`
+re-verified unaffected (Budget list + detail still renders and selects
+correctly at 1280px). Full check suite — typecheck, lint, format:check,
+`design:tokens:check`, and all 55 existing tests (L.9 added no new
+query/action logic, only UI, so no new tests) — passes clean.
+
+This closes out the mobile-fork phase.
+
+✅ **L.10 shipped (0.10.0)** — the daily exchange-rate fetch,
+`app/_jobs/fetch-fx-rates.ts`, a manifest `schedules` entry
+(`intervalMinutes: 1440`) against `ledger_fx_rates`.
+
+**Pivot is USD, not EUR**, despite Frankfurter's own ECB data being
+natively EUR-denominated — CONCEPT.md's design has fiat and crypto rates
+sharing one table under one pivot, and a crypto source would default to
+USD pricing (every major crypto API does), so USD is the pivot both kinds
+of source can share without a second conversion hop between them. One
+batched `base=USD&symbols=...` call returns "value of 1 USD in X" for
+every currency; the job inverts each (`1 / rate`) to store "value of 1 X
+in USD," matching `getRateAsOf`/`sumConvertedToBase`'s existing contract.
+
+**Fiat only, no crypto fetch, despite CONCEPT.md's "fiat and crypto
+alike" framing — a scope cut made explicit, not a silent gap.** No crypto
+currency is selectable anywhere in the app: `CURRENCY_OPTIONS` (extracted
+from `SetupWizard.tsx` into its own `app/_lib/currency-options.ts` this
+task, since the fetch job needed it too — six other create/edit dialogs
+already imported it from `SetupWizard.tsx`, all repointed) is a fixed set
+of 20 fiat codes, nothing else. Building a crypto fetch branch now would
+be dead code with no real currency to exercise it; the schema already
+accommodates one later (`source` is a free-text provenance column, not an
+enum). Revisit only once some later task actually adds a crypto currency
+option to the UI.
+
+**Two of the 20 `CURRENCY_OPTIONS` codes aren't in Frankfurter's coverage
+at all.** Confirmed directly against its own `/v1/currencies` endpoint
+before writing any code, not assumed: LKR and AED are both absent. The job
+silently skips a code Frankfurter doesn't return a rate for — a user on
+one of these two currencies degrades to "no conversion available" via
+`getRateAsOf`'s own existing contract, exactly like a brand-new currency
+this job hasn't run for yet. Live-verified: exactly 17 rows land per run
+(19 non-pivot codes minus LKR/AED), never 19.
+
+**`as_of_date` is Frankfurter's own returned `date`, not this server's
+local "today"** — its ECB-sourced rates lag by a day on the API's own
+publishing schedule (confirmed live: a job run on 2026-08-28 stored
+`as_of_date: '2026-08-27'`, Frankfurter's actual reference date), and
+storing that real reference date rather than the request date is what
+keeps `getRateAsOf`'s "most recent rate on or before this date" lookup
+correct.
+
+**Idempotency required a real schema change**, not just
+`onConflictDoNothing`: `ledger_fx_rates`'s existing lookup index
+(`(currency_code, pivot_code, as_of_date)`, from L.2) was a plain index,
+not unique — re-running the job would have inserted duplicate rows
+outright, silently corrupting `getRateAsOf`'s "most recent" ordering once
+duplicates existed. Migrated to `uniqueIndex` on both dialects (SQLite
+`0001_careful_cammi.sql`, Postgres `0001_shallow_marauders.sql` — each a
+two-line `DROP INDEX` + `CREATE UNIQUE INDEX`, no data migration needed
+since the table was still empty in every real environment).
+
+Verified live end-to-end against the real dev database, not just the
+7 new mocked-SDK unit tests (62 total): restarted the real dev server
+twice independently (the scheduler's `lastRun` state is in-memory, so a
+process restart re-arms every schedule and its very first tick fires
+within ~60s regardless of `intervalMinutes` — no need to temporarily
+shrink the interval to force a fast tick) and queried the dev sqld
+`ledger_fx_rates` table directly after each. First run: 17 rows with
+real, plausible market rates (EUR ≈ 1.1645 USD, GBP ≈ 1.3582 USD,
+JPY ≈ 0.00627 USD). Second run, a fully independent process restart:
+still exactly 17 rows, not 34 — confirming the unique-index +
+`onConflictDoNothing` idempotency mechanism holds through the *real*
+scheduler → `runWithBackgroundPlugin` → `sdk.db.getClient()` path, not
+only the mocked-SDK unit tests (which can't exercise that plugin-identity
+resolution at all, and where exactly this class of bug has previously
+shipped — see the root `CLAUDE.md`'s `0.94.3 → 0.94.4` entry). Full
+check suite — typecheck, lint, format:check, `design:tokens:check`, and
+all 62 tests — passes clean.
+
+✅ **L.11 shipped (0.11.0)** — the 1st-of-month recap,
+`app/_jobs/month-end-report.ts`, a second `schedules` entry on the same
+plugin (`intervalMinutes: 1440`), gated internally by a new
+`isFirstOfMonthUtc()`/`getPreviousYearMonth()` pair in `period.ts` since
+the scheduler only offers a fixed interval, never a day-of-month trigger.
+
+**`sdk.email.sendToUser()`, not `sdk.mailer.send()` — this task's own
+original deliverable text named the wrong one**, caught before writing any
+code: `sdk.mailer.send()` is the raw-recipient-address escape hatch,
+additionally requiring `mailer:sendExternal`; `sdk.email.sendToUser()` is
+"the recommended default" for a known `userId` per its own doc comment,
+needs only the `mailer:send` permission this manifest already declares
+(front-loaded since L.1), and no-ops to `{status: 'skipped'}` rather than
+throwing when SMTP is unconfigured — satisfying the review checklist's
+"renders sensibly... not an error" requirement via the SDK itself, no
+special-casing needed here.
+
+**A new table, `ledger_month_end_notifications`, not a column on
+`ledger_period_reviews`** — that table's own documented invariant
+("absence of a row = needs review") would break if a row could also exist
+for a period that was auto-notified but never user-reviewed. Same PK
+shape as `periodReviews` (`(user_id, year, month)`), migrated on both
+dialects.
+
+**The insert into that table is the idempotency claim, attempted before
+sending** (`onConflictDoNothing` + `.returning()` to detect whether *this*
+invocation won), not an after-the-fact record: the schedule docs' own
+guidance is "claim work... before acting on it, and only act when the
+claim succeeded" — necessary because a multi-replica deployment ticks
+independently per replica (same reasoning as L.10's unique index, just for
+one row per user instead of one row per currency). One real consequence,
+tested and documented rather than silently accepted: a user's claim is
+consumed even if the email/notification send that follows then throws —
+this scheduler generation has no retries at all, so a genuine send failure
+means no recap for that user until next month. Not solved here, same class
+of known Phase-1 limitation as L.10's own no-retry gap.
+
+**Reuses `getReportsData` verbatim** (no second report-math
+implementation, per the task's own explicit requirement) — for each
+candidate user (every `user_id` with an `is_base` currency row), pulls
+last calendar month's `PeriodReport` out of the same computation Reports'
+own screen already uses, and skips the user entirely (no claim attempted)
+when there's nothing there (no last-month transactions) rather than
+sending an empty recap.
+
+**A per-user `try`/`catch` isolates one user's failure from every other
+user's** — unlike `fetch-fx-rates.ts`, where one failed batched call fails
+the whole run safely (nothing was written either way), this job fans out
+real per-user side effects; an uncaught throw from user #3's email call
+would otherwise abort the loop and silently skip every remaining user's
+recap for the entire month.
+
+10 new tests (3 for the two new `period.ts` helpers, 7 for the job
+covering: the not-the-1st no-op, a real send, the no-last-month-activity
+skip, same-period double-invocation staying at one send, SMTP-unconfigured
+still notifying and still claiming, one user's failure not blocking
+another's, and the claim-before-send trade-off itself), for 72 total.
+Verified live beyond the unit suite: the manifest's second `schedules`
+entry composes correctly alongside L.10's into
+`runtime/generated/plugin-schedules.ts`; a real dev-server restart (the
+same real scheduler → `runWithBackgroundPlugin` → `sdk.db.getClient()`
+path L.10 already proved works for this plugin) boots clean with zero
+errors and, on today's real (non-1st) date, correctly leaves
+`ledger_month_end_notifications` at zero rows — confirmed directly against
+the dev database. Exercising the real send path live end-to-end (a real
+`sdk.email.sendToUser()`/`sdk.notifications.send()` call against the
+running platform, not mocked) isn't practical without either a real month
+boundary or a temporary code change to force one, and wasn't attempted for
+that reason; the review checklist's own "triggering the handler manually
+in dev" phrasing is satisfied by the direct-call unit tests above, which
+exercise every branch deterministically via the exported
+`runMonthEndReport(headers, now)` — the same optional-`now`-parameter
+pattern every other time-dependent helper in `period.ts` already uses, not
+a test-only hook. Full check suite — typecheck, lint, format:check,
+`design:tokens:check`, and all 72 tests — passes clean.
+
+This closes out Phase E (Automation) — L.10 and L.11 are both now shipped.
+
+✅ **L.12 shipped (0.12.0)** — saving-type kinds, jars, and the
+fund-from-jar expense flow, completing what L.3/L.5/L.6 deliberately left
+out. No new tables: `ledger_saving_jars`/`ledger_jar_transactions` have
+existed since L.2, unused until now.
+
+**`createCategoryWithKind`'s `type` union widened to include `'saving'`**
+— when saving, it also inserts the linked `ledger_saving_jars` row
+(balance zero) in the same transaction as the category+kind. The
+lower-level `createCategory`/`createKind` primitives deliberately still
+reject `'saving'`, unchanged — only the combined transaction may produce
+one, since a saving category with no jar would be an orphaned, broken
+state `getBudgetData`'s own jar lookup has to skip defensively.
+
+**A new `createJarTransaction` action** — signed amount (positive =
+contribution, negative = withdrawal), same shape as
+`createPeopleTransaction`'s established pattern, atomically updating
+`ledger_saving_jars.balanceMinor`. One real difference from a person's
+balance: a jar can't go negative — the whole point of envelope-style
+budgeting — so a withdrawal larger than the current balance is rejected
+outright rather than letting the jar overdraw. Live-verified: withdrawing
+€500 against an €150 balance was rejected with "This jar doesn't have
+enough balance for that withdrawal," balance untouched.
+
+**Budget gained a Saving section** (list rows show target + jar balance
+instead of a budget bar, per `web-shell.md` screen 3) on both desktop
+(`BudgetMain`) and mobile (`MobileBudgetScreen`), each with their own "+"
+entry point opening `CreateSavingJarDialog` — the one new creation flow
+this task actually needs. Dynamic/Fixed categories still have no
+equivalent "add" UI anywhere in the app (a pre-existing gap predating this
+task, not fixed here — mirrored deliberately, not an oversight). Selection
+routes to a new `SavingJarDetail` component (target, balance, recent
+jar-transaction history, an "Add money / withdraw" action opening
+`JarTransactionDialog`) rather than branching inside `CategoryDetail`,
+whose prop type doesn't fit a saving category's shape at all.
+
+**`JarTransactionDialog` resolves `web-shell.md`'s own explicitly-flagged
+open question** — "the fund-from-a-saving-jar toggle's second state isn't
+wireframed yet." Contribution and withdrawal share one dialog (a
+`SegmentedControl` picking direction, matching `CreateAccountDialog`'s
+bank/credit-card precedent) rather than two separate ones, since the form
+is otherwise identical. `AddExpenseDialog`'s own toggle, previously
+hard-disabled with a "coming in L.12" hint, now genuinely swaps
+Category+Subcategory for a single "Saving jar" `Select` when turned on —
+matching the wireframe's literal "a single jar picker" wording, not a
+second spend-category on top of the jar — and submits via
+`createJarTransaction` (a withdrawal) instead of `createTransaction`,
+never both: the exact double-booking this app's data model was corrected
+once already at design time (SPEC.md's Data model correction #3). The
+toggle disables itself with a "No saving jars yet" hint when the user has
+none, rather than allowing it on with nothing to pick.
+
+**A deliberate scope cut, stated explicitly rather than silently
+dropped**: CONCEPT.md's "Saving Jar contributions post automatically from
+the linked saving plan each period" is *not* built here — L.12's own
+Deliverables text never mentions automatic posting, only manual
+contribution/withdrawal actions, and automating it would need its own
+scheduled job (the same `schedules` shape as L.10/L.11), a separate,
+not-yet-scoped task. Revisit only if a later task explicitly picks this
+up.
+
+Verified live end-to-end against the real dev database, not just the 9
+new tests (81 total): created a real "Travel jar" (€100 monthly target),
+contributed €150 (balance → €150.00), withdrew €40 (→ €110.00), confirmed
+a €500 withdrawal attempt was rejected with balance unchanged, then logged
+a €25 expense funded from the jar via `AddExpenseDialog`'s toggle
+(balance → €85.00) and confirmed **Groceries' own actual spend stayed at
+exactly €108.00 — no double-booking**. Reports' three figures then read
+Actual €4,074.10 (unchanged — the jar withdrawal was never a
+`ledger_transactions` row) and Actual-net-of-jars €4,009.10, exactly
+€4,074.10 − €65.00 (the two real withdrawals, €40 + €25 — the €150
+contribution correctly excluded from this figure per its own documented
+contract). Repeated the full create → contribute → withdraw → fund-an-
+expense flow at 375px width: the Saving section, `SavingJarDetail`
+drill-down, and `AddExpenseDialog`'s jar picker all render and behave
+identically on mobile, including the jar-contribution dialog's own
+correct full-screen-sheet adaptation (`Dialog`'s existing mobile
+behavior, not a new fork). Cleaned up afterward via direct SQL against
+the dev database (no in-app delete-jar path exists, matching the
+Dynamic/Fixed gap noted above) — confirmed back to the original empty
+Saving-section state with every other section's figures untouched. Full
+check suite — typecheck, lint, format:check, `design:tokens:check`, and
+all 81 tests — passes clean.
+
+✅ **L.13 shipped (0.13.0)** — rule-based budget-variance tips, the last
+task in Phase F. No new table: both rules compute at query time from data
+`getReportsData` (L.8) and `listTransactions`/`listCategoriesWithKinds`
+(L.3) already expose, in a new `app/_lib/insights.ts`.
+
+**Rule 1 — a category over budget for consecutive months.** Walks
+`getReportsData`'s own `periods` (most-recent-first) per category,
+counting a streak of `actualMinor > predictedMinor` starting from the most
+recent period; breaks on the first non-over-budget or missing period.
+Reuses `topCategories`' own comparison rather than re-deriving it — a
+second, divergent implementation of the same budget-variance math was the
+one thing worth avoiding here.
+
+**Rule 2 — a single transaction unusually large for its kind.** Groups all
+of a user's transactions by `kindId`, compares the single most recent one
+against the average of every earlier one for that same kind, and flags it
+once it's at least 2x that average. Requires at least 3 prior transactions
+as a baseline (below that, "typical spend" isn't meaningful yet) —
+satisfies the review checklist's own "zero false positives... nothing to
+compare against yet" requirement. Deliberately scoped to "the latest
+transaction only," not every historically-anomalous one, so a one-off
+spike from months ago doesn't sit in this list forever.
+
+**Threshold reconciliation, stated explicitly rather than silently
+picked**: the over-budget streak fires at **2** consecutive months, not
+the 3 in `web-shell.md`'s own Reports wireframe example ("Eating out has
+run over budget 3 months running"). CONCEPT.md's own wording is just
+"multiple consecutive months" with no fixed number, and 2 is both the
+smallest value "multiple" can mean and the only threshold the L.13 review
+checklist's own test scenario can reach (a second seeded over-budget month
+producing "exactly the expected tip" is unreachable with a 3-month
+threshold from two periods). The rendered copy always states the real
+computed streak length rather than hardcoding "2" or "3" — a genuine
+3-month streak reproduces the wireframe's exact wording without
+contradicting the checklist's 2-period testability requirement, verified
+directly in `insights.test.ts`.
+
+**`web-shell.md`'s Overview wireframe shows a third, different illustrative
+insight** ("Eating out is running about 15% above your 3-month average
+this month") that matches neither of SPEC.md's two defined rules. Treated
+as out of scope — SPEC.md's own Deliverables text names exactly two rules,
+and the wireframe's example reads as illustrative copy from the earlier
+wireframing pass, not a third requirement.
+
+**No display cap anywhere insights render, except mobile Overview's
+explicit "1 insight"** (`mobile-fork.md`'s own stated cap) — desktop
+Overview, and both desktop and mobile Reports, render the full list.
+Every wireframe mockup happens to show only one card, but nothing in
+CONCEPT.md or this task's deliverables asks for a hard "show at most N"
+elsewhere; an arbitrary ranking/truncation policy nobody asked for would
+be worse to reason about and test than just rendering everything.
+
+**A found-and-fixed regression from L.12, not part of this task's own
+scope**: `overview.ts`'s checklist hardcoded the `saving-plans` row as
+permanently `comingSoon: true`/`done: false`, even though L.12 (the
+immediately preceding task) had already shipped real saving jars — a user
+with an actual jar would see their own checklist incorrectly claim
+"Saving plans" was still "coming soon." Fixed to read the real jar count
+(`done`/`detail` now reflect whether any saving jar exists, linking to
+`/ledger/budget` when none do), with a new passing test for the
+now-`done: true` case alongside the existing `done: false` one.
+
+Verified live end-to-end against the real dev database, not just the 15
+new tests (97 total): seeded a second over-budget month for "Eating out"
+(August €166.90, July €180.00, both against a €150.00 budget) and 4
+Transport transactions (3 baseline ~€11.00 average, 1 latest at €40.00)
+via direct SQL, then confirmed both exact insight strings — "Eating out
+has run over budget 2 months running." and "Your latest Transport expense
+of €40.00 is unusually large compared to your typical €11.00." — render
+on desktop Overview, desktop Reports (both the August and July period
+detail views, confirming the list is the same current, unscoped-to-period
+data everywhere per its own doc comment), and mobile Reports (untruncated).
+Confirmed mobile Overview shows **only** the first insight (the streak
+one), matching `mobile-fork.md`'s explicit cap — verified directly against
+the RSC payload (both strings present in the serialized data) versus the
+rendered DOM (only one `<p>`), ruling out a data gap and confirming it's
+the intentional `insights[0]` truncation in `MobileOverviewScreen`. Cleaned
+up the seeded transactions afterward via direct SQL (no in-app deletion
+path needed — these were plain expense transactions); confirmed the app
+returned to its exact pre-verification state (no Insights section, Aug
+spend back to €125.90). Full check suite — typecheck, lint, format:check,
+`design:tokens:check`, and all 97 tests — passes clean.
+
+This closes out **Phase F** — every task through L.13 is now shipped.
+
+✅ **L.14 shipped (0.14.0)** — Settings: the first UI for backend capability
+that had sat unused since L.3. Three flat sections on one screen —
+Currencies (add, set base, delete), Incomes (add secondary, edit, delete),
+Categories (Dynamic/Fixed only; Saving jars keep their existing home on
+Budget) — with only Categories promoted to a detail view (`SettingsDetail`),
+since it's the one section with real nested structure (a category owns a
+list of kinds). Reused the `AccountsMain`/`AccountsDetail` select→detail
+pattern faithfully, and `createCategoryWithKind` directly — it already
+accepted `type: 'dynamic' | 'fixed' | 'saving'`, so "Add category" needed no
+new backend action. Mobile has no footer capacity for a 6th icon (Ledger
+already uses all 5 slots), so `MobileSettingsLink` — ported from
+`sovereign-plugin-tally.local` — sits next to each Mobile\*Screen's own
+`<h1>` instead of `PageHeader`'s `action` prop, since Ledger's mobile
+screens hand-roll their own headers rather than using the shared component.
+
+**Two real latent bugs, invisible until this task started exercising the
+code paths that trigger them, fixed as part of it**: `deleteCurrency` had
+no guard against deleting the currently-set base currency, silently kicking
+the user back into the setup wizard's Step 1 the moment `getSetupStatus`
+could no longer find one; `deleteCategory`/`deleteKind` had no guard
+against `ledger_loans.linked_kind_id`'s FK (no cascade, by design —
+`deleteLoan` already deletes the loan row before its kind for exactly this
+reason), so deleting a loan-linked category/kind threw a raw, unhandled
+`SQLITE_CONSTRAINT: FOREIGN KEY constraint failed` — reproduced live before
+the fix landed. Both now return the shared result shape with a friendly
+message, and the UI disables the affected delete controls up front
+(prevention over error), backed by the server-side guard.
+
+**A genuine product bug found live, not in either guard**: three of the
+five new dialogs (`CreateCurrencyDialog`, `CreateIncomeDialog`,
+`CreateCategoryDialog`) stay mounted across opens — `SettingsView` toggles
+them via `open`, matching every other dialog in this app — so a
+`useState` initializer computed from a prop (`available[0]?.code`,
+`baseCurrencyCode`) only ever ran once, at first mount. Reproduced directly:
+added a second currency, deleted the original base, then reopened "Add
+currency" — the `<select>` visually showed the new correct default, but
+submitting silently created a duplicate of the *previous* open's stale
+selection instead. Fixed with a `useEffect` keyed on `open` alone (not the
+prop, which would otherwise reset an in-progress selection on every
+render) re-syncing the field the moment the dialog opens.
+`CreateKindDialog`/`EditIncomeDialog` are conditionally rendered instead
+(`{addKindTarget && <CreateKindDialog .../>}`) and don't share this bug —
+React remounts them fresh on every open.
+
+Verified live end-to-end, not just the 3 new tests (100 total): added and
+deleted currencies including the base-swap and re-add scenario above;
+added, edited, and deleted a secondary income; created a category with two
+kinds, deleted one kind, then deleted the whole category; created a real
+test loan from Accounts, confirmed both its linked kind's delete control
+and the category's "Delete category" button were disabled with the
+friendly "A loan is linked to..." message, deleted the loan, and confirmed
+the same deletes then succeeded cleanly; confirmed the sidebar's Settings
+link (replacing the "Soon" placeholder live since L.1) and all four mobile
+screens' gear icons navigate correctly, and that the mobile Categories
+drill-down reuses `SettingsDetail` verbatim behind a back header. Cleaned
+up all test data afterward (test category, test loan) via the app's own
+delete actions, confirming the app returned to its exact pre-verification
+state. Full check suite — typecheck, lint, format:check,
+`design:tokens:check`, and all 100 tests — passes clean.
+
+This closes out **Phase G** and the full roadmap through L.14 — every
+planned task for this plugin is now shipped.
 
 ---
 
@@ -1117,3 +1603,48 @@ against).
 month of seeded data (nothing to compare against yet); a second seeded
 month with a deliberately over-budget category produces exactly the
 expected tip.
+
+---
+
+#### L.14 — Settings
+
+**Goal:** The `/ledger/settings` screen reserved since L.1's Routes table
+but never built — the first real UI for backend capability that's sat
+unused in `app/actions.ts` since L.3: currency, income, and category/kind
+management beyond what the one-time setup wizard creates. The wizard's own
+step-1 copy already promises "add more currencies anytime from Settings."
+
+**Deliverables:**
+
+- Currencies section: list, add, set-as-base, delete (base currency's
+  delete disabled client-side, guarded server-side too).
+- Incomes section: list, add secondary, edit label/amount, delete
+  (primary income's delete disabled — setup-status requires exactly one).
+- Categories section (Dynamic/Fixed only — Saving jars stay on Budget):
+  list, add category+first kind (reuses `createCategoryWithKind`), select
+  to a detail view showing the category's kinds with add-subcategory
+  (`createKind`) and per-kind delete; kind budgeted amounts stay
+  read-only here (edited only from Budget's existing `EditBudgetDialog`).
+- `deleteCurrency` gains a guard rejecting deletion of the current base
+  currency. `deleteCategory`/`deleteKind` gain a guard rejecting deletion
+  when a loan's `linkedKindId` still references the kind(s) involved
+  (previously an unguarded raw FK constraint crash — unreachable before
+  this task since nothing called these two actions from a real UI).
+- Sidebar's disabled "Settings — Soon" row becomes a real link. Mobile
+  entry point via a `MobileSettingsLink` gear icon (ported from
+  `sovereign-plugin-tally.local`'s own precedent for the identical
+  footer-capacity constraint) placed next to each of the 4 primary mobile
+  screens' own `<h1>` headers.
+
+**Dependencies:** L.3 (the actions/queries this task builds UI for), L.7
+(the loan-linkage guard references `ledger_loans`).
+
+**Review checklist:** adding a second currency and setting it as base
+flips which row's delete is disabled; deleting the sole/base currency is
+rejected with a friendly error, not a crash; a secondary income can be
+added, edited, and deleted, but the primary income's delete is disabled;
+a new category+kind can be created and a second kind added to it; deleting
+a loan-linked category or kind is rejected with a friendly error until the
+loan itself is deleted from Accounts, after which the same delete
+succeeds; the sidebar link and mobile gear icon both reach
+`/ledger/settings` correctly on both breakpoints.

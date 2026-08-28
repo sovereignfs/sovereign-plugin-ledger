@@ -6,7 +6,7 @@ import { Button, CurrencyInput, Dialog, FormField, Input, Select } from '@sovere
 import { createDeposit } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
 import styles from './Accounts.module.css';
-import { CURRENCY_OPTIONS } from './SetupWizard';
+import { CURRENCY_OPTIONS } from '../_lib/currency-options';
 
 export function CreateDepositDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
