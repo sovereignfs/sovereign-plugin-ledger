@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { ConfirmDialog, Icon, PageHeader } from '@sovereignfs/ui';
 import { deleteCurrency, deleteIncome, setBaseCurrency } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
-import { formatMoney } from '../_lib/format';
+import { useFormatters } from '../_lib/locale';
 import type { SettingsData } from '../_lib/settings';
 import styles from './Settings.module.css';
 
@@ -98,6 +98,7 @@ export function SettingsMain({
   onEditIncome: (incomeId: string) => void;
   onAddCategory: () => void;
 }) {
+  const fmt = useFormatters();
   const router = useRouter();
 
   return (
@@ -141,7 +142,7 @@ export function SettingsMain({
           <div key={i.id} className={styles.row}>
             <span className={styles.rowMain}>
               <span className={styles.rowName}>{i.label}</span>
-              <span className={styles.rowSubtitle}>{formatMoney(i.amountMinor, i.currency)}</span>
+              <span className={styles.rowSubtitle}>{fmt.money(i.amountMinor, i.currency)}</span>
               <span className={styles.badge}>{i.kind === 'primary' ? 'Primary' : 'Secondary'}</span>
             </span>
             <span className={styles.rowActions}>
@@ -155,7 +156,9 @@ export function SettingsMain({
               </button>
               <DeleteIconButton
                 label={i.label}
-                disabledReason={i.kind === 'primary' ? 'Every budget needs a primary income' : undefined}
+                disabledReason={
+                  i.kind === 'primary' ? 'Every budget needs a primary income' : undefined
+                }
                 onDelete={() => deleteIncome({ incomeId: i.id })}
               />
             </span>

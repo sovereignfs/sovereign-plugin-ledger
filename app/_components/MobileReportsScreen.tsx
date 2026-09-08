@@ -1,10 +1,10 @@
 'use client';
 
-import { Icon, StatusBadge } from '@sovereignfs/ui';
-import { formatMoney } from '../_lib/format';
+import { Icon } from '@sovereignfs/ui';
+import { useFormatters } from '../_lib/locale';
 import type { PeriodReport, ReportsData } from '../_lib/reports';
 import { MobileSettingsLink } from './MobileSettingsLink';
-import { periodLabel } from './ReportsMain';
+import { PeriodStatusBadge } from './ReportsMain';
 import { ReportsDetail } from './ReportsDetail';
 import styles from './Mobile.module.css';
 
@@ -14,9 +14,10 @@ function periodKeyOf(period: PeriodReport): string {
 
 /**
  * mobile-fork.md screens 6-7 — same list+drill-down shape as Budget/
- * Accounts. The detail screen reuses `ReportsDetail` verbatim, including
- * its own "Adjust budget →" button (a plain `router.push('/ledger/budget')`
- * that works unchanged on mobile — it lands on the same footer destination).
+ * Accounts, opening on the list. The detail screen reuses `ReportsDetail`
+ * verbatim, including its own "Adjust budget →" button (a plain
+ * `router.push('/ledger/budget')` that lands on the same footer
+ * destination on mobile).
  */
 export function MobileReportsScreen({
   data,
@@ -31,6 +32,8 @@ export function MobileReportsScreen({
   onSelect: (period: PeriodReport) => void;
   onBack: () => void;
 }) {
+  const fmt = useFormatters();
+
   if (selected) {
     return (
       <div className={styles.screen}>
@@ -40,7 +43,11 @@ export function MobileReportsScreen({
             Reports
           </button>
         </div>
-        <ReportsDetail period={selected} baseCurrencyCode={data.baseCurrencyCode} insights={insights} />
+        <ReportsDetail
+          period={selected}
+          baseCurrencyCode={data.baseCurrencyCode}
+          insights={insights}
+        />
       </div>
     );
   }
@@ -66,16 +73,14 @@ export function MobileReportsScreen({
             onClick={() => onSelect(period)}
           >
             <span className={styles.rowText}>
-              <span className={styles.rowTitle}>{periodLabel(period.year, period.month)}</span>
+              <span className={styles.rowTitle}>{fmt.period(period.year, period.month)}</span>
               <span className={styles.rowSubtitle}>
-                Income {formatMoney(period.incomeMinor, data.baseCurrencyCode)} • Spent{' '}
-                {formatMoney(period.spentMinor, data.baseCurrencyCode)}
+                Income {fmt.money(period.incomeMinor, data.baseCurrencyCode)} • Spent{' '}
+                {fmt.money(period.spentMinor, data.baseCurrencyCode)}
               </span>
             </span>
             <span className={styles.rowValue}>
-              <StatusBadge status={period.reviewed ? 'synced' : 'warning'}>
-                {period.reviewed ? 'Reviewed' : 'Needs review'}
-              </StatusBadge>
+              <PeriodStatusBadge period={period} />
               <Icon name="chevron-right" size="sm" aria-hidden />
             </span>
           </button>

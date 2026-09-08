@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { Button, ConfirmDialog, Icon } from '@sovereignfs/ui';
 import { deleteCategory, deleteKind } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
-import { formatMoney } from '../_lib/format';
+import { useFormatters } from '../_lib/locale';
 import type { SettingsData } from '../_lib/settings';
 import styles from './Settings.module.css';
 
@@ -126,6 +126,7 @@ export function SettingsDetail({
   onDeselect: () => void;
   onAddKind: (categoryId: string, categoryCurrency: string) => void;
 }) {
+  const fmt = useFormatters();
   const router = useRouter();
   const category = data.categories.find((c) => c.id === categoryId);
   if (!category) return null;
@@ -148,7 +149,9 @@ export function SettingsDetail({
           <button
             type="button"
             className={styles.sectionAddButton}
-            onClick={() => onAddKind(category.id, category.kinds[0]?.currency ?? 'EUR')}
+            onClick={() =>
+              onAddKind(category.id, category.kinds[0]?.currency ?? data.baseCurrencyCode)
+            }
             aria-label="Add subcategory"
           >
             <Icon name="plus" size="sm" aria-hidden />
@@ -162,7 +165,7 @@ export function SettingsDetail({
               <span className={styles.rowMain}>
                 <span className={styles.rowName}>{kind.name}</span>
                 <span className={styles.rowSubtitle}>
-                  {formatMoney(kind.predictedAmountMinor, kind.currency)}
+                  {fmt.money(kind.predictedAmountMinor, kind.currency)}
                 </span>
               </span>
               <DeleteIconButton

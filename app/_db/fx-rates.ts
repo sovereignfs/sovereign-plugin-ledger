@@ -1,5 +1,6 @@
 import { and, desc, eq, lte } from 'drizzle-orm';
 import type { LedgerDb } from './client';
+import { FX_PIVOT_CODE } from '../_lib/currency-options';
 import { fxRates } from './schema';
 
 /**
@@ -37,4 +38,38 @@ export async function getRateAsOf(
     .limit(1);
 
   return rows[0]?.rate ?? null;
+}
+
+/**
+ * The cross-rate from one currency to another, derived at query time from
+ * each side's rate against the single stored pivot (`FX_PIVOT_CODE`) —
+ * CONCEPT.md's "cross-rates are derived at query time" design. Every rate
+ * row is "value of 1 unit of `currency_code` in the pivot," so
+ * `amountInFrom × rate(from→pivot) ÷ rate(to→pivot)` is the amount in `to`.
+ *
+ * Returns `null` when either leg has no rate as of that date — same
+ * degrade-don't-guess contract as `getRateAsOf`. Before this helper existed
+ * the conversion path looked up `(currency, pivot = base currency)`
+ * directly, which only ever matched when the base currency happened to be
+ * the pivot itself.
+ */
+export async function getCrossRateAsOf(
+  db: LedgerDb,
+  params: { from: string; to: string; asOfDate: string },
+): Promise<number | null> {
+  if (params.from === params.to) return 1;
+  const [fromRate, toRate] = await Promise.all([
+    getRateAsOf(db, {
+      currencyCode: params.from,
+      pivotCode: FX_PIVOT_CODE,
+      asOfDate: params.asOfDate,
+    }),
+    getRateAsOf(db, {
+      currencyCode: params.to,
+      pivotCode: FX_PIVOT_CODE,
+      asOfDate: params.asOfDate,
+    }),
+  ]);
+  if (fromRate === null || toRate === null || toRate === 0) return null;
+  return fromRate / toRate;
 }

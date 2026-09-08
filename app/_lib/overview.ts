@@ -1,9 +1,9 @@
 import { eq } from 'drizzle-orm';
 import type { LedgerDb } from '../_db/client';
 import * as schema from '../_db/schema';
-import { getNetWorthMinor } from './accounts';
-import { sumConvertedToBase } from './money';
-import { getCurrentMonthRange } from './period';
+import { getNetWorth } from './accounts';
+import { mergeUnconverted, sumConvertedToBaseDetailed } from './money';
+import { getCurrentMonthRange, getUtcYearMonth } from './period';
 import { listCategoriesWithKinds, listTransactionsInRange } from './queries';
 
 export interface OverviewChecklistItem {
@@ -18,10 +18,9 @@ export interface OverviewChecklistItem {
    *  shipped page at all yet (rendered disabled, never a dead link). */
   href?: string;
   /** True for a row whose section has no task shipped yet at all — rendered
-   *  as a disabled "coming soon" row. Every current checklist row now maps
-   *  to a shipped section, so this is always `false` today; kept as a
-   *  generic mechanism for whatever future row needs it next, not removed
-   *  just because nothing currently sets it. */
+   *  as a disabled "coming soon" row. Every current checklist row maps to a
+   *  shipped section, so this is always `false` today; kept as a generic
+   *  mechanism for whatever future row needs it next. */
   comingSoon: boolean;
 }
 
@@ -30,14 +29,15 @@ export interface TopCategory {
   name: string;
   predictedAmountMinor: number;
   actualAmountMinor: number;
-  /** All of a category's kinds share one currency in every reachable
-   *  current flow (see budget.ts) — same assumption here. */
+  /** Every kind in a category shares one currency (enforced by `createKind`). */
   currency: string;
 }
 
 export interface RecentActivityItem {
   id: string;
   occurredAt: number;
+  /** A regular expense against a budgeted kind, or a withdrawal funded from a saving jar. */
+  source: 'expense' | 'jar';
   categoryName: string;
   kindName: string;
   amountMinor: number;
@@ -47,12 +47,29 @@ export interface RecentActivityItem {
 
 export interface OverviewData {
   baseCurrencyCode: string;
+  /** The UTC month every "this month" figure is scoped to — passed down so
+   *  the label renders from server data, never from a client-side
+   *  `new Date()` that could disagree with the server near a boundary. */
+  period: { year: number; month: number };
   /** All-time count — the signal this task uses to decide checklist vs.
    *  populated dashboard (see OverviewView.tsx's own doc comment for why). */
   transactionCount: number;
-  thisMonth: { incomeMinor: number; spentMinor: number; projectedSavedMinor: number };
+  thisMonth: {
+    incomeMinor: number;
+    spentMinor: number;
+    budgetedMinor: number;
+    /** Income minus everything budgeted — the same definition Reports uses. */
+    projectedSavingsMinor: number;
+    /** Income minus what's been spent so far this month. */
+    remainingMinor: number;
+  };
   netWorth: { totalMinor: number };
   savingJars: { totalMinor: number; jarCount: number };
+  /** CONCEPT.md's "mini overviews": card utilisation and what's left on loans. */
+  creditCards: { balanceMinor: number; limitMinor: number; count: number };
+  loans: { remainingMinor: number; count: number };
+  /** Currencies excluded from any base-currency total above for lack of a rate. */
+  unconvertedCurrencies: string[];
   topCategories: TopCategory[];
   recentActivity: RecentActivityItem[];
   checklist: OverviewChecklistItem[];
@@ -60,57 +77,101 @@ export interface OverviewData {
 
 /**
  * Overview's one-round-trip payload (SPEC.md's Data fetching contract).
- * Net worth is `getNetWorthMinor` (accounts.ts) — shared with Accounts'
- * own payload rather than a second, independently-maintained copy of the
- * same math. Saving jars total is a real (currently zero) aggregate
- * against `ledger_saving_jars` — L.12 hasn't shipped, so nothing can
- * insert a row into it yet, not a placeholder value.
+ * Net worth is `getNetWorth` (accounts.ts) — shared with Accounts' own
+ * payload rather than a second, independently-maintained copy of the same
+ * math.
  */
-export async function getOverviewData(db: LedgerDb, userId: string): Promise<OverviewData> {
-  const [currencies, incomes, categoriesWithKinds, jars, accounts, assetRows, depositRows, loanRows, peopleRows] =
-    await Promise.all([
-      db.select().from(schema.currencies).where(eq(schema.currencies.userId, userId)),
-      db.select().from(schema.incomes).where(eq(schema.incomes.userId, userId)),
-      listCategoriesWithKinds(db, userId),
-      db.select().from(schema.savingJars).where(eq(schema.savingJars.userId, userId)),
-      db
-        .select({ id: schema.accounts.id, type: schema.accounts.type })
-        .from(schema.accounts)
-        .where(eq(schema.accounts.userId, userId)),
-      db
-        .select({ id: schema.assets.id })
-        .from(schema.assets)
-        .where(eq(schema.assets.userId, userId)),
-      db
-        .select({ id: schema.deposits.id })
-        .from(schema.deposits)
-        .where(eq(schema.deposits.userId, userId)),
-      db.select({ id: schema.loans.id }).from(schema.loans).where(eq(schema.loans.userId, userId)),
-      db
-        .select({ id: schema.people.id })
-        .from(schema.people)
-        .where(eq(schema.people.userId, userId)),
-    ]);
-  const bankingCount = accounts.filter((a) => a.type === 'bank').length;
-  const creditCardCount = accounts.filter((a) => a.type === 'credit_card').length;
+export async function getOverviewData(
+  db: LedgerDb,
+  userId: string,
+  now: number = Date.now(),
+): Promise<OverviewData> {
+  const [
+    currencies,
+    incomes,
+    categoriesWithKinds,
+    categoryRows,
+    jars,
+    accounts,
+    assetRows,
+    depositRows,
+    loanRows,
+    peopleRows,
+  ] = await Promise.all([
+    db.select().from(schema.currencies).where(eq(schema.currencies.userId, userId)),
+    db.select().from(schema.incomes).where(eq(schema.incomes.userId, userId)),
+    listCategoriesWithKinds(db, userId),
+    db
+      .select({ id: schema.categories.id, name: schema.categories.name })
+      .from(schema.categories)
+      .where(eq(schema.categories.userId, userId)),
+    db.select().from(schema.savingJars).where(eq(schema.savingJars.userId, userId)),
+    db.select().from(schema.accounts).where(eq(schema.accounts.userId, userId)),
+    db.select({ id: schema.assets.id }).from(schema.assets).where(eq(schema.assets.userId, userId)),
+    db
+      .select({ id: schema.deposits.id })
+      .from(schema.deposits)
+      .where(eq(schema.deposits.userId, userId)),
+    db.select().from(schema.loans).where(eq(schema.loans.userId, userId)),
+    db.select({ id: schema.people.id }).from(schema.people).where(eq(schema.people.userId, userId)),
+  ]);
+  const creditCards = accounts.filter((a) => a.type === 'credit_card');
+  const bankingCount = accounts.length - creditCards.length;
 
   const baseCurrencyCode =
     currencies.find((c) => c.isBase === 1)?.code ?? currencies[0]?.code ?? '';
-  const { start, end } = getCurrentMonthRange();
-  const [transactionsThisMonth, allTransactions, netWorthMinor] = await Promise.all([
-    listTransactionsInRange(db, userId, start, end),
-    db
-      .select({ id: schema.transactions.id })
-      .from(schema.transactions)
-      .where(eq(schema.transactions.userId, userId)),
-    getNetWorthMinor(db, userId, baseCurrencyCode),
-  ]);
+  const { start, end } = getCurrentMonthRange(now);
+  const [transactionsThisMonth, allTransactions, jarWithdrawalsThisMonth, netWorth] =
+    await Promise.all([
+      listTransactionsInRange(db, userId, start, end),
+      db
+        .select({ id: schema.transactions.id })
+        .from(schema.transactions)
+        .where(eq(schema.transactions.userId, userId)),
+      db
+        .select({
+          id: schema.jarTransactions.id,
+          occurredAt: schema.jarTransactions.occurredAt,
+          amountMinor: schema.jarTransactions.amountMinor,
+          note: schema.jarTransactions.note,
+          categoryId: schema.jarTransactions.categoryId,
+          currency: schema.savingJars.currency,
+        })
+        .from(schema.jarTransactions)
+        .innerJoin(schema.savingJars, eq(schema.savingJars.id, schema.jarTransactions.jarId))
+        .where(eq(schema.jarTransactions.userId, userId)),
+      getNetWorth(db, userId, baseCurrencyCode),
+    ]);
 
-  const incomeMinor = await sumConvertedToBase(db, incomes, baseCurrencyCode);
-  const spentMinor = await sumConvertedToBase(db, transactionsThisMonth, baseCurrencyCode);
-  const savingJarsMinor = await sumConvertedToBase(
+  const incomeSum = await sumConvertedToBaseDetailed(db, incomes, baseCurrencyCode);
+  const spentSum = await sumConvertedToBaseDetailed(db, transactionsThisMonth, baseCurrencyCode);
+  const budgetedSum = await sumConvertedToBaseDetailed(
+    db,
+    categoriesWithKinds.flatMap((c) =>
+      c.kinds.map((k) => ({ amountMinor: k.predictedAmountMinor, currency: k.currency })),
+    ),
+    baseCurrencyCode,
+  );
+  const jarsSum = await sumConvertedToBaseDetailed(
     db,
     jars.map((j) => ({ amountMinor: j.balanceMinor, currency: j.currency })),
+    baseCurrencyCode,
+  );
+  const cardBalanceSum = await sumConvertedToBaseDetailed(
+    db,
+    creditCards.map((a) => ({ amountMinor: a.balanceMinor, currency: a.currency })),
+    baseCurrencyCode,
+  );
+  const cardLimitSum = await sumConvertedToBaseDetailed(
+    db,
+    creditCards
+      .filter((a) => a.creditLimitMinor !== null)
+      .map((a) => ({ amountMinor: a.creditLimitMinor ?? 0, currency: a.currency })),
+    baseCurrencyCode,
+  );
+  const loansSum = await sumConvertedToBaseDetailed(
+    db,
+    loanRows.map((l) => ({ amountMinor: l.remainingBalanceMinor, currency: l.currency })),
     baseCurrencyCode,
   );
 
@@ -145,20 +206,39 @@ export async function getOverviewData(db: LedgerDb, userId: string): Promise<Ove
     .slice(0, 5);
 
   const kindById = new Map(categoriesWithKinds.flatMap((c) => c.kinds.map((k) => [k.id, k])));
-  const categoryById = new Map(categoriesWithKinds.map((c) => [c.id, c]));
-  const recentActivity: RecentActivityItem[] = transactionsThisMonth.slice(0, 5).map((tx) => {
+  const categoryNameById = new Map(categoryRows.map((c) => [c.id, c.name]));
+  const expenseActivity: RecentActivityItem[] = transactionsThisMonth.map((tx) => {
     const kind = kindById.get(tx.kindId);
-    const category = kind ? categoryById.get(kind.categoryId) : undefined;
+    const categoryName = kind ? categoryNameById.get(kind.categoryId) : undefined;
     return {
       id: tx.id,
       occurredAt: tx.occurredAt,
-      categoryName: category?.name ?? 'Unknown',
+      source: 'expense',
+      categoryName: categoryName ?? 'Unknown',
       kindName: kind?.name ?? 'Unknown',
       amountMinor: tx.amountMinor,
       currency: tx.currency,
       note: tx.note,
     };
   });
+  // A jar-funded expense is a withdrawal row, never a `ledger_transactions`
+  // row — it still belongs in "what did I spend recently" (the schema
+  // carries `category_id` on jar transactions for exactly this).
+  const jarActivity: RecentActivityItem[] = jarWithdrawalsThisMonth
+    .filter((tx) => tx.amountMinor < 0 && tx.occurredAt >= start && tx.occurredAt < end)
+    .map((tx) => ({
+      id: tx.id,
+      occurredAt: tx.occurredAt,
+      source: 'jar',
+      categoryName: (tx.categoryId && categoryNameById.get(tx.categoryId)) || 'Saving jar',
+      kindName: 'from jar',
+      amountMinor: -tx.amountMinor,
+      currency: tx.currency,
+      note: tx.note,
+    }));
+  const recentActivity = [...expenseActivity, ...jarActivity]
+    .sort((a, b) => b.occurredAt - a.occurredAt)
+    .slice(0, 5);
 
   const secondaryIncomeCount = incomes.filter((i) => i.kind === 'secondary').length;
   const dynamicCount = categoriesWithKinds.filter((c) => c.type === 'dynamic').length;
@@ -199,13 +279,16 @@ export async function getOverviewData(db: LedgerDb, userId: string): Promise<Ove
     {
       key: 'saving-plans',
       label: 'Saving plans',
-      detail: jars.length > 0 ? `${jars.length} jar${jars.length === 1 ? '' : 's'}` : 'Set aside money for goals',
+      detail:
+        jars.length > 0
+          ? `${jars.length} jar${jars.length === 1 ? '' : 's'}`
+          : 'Set aside money for goals',
       done: jars.length > 0,
       href: jars.length > 0 ? undefined : '/ledger/budget',
       comingSoon: false,
     },
     accountsRow('bank-accounts', 'Bank accounts', bankingCount, 'account'),
-    accountsRow('credit-cards', 'Credit cards', creditCardCount, 'card'),
+    accountsRow('credit-cards', 'Credit cards', creditCards.length, 'card'),
     accountsRow('assets', 'Investments & assets', assetRows.length, 'item'),
     accountsRow('deposits', 'Deposits', depositRows.length, 'deposit'),
     accountsRow('loans', 'Loans', loanRows.length, 'loan'),
@@ -214,14 +297,33 @@ export async function getOverviewData(db: LedgerDb, userId: string): Promise<Ove
 
   return {
     baseCurrencyCode,
+    period: getUtcYearMonth(now),
     transactionCount: allTransactions.length,
     thisMonth: {
-      incomeMinor,
-      spentMinor,
-      projectedSavedMinor: incomeMinor - spentMinor,
+      incomeMinor: incomeSum.totalMinor,
+      spentMinor: spentSum.totalMinor,
+      budgetedMinor: budgetedSum.totalMinor,
+      projectedSavingsMinor: incomeSum.totalMinor - budgetedSum.totalMinor,
+      remainingMinor: incomeSum.totalMinor - spentSum.totalMinor,
     },
-    netWorth: { totalMinor: netWorthMinor },
-    savingJars: { totalMinor: savingJarsMinor, jarCount: jars.length },
+    netWorth: { totalMinor: netWorth.netWorthMinor },
+    savingJars: { totalMinor: jarsSum.totalMinor, jarCount: jars.length },
+    creditCards: {
+      balanceMinor: cardBalanceSum.totalMinor,
+      limitMinor: cardLimitSum.totalMinor,
+      count: creditCards.length,
+    },
+    loans: { remainingMinor: loansSum.totalMinor, count: loanRows.length },
+    unconvertedCurrencies: mergeUnconverted(
+      incomeSum,
+      spentSum,
+      budgetedSum,
+      jarsSum,
+      cardBalanceSum,
+      cardLimitSum,
+      loansSum,
+      netWorth,
+    ),
     topCategories,
     recentActivity,
     checklist,

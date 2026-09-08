@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   getCurrentMonthRange,
   getPreviousYearMonth,
-  isFirstOfMonthUtc,
+  isCurrentMonth,
   todayDateOnly,
+  utcNoonOf,
 } from '../period';
 
 describe('getCurrentMonthRange', () => {
@@ -36,12 +37,25 @@ describe('todayDateOnly', () => {
   });
 });
 
-describe('isFirstOfMonthUtc', () => {
-  it('is true on the 1st, false on any other day', () => {
-    expect(isFirstOfMonthUtc(Date.UTC(2026, 8, 1, 0, 0, 0))).toBe(true);
-    expect(isFirstOfMonthUtc(Date.UTC(2026, 8, 1, 23, 59, 59))).toBe(true);
-    expect(isFirstOfMonthUtc(Date.UTC(2026, 8, 2, 0, 0, 0))).toBe(false);
-    expect(isFirstOfMonthUtc(Date.UTC(2026, 8, 30))).toBe(false);
+describe('isCurrentMonth', () => {
+  it('matches only the UTC month of `now`', () => {
+    const now = Date.UTC(2026, 8, 8);
+    expect(isCurrentMonth(2026, 9, now)).toBe(true);
+    expect(isCurrentMonth(2026, 8, now)).toBe(false);
+    expect(isCurrentMonth(2025, 9, now)).toBe(false);
+  });
+});
+
+describe('utcNoonOf', () => {
+  it('stores a local calendar day as UTC noon of that same day, whatever the local offset', () => {
+    // A local-midnight Date for Sep 1 — in any timezone, its local
+    // year/month/day are what the user picked.
+    const local = new Date(2026, 8, 1);
+    const stored = utcNoonOf(local);
+    expect(new Date(stored).toISOString()).toBe('2026-09-01T12:00:00.000Z');
+    // And it lands inside September's UTC range, never August's.
+    const { start } = getCurrentMonthRange(Date.UTC(2026, 8, 15));
+    expect(stored).toBeGreaterThanOrEqual(start);
   });
 });
 

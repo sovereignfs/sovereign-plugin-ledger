@@ -1,11 +1,9 @@
-import { Icon, PageHeader, Progress } from '@sovereignfs/ui';
-import { formatMoney } from '../_lib/format';
-import type { BudgetCategory, BudgetData, BudgetSavingCategory } from '../_lib/budget';
-import styles from './Budget.module.css';
+'use client';
 
-function monthLabel(): string {
-  return new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(new Date());
-}
+import { Icon, PageHeader, Progress } from '@sovereignfs/ui';
+import type { BudgetCategory, BudgetData, BudgetSavingCategory } from '../_lib/budget';
+import { useFormatters } from '../_lib/locale';
+import styles from './Budget.module.css';
 
 function CategoryRow({
   category,
@@ -16,6 +14,7 @@ function CategoryRow({
   selected: boolean;
   onSelect: () => void;
 }) {
+  const fmt = useFormatters();
   const over = category.actualAmountMinor > category.predictedAmountMinor;
   const pct =
     category.predictedAmountMinor > 0
@@ -31,8 +30,8 @@ function CategoryRow({
       <div className={styles.rowHeader}>
         <span className={styles.rowName}>{category.name}</span>
         <span className={over ? styles.rowOver : styles.rowAmounts}>
-          {formatMoney(category.actualAmountMinor, category.currency)} /{' '}
-          {formatMoney(category.predictedAmountMinor, category.currency)}
+          {fmt.money(category.actualAmountMinor, category.currency)} /{' '}
+          {fmt.money(category.predictedAmountMinor, category.currency)}
           {over && ' · over'}
         </span>
       </div>
@@ -53,6 +52,7 @@ function SavingRow({
   selected: boolean;
   onSelect: () => void;
 }) {
+  const fmt = useFormatters();
   return (
     <button
       type="button"
@@ -63,8 +63,8 @@ function SavingRow({
       <div className={styles.rowHeader}>
         <span className={styles.rowName}>{category.name}</span>
         <span className={styles.rowAmounts}>
-          Target {formatMoney(category.targetAmountMinor, category.currency)} · Balance{' '}
-          {formatMoney(category.jarBalanceMinor, category.currency)}
+          Target {fmt.money(category.targetAmountMinor, category.currency)} · Balance{' '}
+          {fmt.money(category.jarBalanceMinor, category.currency)}
         </span>
       </div>
     </button>
@@ -89,9 +89,10 @@ export function BudgetMain({
   onSelect: (id: string) => void;
   onAddSavingJar: () => void;
 }) {
+  const fmt = useFormatters();
   return (
     <div className={styles.page}>
-      <PageHeader title="Budget" description={monthLabel()} />
+      <PageHeader title="Budget" description={fmt.period(data.period.year, data.period.month)} />
 
       <section className={styles.section}>
         <p className={styles.sectionLabel}>Dynamic</p>

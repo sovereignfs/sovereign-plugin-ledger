@@ -42,7 +42,7 @@ export const currencies = pgTable(
     createdAt: bigint('created_at', { mode: 'number' }).notNull(),
     updatedAt: bigint('updated_at', { mode: 'number' }).notNull(),
   },
-  (t) => [index('ledger_currencies_user_code_idx').on(t.userId, t.code)],
+  (t) => [uniqueIndex('ledger_currencies_user_code_idx').on(t.userId, t.code)],
 );
 
 export const fxRates = pgTable(
@@ -55,9 +55,7 @@ export const fxRates = pgTable(
     asOfDate: text('as_of_date').notNull(),
     source: text('source'),
   },
-  (t) => [
-    uniqueIndex('ledger_fx_rates_lookup_idx').on(t.currencyCode, t.pivotCode, t.asOfDate),
-  ],
+  (t) => [uniqueIndex('ledger_fx_rates_lookup_idx').on(t.currencyCode, t.pivotCode, t.asOfDate)],
 );
 
 export const incomes = pgTable(
@@ -127,9 +125,7 @@ export const transactions = pgTable(
     createdAt: bigint('created_at', { mode: 'number' }).notNull(),
     updatedAt: bigint('updated_at', { mode: 'number' }).notNull(),
   },
-  (t) => [
-    index('ledger_transactions_user_kind_occurred_idx').on(t.userId, t.kindId, t.occurredAt),
-  ],
+  (t) => [index('ledger_transactions_user_kind_occurred_idx').on(t.userId, t.kindId, t.occurredAt)],
 );
 
 export const savingJars = pgTable(

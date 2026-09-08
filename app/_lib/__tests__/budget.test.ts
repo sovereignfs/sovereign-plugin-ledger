@@ -26,8 +26,24 @@ async function seedBudget() {
   const twoMonthsAgo = now - 60 * 24 * 60 * 60 * 1000;
 
   await t.db.insert(schema.categories).values([
-    { id: 'cat-groceries', tenantId, userId, name: 'Groceries', type: 'dynamic', createdAt: now, updatedAt: now },
-    { id: 'cat-rent', tenantId, userId, name: 'Rent', type: 'fixed', createdAt: now, updatedAt: now },
+    {
+      id: 'cat-groceries',
+      tenantId,
+      userId,
+      name: 'Groceries',
+      type: 'dynamic',
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'cat-rent',
+      tenantId,
+      userId,
+      name: 'Rent',
+      type: 'fixed',
+      createdAt: now,
+      updatedAt: now,
+    },
   ]);
   await t.db.insert(schema.kinds).values([
     {
@@ -135,7 +151,7 @@ describe('getBudgetData', () => {
 
   it('returns empty dynamic/fixed/saving lists when the user has no categories yet', async () => {
     const data = await getBudgetData(t.ledger, userId);
-    expect(data).toEqual({ dynamic: [], fixed: [], saving: [] });
+    expect(data).toMatchObject({ dynamic: [], fixed: [], saving: [] });
   });
 });
 

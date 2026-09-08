@@ -109,6 +109,23 @@ platform repo's `docs/architecture-rules.md`.
   "predicted"/"actual"/"kind" — see `SPEC.md`'s Terminology section.
 - **Plugins version only `manifest.json`.** `package.json`'s `version`
   stays pinned at `0.0.0` forever.
+- **Every `currency` a client sends is validated** (`cleanCurrencyCode` →
+  `CURRENCY_OPTIONS`) before it's stored, and a transaction's currency is
+  always its subcategory's own, never client-supplied — an arbitrary code
+  reaches `Intl.NumberFormat` on render and crashes every page.
+- **A user-picked calendar day is stored as UTC noon of that day**
+  (`utcNoonOf`) and rendered in UTC (`formatDay`), never local midnight —
+  local midnight on the 1st is still the previous month in UTC east of
+  Greenwich. Month boundaries are UTC (`period.ts`).
+- **Conversions go through `getCrossRateAsOf`** (both legs against the
+  USD pivot, `FX_PIVOT_CODE`), never a direct `(currency, base)` lookup;
+  historical amounts carry `asOfDate`; anything unconvertible is reported
+  via `ConvertedSum.unconvertedCurrencies` and shown with `UnconvertedNote`,
+  never silently dropped.
+- **Components format through `useFormatters()`** (`locale.tsx`), which
+  carries the request's `Accept-Language` locale from the server page —
+  never a bare `Intl.*(undefined, …)` in a client component, or SSR and
+  hydration disagree for non-`en-US` browsers.
 
 ## Status
 

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { startTransition, useActionState, useEffect, useState } from 'react';
 import {
@@ -8,6 +9,7 @@ import {
   DatePicker,
   Dialog,
   Drawer,
+  EmptyState,
   FormField,
   Input,
   Select,
@@ -18,42 +20,35 @@ import {
 import { createJarTransaction, createTransaction, getExpenseFormOptions } from '../actions';
 import type { ExpenseFormCategoryOption, ExpenseFormJarOption } from '../actions';
 import { fail, type ActionResult } from '../_lib/action-result';
+import { utcNoonOf } from '../_lib/period';
 import styles from './AddExpenseDialog.module.css';
 
 /**
- * web-shell.md screen 6 (`Dialog size="md"`, corrected from the original
- * wireframe's `Sheet` draft — no desktop equivalent) and mobile-fork.md
- * screen 8 (`Drawer`, `snapHeight="content"`) — one component, one form,
- * forking only the surrounding overlay via `useIsMobile()`. Rendered from
- * both `LedgerSidebar` (desktop) and `AddExpenseFab` (mobile) so
- * "+ Add expense" works from any page under the shell, which is also why
- * its category/kind options are fetched lazily here via
- * `getExpenseFormOptions` rather than preloaded by a specific page — see
- * that action's own doc comment.
+ * web-shell.md screen 6 (`Dialog size="md"`) and mobile-fork.md screen 8
+ * (`Drawer`, `snapHeight="content"`) — one component, one form, forking
+ * only the surrounding overlay via `useIsMobile()`. Rendered from both
+ * `LedgerSidebar` (desktop) and `AddExpenseFab` (mobile) so "+ Add expense"
+ * works from any page under the shell, which is also why its category/kind
+ * options are fetched lazily here via `getExpenseFormOptions` rather than
+ * preloaded by a specific page.
  *
  * No `useCommitOnEnterOrBlur` on amount/note: this dialog has its own
  * always-visible "Add expense" submit button, the documented exception in
- * CLAUDE.md's quick-entry-input rule (that rule is for fields that must
- * persist themselves on blur with no other affordance to do so).
+ * CLAUDE.md's quick-entry-input rule.
  *
- * The wireframe draws an inline "EUR ▾" currency picker inside the amount
- * field — not built that way: `CurrencyInput` has no currency prop by
- * design, and every kind's currency is fixed at creation time (the wizard
- * is still the only path that sets one), so letting a user pick a
- * different currency here would just create an amount that disagrees with
- * the subcategory's own budget currency. The selected subcategory's
- * currency is shown read-only in the amount field's own label instead.
+ * No currency picker: a transaction's currency is always its
+ * subcategory's own (`createTransaction` derives it server-side), so the
+ * selected subcategory's currency is shown read-only in the amount label.
  *
- * **"Fund from a saving jar" (L.12)** — the open question web-shell.md's
- * own doc left unresolved: toggling it on swaps Category+Subcategory for a
- * single "Saving jar" `Select`, matching the wireframe's literal "a single
- * jar picker" wording rather than asking for a second, separate spend
- * category on top of the jar. Submitting then calls `createJarTransaction`
- * (a signed withdrawal) instead of `createTransaction` — never both, the
- * exact double-booking this app's data model was corrected once already to
- * avoid (SPEC.md's Data model correction #3). The toggle disables itself
- * with a "No saving jars yet" hint when the user has none, rather than
- * letting it be turned on with nothing to pick.
+ * The chosen day is sent as UTC noon of that calendar day (`utcNoonOf`),
+ * never local midnight — local midnight on the 1st is still the previous
+ * month in UTC for anyone east of Greenwich, which put expenses in the
+ * wrong month's budget and report (see `period.ts`).
+ *
+ * **"Fund from a saving jar" (L.12)** — toggling it on swaps
+ * Category+Subcategory for a single "Saving jar" `Select`; submitting then
+ * calls `createJarTransaction` (a signed withdrawal) instead of
+ * `createTransaction` — never both (SPEC.md's Data model correction #3).
  */
 export function AddExpenseDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
@@ -96,13 +91,14 @@ export function AddExpenseDialog({ open, onClose }: { open: boolean; onClose: ()
   const selectedJar = jars.find((j) => j.id === jarId) ?? null;
 
   const [state, dispatch, pending] = useActionState<ActionResult | null, undefined>(async () => {
+    const occurredAt = utcNoonOf(date);
     const result = fundFromJar
       ? !selectedJar
         ? fail('Choose a saving jar.')
         : await createJarTransaction({
             jarId: selectedJar.id,
             amountMinor: -(amountCents ?? 0),
-            occurredAt: date.getTime(),
+            occurredAt,
             note: note.trim() || undefined,
           })
       : !selectedKind
@@ -110,8 +106,7 @@ export function AddExpenseDialog({ open, onClose }: { open: boolean; onClose: ()
         : await createTransaction({
             kindId: selectedKind.id,
             amountMinor: amountCents ?? 0,
-            currency: selectedKind.currency,
-            occurredAt: date.getTime(),
+            occurredAt,
             note: note.trim() || undefined,
           });
     if (result.ok) {
@@ -127,14 +122,28 @@ export function AddExpenseDialog({ open, onClose }: { open: boolean; onClose: ()
     (fundFromJar ? selectedJar !== null : selectedKind !== null) &&
     !pending;
 
+  const noCategories = categories !== null && categories.length === 0 && jars.length === 0;
+
   const body =
     categories === null ? (
       <div className={styles.loading}>
         <Spinner label="Loading categories…" />
       </div>
+    ) : noCategories ? (
+      <EmptyState
+        heading="No categories yet"
+        description="Add an expense category first, then log expenses against it."
+        action={
+          <Link href="/ledger/settings" onClick={onClose}>
+            Go to Settings
+          </Link>
+        }
+      />
     ) : (
       <div className={styles.body}>
-        <FormField label={`Amount (${(fundFromJar ? selectedJar?.currency : selectedKind?.currency) ?? ''})`}>
+        <FormField
+          label={`Amount (${(fundFromJar ? selectedJar?.currency : selectedKind?.currency) ?? ''})`}
+        >
           {(field) => (
             <CurrencyInput
               {...field}
@@ -196,7 +205,7 @@ export function AddExpenseDialog({ open, onClose }: { open: boolean; onClose: ()
           {(field) => (
             <DatePicker
               value={date}
-              onChange={setDate}
+              onChange={(next) => next && setDate(next)}
               aria-label="Date"
               placeholder="Select date"
               {...field}
@@ -253,7 +262,13 @@ export function AddExpenseDialog({ open, onClose }: { open: boolean; onClose: ()
 
   if (isMobile) {
     return (
-      <Drawer open={open} onClose={onClose} snapHeight="content" title="Add expense" aria-label="Add expense">
+      <Drawer
+        open={open}
+        onClose={onClose}
+        snapHeight="content"
+        title="Add expense"
+        aria-label="Add expense"
+      >
         {body}
       </Drawer>
     );

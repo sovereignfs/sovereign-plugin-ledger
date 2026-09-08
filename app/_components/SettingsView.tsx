@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { ResponsiveSurface } from '@sovereignfs/ui';
 import type { MobileAppEntry } from '../_lib/apps';
+import { LedgerLocaleProvider } from '../_lib/locale';
 import type { SettingsData } from '../_lib/settings';
 import { CreateCategoryDialog } from './CreateCategoryDialog';
 import { CreateCurrencyDialog } from './CreateCurrencyDialog';
@@ -23,13 +24,22 @@ type OpenDialog = 'currency' | 'income' | 'category' | null;
  * actions in `SettingsMain` are enough, so they need no selection state
  * here at all.
  */
-export function SettingsView({ data, apps }: { data: SettingsData; apps: MobileAppEntry[] }) {
+export function SettingsView({
+  data,
+  apps,
+  locale,
+}: {
+  data: SettingsData;
+  apps: MobileAppEntry[];
+  locale: string | undefined;
+}) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [openDialog, setOpenDialog] = useState<OpenDialog>(null);
   const [editingIncomeId, setEditingIncomeId] = useState<string | null>(null);
-  const [addKindTarget, setAddKindTarget] = useState<{ categoryId: string; currency: string } | null>(
-    null,
-  );
+  const [addKindTarget, setAddKindTarget] = useState<{
+    categoryId: string;
+    currency: string;
+  } | null>(null);
 
   const editingIncome = data.incomes.find((i) => i.id === editingIncomeId) ?? null;
 
@@ -84,43 +94,45 @@ export function SettingsView({ data, apps }: { data: SettingsData; apps: MobileA
   );
 
   return (
-    <ResponsiveSurface
-      web={
-        <>
-          <LedgerShell
-            detail={
-              selectedCategoryId && (
-                <SettingsDetail
-                  key={selectedCategoryId}
-                  data={data}
-                  categoryId={selectedCategoryId}
-                  onDeselect={() => setSelectedCategoryId(null)}
-                  onAddKind={(categoryId, currency) => setAddKindTarget({ categoryId, currency })}
-                />
-              )
-            }
-          >
-            {main}
-          </LedgerShell>
-          {dialogs}
-        </>
-      }
-      mobile={
-        <LedgerMobileShell apps={apps}>
-          <MobileSettingsScreen
-            data={data}
-            selectedCategoryId={selectedCategoryId}
-            onSelectCategory={setSelectedCategoryId}
-            onBack={() => setSelectedCategoryId(null)}
-            onAddCurrency={() => setOpenDialog('currency')}
-            onAddIncome={() => setOpenDialog('income')}
-            onEditIncome={setEditingIncomeId}
-            onAddCategory={() => setOpenDialog('category')}
-            onAddKind={(categoryId, currency) => setAddKindTarget({ categoryId, currency })}
-          />
-          {dialogs}
-        </LedgerMobileShell>
-      }
-    />
+    <LedgerLocaleProvider locale={locale}>
+      <ResponsiveSurface
+        web={
+          <>
+            <LedgerShell
+              detail={
+                selectedCategoryId && (
+                  <SettingsDetail
+                    key={selectedCategoryId}
+                    data={data}
+                    categoryId={selectedCategoryId}
+                    onDeselect={() => setSelectedCategoryId(null)}
+                    onAddKind={(categoryId, currency) => setAddKindTarget({ categoryId, currency })}
+                  />
+                )
+              }
+            >
+              {main}
+            </LedgerShell>
+            {dialogs}
+          </>
+        }
+        mobile={
+          <LedgerMobileShell apps={apps}>
+            <MobileSettingsScreen
+              data={data}
+              selectedCategoryId={selectedCategoryId}
+              onSelectCategory={setSelectedCategoryId}
+              onBack={() => setSelectedCategoryId(null)}
+              onAddCurrency={() => setOpenDialog('currency')}
+              onAddIncome={() => setOpenDialog('income')}
+              onEditIncome={setEditingIncomeId}
+              onAddCategory={() => setOpenDialog('category')}
+              onAddKind={(categoryId, currency) => setAddKindTarget({ categoryId, currency })}
+            />
+            {dialogs}
+          </LedgerMobileShell>
+        }
+      />
+    </LedgerLocaleProvider>
   );
 }

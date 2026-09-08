@@ -55,7 +55,11 @@ export function EditLoanDialog({ loan, onClose }: { loan: LoanItem; onClose: () 
         </div>
         <FormField label={`Remaining balance (${loan.currency})`}>
           {(field) => (
-            <CurrencyInput {...field} valueCents={remainingCents} onValueChange={setRemainingCents} />
+            <CurrencyInput
+              {...field}
+              valueCents={remainingCents}
+              onValueChange={setRemainingCents}
+            />
           )}
         </FormField>
         <FormField label={`Monthly installment (${loan.currency})`}>

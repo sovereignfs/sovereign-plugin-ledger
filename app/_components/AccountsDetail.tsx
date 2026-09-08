@@ -3,25 +3,16 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { BalanceChip, Button, ConfirmDialog, Progress } from '@sovereignfs/ui';
-import {
-  deleteAccount,
-  deleteAsset,
-  deleteDeposit,
-  deleteLoan,
-  deletePerson,
-} from '../actions';
-import { formatMoney, fromDateOnly } from '../_lib/format';
+import { deleteAccount, deleteAsset, deleteDeposit, deleteLoan, deletePerson } from '../actions';
 import type { AccountsData } from '../_lib/accounts';
+import { useFormatters } from '../_lib/locale';
 import styles from './Accounts.module.css';
 import type { SelectedItem } from './AccountsView';
+import { EditAccountDialog } from './EditAccountDialog';
+import { EditAssetDialog } from './EditAssetDialog';
+import { EditDepositDialog } from './EditDepositDialog';
 import { EditLoanDialog } from './EditLoanDialog';
 import { RecordPersonTransactionDialog } from './RecordPersonTransactionDialog';
-
-function monthYear(dateOnly: string): string {
-  return new Intl.DateTimeFormat(undefined, { month: 'short', year: 'numeric' }).format(
-    fromDateOnly(dateOnly),
-  );
-}
 
 /** Shared delete affordance — every entity type in this detail column has one. */
 function DeleteButton({
@@ -68,12 +59,10 @@ function DeleteButton({
 
 /**
  * web-shell.md screen 4's detail column — content shape varies by entity
- * type. Only Loans get a full edit flow (matching the wireframe's own
- * "Edit loan" affordance and the L.7 review checklist's specific focus);
- * accounts/assets/deposits/people are view + delete only for this task —
- * `updateAccount`/`updateAsset`/`updateDeposit` exist in the actions layer
- * for consistency but have no wired-up edit UI yet, a deliberate scope cut
- * rather than an oversight.
+ * type. Every entity type can be edited in place: accounts/cards (balance,
+ * limit), assets (value), deposits (amount), loans (balance, installment,
+ * end date). For a manually-maintained balance sheet, updating a balance is
+ * the core recurring action, so it's never more than one click away.
  */
 export function AccountsDetail({
   data,
@@ -84,16 +73,21 @@ export function AccountsDetail({
   selected: NonNullable<SelectedItem>;
   onDeselect: () => void;
 }) {
+  const fmt = useFormatters();
   // Hooks called unconditionally, before the type-switch below — this
   // component is remounted (via a `key` in AccountsView) on every selection
   // change, so this state never needs to be reset manually, but it still
   // must not live inside a conditional branch or after an early return.
-  const [editingLoan, setEditingLoan] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [recordingPersonTx, setRecordingPersonTx] = useState(false);
 
   if (selected.type === 'account') {
     const account = [...data.banking, ...data.creditCards].find((a) => a.id === selected.id);
     if (!account) return null;
+    const utilisationPct =
+      account.type === 'credit_card' && account.creditLimitMinor
+        ? (account.balanceMinor / account.creditLimitMinor) * 100
+        : null;
     return (
       <div>
         <div className={styles.detailHeader}>
@@ -103,19 +97,35 @@ export function AccountsDetail({
         <div className={styles.detailBody}>
           <div className={styles.statGrid}>
             <div>
-              <p className={styles.statLabel}>Balance</p>
-              <p className={styles.statValue}>{formatMoney(account.balanceMinor, account.currency)}</p>
+              <p className={styles.statLabel}>
+                {account.type === 'credit_card' ? 'Balance owed' : 'Balance'}
+              </p>
+              <p className={styles.statValue}>
+                {fmt.money(account.balanceMinor, account.currency)}
+              </p>
             </div>
             {account.type === 'credit_card' && account.creditLimitMinor !== null && (
               <div>
                 <p className={styles.statLabel}>Credit limit</p>
                 <p className={styles.statValue}>
-                  {formatMoney(account.creditLimitMinor, account.currency)}
+                  {fmt.money(account.creditLimitMinor, account.currency)}
                 </p>
               </div>
             )}
           </div>
+          {utilisationPct !== null && (
+            <div>
+              <div className={styles.progressLabel}>
+                <span>Used</span>
+                <span>{Math.round(utilisationPct)}%</span>
+              </div>
+              <Progress value={utilisationPct} label={`${account.name} credit used`} />
+            </div>
+          )}
           <div className={styles.actions}>
+            <Button variant="secondary" onClick={() => setEditing(true)}>
+              Update balance
+            </Button>
             <DeleteButton
               label={account.name}
               onDelete={async () => {
@@ -126,6 +136,7 @@ export function AccountsDetail({
             />
           </div>
         </div>
+        {editing && <EditAccountDialog account={account} onClose={() => setEditing(false)} />}
       </div>
     );
   }
@@ -144,9 +155,12 @@ export function AccountsDetail({
         <div className={styles.detailBody}>
           <div>
             <p className={styles.statLabel}>Value</p>
-            <p className={styles.statValue}>{formatMoney(asset.valueMinor, asset.currency)}</p>
+            <p className={styles.statValue}>{fmt.money(asset.valueMinor, asset.currency)}</p>
           </div>
           <div className={styles.actions}>
+            <Button variant="secondary" onClick={() => setEditing(true)}>
+              Update value
+            </Button>
             <DeleteButton
               label={asset.name}
               onDelete={async () => {
@@ -157,6 +171,7 @@ export function AccountsDetail({
             />
           </div>
         </div>
+        {editing && <EditAssetDialog asset={asset} onClose={() => setEditing(false)} />}
       </div>
     );
   }
@@ -172,9 +187,12 @@ export function AccountsDetail({
         <div className={styles.detailBody}>
           <div>
             <p className={styles.statLabel}>Amount</p>
-            <p className={styles.statValue}>{formatMoney(deposit.amountMinor, deposit.currency)}</p>
+            <p className={styles.statValue}>{fmt.money(deposit.amountMinor, deposit.currency)}</p>
           </div>
           <div className={styles.actions}>
+            <Button variant="secondary" onClick={() => setEditing(true)}>
+              Edit
+            </Button>
             <DeleteButton
               label={deposit.name}
               onDelete={async () => {
@@ -185,6 +203,7 @@ export function AccountsDetail({
             />
           </div>
         </div>
+        {editing && <EditDepositDialog deposit={deposit} onClose={() => setEditing(false)} />}
       </div>
     );
   }
@@ -207,22 +226,22 @@ export function AccountsDetail({
             <div>
               <p className={styles.statLabel}>Remaining balance</p>
               <p className={styles.statValue}>
-                {formatMoney(loan.remainingBalanceMinor, loan.currency)}
+                {fmt.money(loan.remainingBalanceMinor, loan.currency)}
               </p>
             </div>
             <div>
               <p className={styles.statLabel}>Monthly installment</p>
               <p className={styles.statValue}>
-                {formatMoney(loan.installmentAmountMinor, loan.currency)}
+                {fmt.money(loan.installmentAmountMinor, loan.currency)}
               </p>
             </div>
             <div>
               <p className={styles.statLabel}>Started</p>
-              <p className={styles.statValue}>{monthYear(loan.startDate)}</p>
+              <p className={styles.statValue}>{fmt.monthYear(loan.startDate)}</p>
             </div>
             <div>
               <p className={styles.statLabel}>Ends</p>
-              <p className={styles.statValue}>{monthYear(loan.endDate)}</p>
+              <p className={styles.statValue}>{fmt.monthYear(loan.endDate)}</p>
             </div>
           </div>
           <div>
@@ -233,11 +252,12 @@ export function AccountsDetail({
             <Progress value={paidOffPct} label={`${loan.name} paid off`} />
           </div>
           <p className={styles.linkedNote}>
-            Installment payments are logged against the &quot;Loans&quot; fixed expense on the
-            Budget page — use Add expense as normal.
+            Log each installment with Add expense against &quot;{loan.name}&quot; under the
+            &quot;Loans&quot; fixed expense — every payment logged there reduces this remaining
+            balance automatically.
           </p>
           <div className={styles.actions}>
-            <Button variant="secondary" onClick={() => setEditingLoan(true)}>
+            <Button variant="secondary" onClick={() => setEditing(true)}>
               Edit loan
             </Button>
             <DeleteButton
@@ -250,7 +270,7 @@ export function AccountsDetail({
             />
           </div>
         </div>
-        {editingLoan && <EditLoanDialog loan={loan} onClose={() => setEditingLoan(false)} />}
+        {editing && <EditLoanDialog loan={loan} onClose={() => setEditing(false)} />}
       </div>
     );
   }
@@ -273,15 +293,11 @@ export function AccountsDetail({
             person.transactions.map((tx) => (
               <div key={tx.id} className={styles.transactionRow}>
                 <span>
-                  <span className={styles.transactionDate}>
-                    {new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(
-                      new Date(tx.occurredAt),
-                    )}
-                  </span>{' '}
+                  <span className={styles.transactionDate}>{fmt.day(tx.occurredAt)}</span>{' '}
                   {tx.note && `• ${tx.note}`}
                 </span>
                 <span className={styles.transactionAmount}>
-                  {formatMoney(tx.amountMinor, person.currency)}
+                  {fmt.money(tx.amountMinor, person.currency)}
                 </span>
               </div>
             ))
@@ -302,7 +318,10 @@ export function AccountsDetail({
         </div>
       </div>
       {recordingPersonTx && (
-        <RecordPersonTransactionDialog person={person} onClose={() => setRecordingPersonTx(false)} />
+        <RecordPersonTransactionDialog
+          person={person}
+          onClose={() => setRecordingPersonTx(false)}
+        />
       )}
     </div>
   );

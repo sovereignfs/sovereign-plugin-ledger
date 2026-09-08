@@ -7,6 +7,21 @@
  * CONCEPT.md's "fiat and crypto alike" framing of the rate table's eventual
  * scope — see that job's own doc comment.
  */
+/**
+ * The single pivot every `ledger_fx_rates` row is stored against — USD, not
+ * EUR, despite Frankfurter's ECB data being natively EUR-denominated: a
+ * crypto source would default to USD pricing, so USD is the pivot both
+ * kinds of source can share without a second conversion hop (see
+ * `app/_jobs/fetch-fx-rates.ts`). Cross-rates between any two currencies are
+ * derived from their two pivot legs at query time (`getCrossRateAsOf`).
+ */
+export const FX_PIVOT_CODE = 'USD';
+
+/** True for a code the app supports — the only currencies any row may carry. */
+export function isSupportedCurrencyCode(code: string): boolean {
+  return CURRENCY_OPTIONS.some((c) => c.code === code);
+}
+
 export const CURRENCY_OPTIONS: Array<{ code: string; name: string }> = [
   { code: 'USD', name: 'US Dollar' },
   { code: 'EUR', name: 'Euro' },

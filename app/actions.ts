@@ -11,17 +11,27 @@
  *    needs. A forged id belonging to another user simply matches no row.
  * 3. Returns `ActionResult` — domain failures are values, never thrown.
  *
- * Dynamic and Fixed categories/kinds only via `createCategory`/`createKind`
- * — saving-type creation is deliberately rejected there, reserved for
- * L.12's jar-auto-provisioning logic.
+ * Saving-type categories are only ever created through
+ * `createCategoryWithKind` (which also provisions the linked jar);
+ * `createCategory`/`createKind` reject the saving type so a jar can never
+ * exist without its kind or gain a second one.
+ *
+ * Every `currency` a client sends is validated against `CURRENCY_OPTIONS`
+ * before it's stored — an arbitrary string here would reach
+ * `Intl.NumberFormat` on render and throw "Invalid currency code" for
+ * every page that shows the row.
  */
 import { revalidatePath } from 'next/cache';
 import { and, eq, inArray, sql } from 'drizzle-orm';
+import type { LedgerTx } from './_db/client';
 import * as schema from './_db/schema';
 import { fail, ok, type ActionResult } from './_lib/action-result';
-import { requireUser } from './_lib/authz';
+import { requireUser, type Actor } from './_lib/authz';
 import { getDb } from './_lib/db';
 import { newId } from './_lib/ids';
+import { isSupportedCurrencyCode } from './_lib/currency-options';
+import { isDateOnly } from './_lib/format';
+import { isCurrentMonth } from './_lib/period';
 import { listCategoriesWithKinds, listSavingCategoriesWithKinds } from './_lib/queries';
 
 const NOT_FOUND_CURRENCY = 'Currency not found.';
@@ -71,7 +81,45 @@ function cleanAmountMinor(raw: unknown, label: string): number | ActionResult {
 function cleanCurrencyCode(raw: unknown): string | ActionResult {
   const value = typeof raw === 'string' ? raw.trim().toUpperCase() : '';
   if (!/^[A-Z]{3}$/.test(value)) return fail('Currency code must be a 3-letter code (e.g. EUR).');
+  if (!isSupportedCurrencyCode(value)) return fail(`${value} isn't a supported currency.`);
   return value;
+}
+
+/** A `YYYY-MM-DD` date-only field arriving from a client. */
+function cleanDateOnly(raw: unknown, label: string): string | ActionResult {
+  if (!isDateOnly(raw)) return fail(`${label} must be a valid date.`);
+  return raw;
+}
+
+/** An optional `occurredAt` — a real Unix-ms instant, else "now". */
+function cleanOccurredAt(raw: unknown, now: number): number | ActionResult {
+  if (raw === undefined || raw === null) return now;
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw < 0) {
+    return fail('Date must be a valid timestamp.');
+  }
+  return Math.round(raw);
+}
+
+const RECURRENCE_UNITS = new Set(['day', 'week', 'month', 'year']);
+
+function cleanRecurrence(
+  raw: { unit: string; count: number; anchorDate: string } | undefined,
+):
+  | { unit: 'day' | 'week' | 'month' | 'year'; count: number; anchorDate: string }
+  | null
+  | ActionResult {
+  if (raw === undefined) return null;
+  if (!RECURRENCE_UNITS.has(raw.unit))
+    return fail('Recurrence unit must be day, week, month, or year.');
+  if (!Number.isInteger(raw.count) || raw.count < 1) {
+    return fail('Recurrence count must be a whole number, 1 or greater.');
+  }
+  if (!isDateOnly(raw.anchorDate)) return fail('Recurrence start must be a valid date.');
+  return {
+    unit: raw.unit as 'day' | 'week' | 'month' | 'year',
+    count: raw.count,
+    anchorDate: raw.anchorDate,
+  };
 }
 
 /** Unlike `cleanAmountMinor`: allows negative (a people-transaction delta), never zero. */
@@ -95,12 +143,29 @@ export async function createCurrency(input: {
   const db = await getDb();
   const now = Date.now();
 
+  // Idempotent on the code: `ledger_currencies` is unique per
+  // `(user_id, code)`, and the setup wizard legitimately re-submits step 1
+  // after a "Back" — re-adding an existing code just (re)applies `isBase`
+  // rather than failing or creating a duplicate row.
   await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select({ id: schema.currencies.id })
+      .from(schema.currencies)
+      .where(and(eq(schema.currencies.userId, actor.userId), eq(schema.currencies.code, code)));
     if (input.isBase) {
       await tx
         .update(schema.currencies)
         .set({ isBase: 0, updatedAt: now })
         .where(eq(schema.currencies.userId, actor.userId));
+    }
+    if (existing) {
+      if (input.isBase) {
+        await tx
+          .update(schema.currencies)
+          .set({ isBase: 1, updatedAt: now })
+          .where(eq(schema.currencies.id, existing.id));
+      }
+      return;
     }
     await tx.insert(schema.currencies).values({
       id: newId(),
@@ -184,6 +249,8 @@ export async function createIncome(input: {
   if (input.kind !== 'primary' && input.kind !== 'secondary') {
     return fail('Income kind must be "primary" or "secondary".');
   }
+  const currency = cleanCurrencyCode(input.currency);
+  if (typeof currency !== 'string') return currency;
   const db = await getDb();
   const now = Date.now();
   await db.insert(schema.incomes).values({
@@ -192,7 +259,7 @@ export async function createIncome(input: {
     userId: actor.userId,
     label,
     amountMinor,
-    currency: input.currency,
+    currency,
     kind: input.kind,
     createdAt: now,
     updatedAt: now,
@@ -273,50 +340,117 @@ export async function createCategoryWithKind(input: {
   if (typeof name !== 'string') return name;
   const predictedAmountMinor = cleanAmountMinor(input.predictedAmountMinor, 'Budgeted amount');
   if (typeof predictedAmountMinor !== 'number') return predictedAmountMinor;
+  if (input.type !== 'dynamic' && input.type !== 'fixed' && input.type !== 'saving') {
+    return fail('Category type must be dynamic, fixed, or saving.');
+  }
+  const currency = cleanCurrencyCode(input.currency);
+  if (typeof currency !== 'string') return currency;
 
   const db = await getDb();
   const now = Date.now();
-  const categoryId = newId();
   await db.transaction(async (tx) => {
-    await tx.insert(schema.categories).values({
-      id: categoryId,
-      tenantId: actor.tenantId,
-      userId: actor.userId,
-      name,
-      type: input.type,
-      createdAt: now,
-      updatedAt: now,
-    });
-    const kindId = newId();
-    await tx.insert(schema.kinds).values({
-      id: kindId,
-      tenantId: actor.tenantId,
-      userId: actor.userId,
-      categoryId,
-      name,
-      predictedAmountMinor,
-      currency: input.currency,
-      recurrenceIntervalUnit: null,
-      recurrenceIntervalCount: null,
-      recurrenceAnchorDate: null,
-      createdAt: now,
-      updatedAt: now,
-    });
-    if (input.type === 'saving') {
-      await tx.insert(schema.savingJars).values({
-        id: newId(),
-        tenantId: actor.tenantId,
-        userId: actor.userId,
-        kindId,
-        balanceMinor: 0,
-        currency: input.currency,
-        createdAt: now,
-        updatedAt: now,
-      });
-    }
+    await insertCategoryWithKind(
+      tx,
+      actor,
+      { ...input, name, predictedAmountMinor, currency },
+      now,
+    );
   });
   refresh();
   return ok('Category added.');
+}
+
+type CategoryWithKindInput = {
+  name: string;
+  type: 'dynamic' | 'fixed' | 'saving';
+  predictedAmountMinor: number;
+  currency: string;
+};
+
+async function insertCategoryWithKind(
+  tx: LedgerTx,
+  actor: Actor,
+  input: CategoryWithKindInput,
+  now: number,
+): Promise<void> {
+  const categoryId = newId();
+  await tx.insert(schema.categories).values({
+    id: categoryId,
+    tenantId: actor.tenantId,
+    userId: actor.userId,
+    name: input.name,
+    type: input.type,
+    createdAt: now,
+    updatedAt: now,
+  });
+  const kindId = newId();
+  await tx.insert(schema.kinds).values({
+    id: kindId,
+    tenantId: actor.tenantId,
+    userId: actor.userId,
+    categoryId,
+    name: input.name,
+    predictedAmountMinor: input.predictedAmountMinor,
+    currency: input.currency,
+    recurrenceIntervalUnit: null,
+    recurrenceIntervalCount: null,
+    recurrenceAnchorDate: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+  if (input.type === 'saving') {
+    await tx.insert(schema.savingJars).values({
+      id: newId(),
+      tenantId: actor.tenantId,
+      userId: actor.userId,
+      kindId,
+      balanceMinor: 0,
+      currency: input.currency,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+}
+
+/**
+ * The setup wizard's step 3 — every picked category in ONE transaction, so
+ * a failure on the third leaves nothing behind (the earlier one-action-per-
+ * chip loop left the first two persisted, and a retry then duplicated
+ * them). Validates every entry before writing anything.
+ */
+export async function createCategoriesWithKinds(input: {
+  categories: Array<{ name: string; predictedAmountMinor: number }>;
+  type: 'dynamic' | 'fixed';
+  currency: string;
+}): Promise<ActionResult> {
+  const actor = await requireUser();
+  if (input.type !== 'dynamic' && input.type !== 'fixed') {
+    return fail('Category type must be dynamic or fixed.');
+  }
+  const currency = cleanCurrencyCode(input.currency);
+  if (typeof currency !== 'string') return currency;
+  if (!Array.isArray(input.categories) || input.categories.length === 0) {
+    return fail('Pick at least one category.');
+  }
+  const cleaned: CategoryWithKindInput[] = [];
+  const seen = new Set<string>();
+  for (const entry of input.categories) {
+    const name = cleanText(entry.name, 'Category name');
+    if (typeof name !== 'string') return name;
+    const predictedAmountMinor = cleanAmountMinor(entry.predictedAmountMinor, `${name} budget`);
+    if (typeof predictedAmountMinor !== 'number') return predictedAmountMinor;
+    if (seen.has(name.toLowerCase())) return fail(`"${name}" is listed twice.`);
+    seen.add(name.toLowerCase());
+    cleaned.push({ name, type: input.type, predictedAmountMinor, currency });
+  }
+
+  const db = await getDb();
+  const now = Date.now();
+  await db.transaction(async (tx) => {
+    for (const entry of cleaned) await insertCategoryWithKind(tx, actor, entry, now);
+  });
+  refresh();
+  return ok(cleaned.length === 1 ? 'Category added.' : `${cleaned.length} categories added.`);
 }
 
 export async function createCategory(input: {
@@ -327,7 +461,7 @@ export async function createCategory(input: {
   const name = cleanText(input.name, 'Category name');
   if (typeof name !== 'string') return name;
   if (input.type !== 'dynamic' && input.type !== 'fixed') {
-    return fail("Saving categories aren't supported yet — coming in a later task.");
+    return fail('Create a saving jar from the Budget page instead.');
   }
   const db = await getDb();
   const now = Date.now();
@@ -394,6 +528,11 @@ export async function createKind(input: {
   const predictedAmountMinor = cleanAmountMinor(input.predictedAmountMinor, 'Budgeted amount');
   if (typeof predictedAmountMinor !== 'number') return predictedAmountMinor;
 
+  const currency = cleanCurrencyCode(input.currency);
+  if (typeof currency !== 'string') return currency;
+  const recurrence = cleanRecurrence(input.recurrence);
+  if (recurrence !== null && !('unit' in recurrence)) return recurrence;
+
   const db = await getDb();
   const [category] = await db
     .select({ type: schema.categories.type })
@@ -403,7 +542,18 @@ export async function createKind(input: {
     );
   if (!category) return fail(NOT_FOUND_CATEGORY);
   if (category.type === 'saving') {
-    return fail("Saving kinds aren't supported yet — coming in a later task.");
+    return fail('A saving jar has exactly one subcategory — create another jar instead.');
+  }
+  // Every kind in a category shares one currency: category totals
+  // (Budget, Overview, Reports) sum kinds raw in "the category's currency",
+  // which is only meaningful when there is exactly one.
+  const [sibling] = await db
+    .select({ currency: schema.kinds.currency })
+    .from(schema.kinds)
+    .where(eq(schema.kinds.categoryId, input.categoryId))
+    .limit(1);
+  if (sibling && sibling.currency !== currency) {
+    return fail(`Every subcategory in this category uses ${sibling.currency}.`);
   }
 
   const now = Date.now();
@@ -414,15 +564,15 @@ export async function createKind(input: {
     categoryId: input.categoryId,
     name,
     predictedAmountMinor,
-    currency: input.currency,
-    recurrenceIntervalUnit: input.recurrence?.unit ?? null,
-    recurrenceIntervalCount: input.recurrence?.count ?? null,
-    recurrenceAnchorDate: input.recurrence?.anchorDate ?? null,
+    currency,
+    recurrenceIntervalUnit: recurrence?.unit ?? null,
+    recurrenceIntervalCount: recurrence?.count ?? null,
+    recurrenceAnchorDate: recurrence?.anchorDate ?? null,
     createdAt: now,
     updatedAt: now,
   });
   refresh();
-  return ok('Kind added.');
+  return ok('Subcategory added.');
 }
 
 export async function updateKindBudget(input: {
@@ -459,60 +609,178 @@ export async function deleteKind(input: { kindId: string }): Promise<ActionResul
     .returning({ id: schema.kinds.id });
   if (deleted.length === 0) return fail(NOT_FOUND_KIND);
   refresh();
-  return ok('Kind removed.');
+  return ok('Subcategory removed.');
 }
 
 // ---------------------------------------------------------------------------
 // Transactions — Dynamic + Fixed actuals, always a positive spend amount.
+// The currency is always the kind's own (never client-supplied): a kind's
+// budget and its actuals must agree, and a forged currency would otherwise
+// be stored verbatim.
+//
+// A transaction against a loan's linked kind IS an installment payment, so
+// it also moves the loan's `remainingBalanceMinor` (down on create, back up
+// on delete, by the delta on edit) — the balance otherwise had to be edited
+// by hand after every payment.
+
+/** Apply `deltaMinor` to the remaining balance of the loan (if any) linked to `kindId`, floored at zero. */
+async function adjustLinkedLoanBalance(
+  tx: LedgerTx,
+  userId: string,
+  kindId: string,
+  deltaMinor: number,
+  now: number,
+): Promise<void> {
+  if (deltaMinor === 0) return;
+  const [loan] = await tx
+    .select({ id: schema.loans.id, remainingBalanceMinor: schema.loans.remainingBalanceMinor })
+    .from(schema.loans)
+    .where(and(eq(schema.loans.linkedKindId, kindId), eq(schema.loans.userId, userId)));
+  if (!loan) return;
+  await tx
+    .update(schema.loans)
+    .set({
+      remainingBalanceMinor: Math.max(0, loan.remainingBalanceMinor + deltaMinor),
+      updatedAt: now,
+    })
+    .where(eq(schema.loans.id, loan.id));
+}
 
 export async function createTransaction(input: {
   kindId: string;
   amountMinor: number;
-  currency: string;
   occurredAt?: number;
   note?: string;
 }): Promise<ActionResult> {
   const actor = await requireUser();
   const amountMinor = cleanAmountMinor(input.amountMinor, 'Amount');
   if (typeof amountMinor !== 'number') return amountMinor;
+  const now = Date.now();
+  const occurredAt = cleanOccurredAt(input.occurredAt, now);
+  if (typeof occurredAt !== 'number') return occurredAt;
 
   const db = await getDb();
   const [kind] = await db
-    .select({ id: schema.kinds.id })
+    .select({ id: schema.kinds.id, currency: schema.kinds.currency })
     .from(schema.kinds)
     .where(and(eq(schema.kinds.id, input.kindId), eq(schema.kinds.userId, actor.userId)));
   if (!kind) return fail(NOT_FOUND_KIND);
 
-  const now = Date.now();
-  await db.insert(schema.transactions).values({
-    id: newId(),
-    tenantId: actor.tenantId,
-    userId: actor.userId,
-    kindId: input.kindId,
-    amountMinor,
-    currency: input.currency,
-    occurredAt: input.occurredAt ?? now,
-    note: input.note?.trim() || null,
-    createdAt: now,
-    updatedAt: now,
+  await db.transaction(async (tx) => {
+    await tx.insert(schema.transactions).values({
+      id: newId(),
+      tenantId: actor.tenantId,
+      userId: actor.userId,
+      kindId: kind.id,
+      amountMinor,
+      currency: kind.currency,
+      occurredAt,
+      note: input.note?.trim() || null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await adjustLinkedLoanBalance(tx, actor.userId, kind.id, -amountMinor, now);
   });
   refresh();
   return ok('Expense logged.');
 }
 
-export async function deleteTransaction(input: { transactionId: string }): Promise<ActionResult> {
+export async function updateTransaction(input: {
+  transactionId: string;
+  kindId?: string;
+  amountMinor?: number;
+  occurredAt?: number;
+  note?: string;
+}): Promise<ActionResult> {
   const actor = await requireUser();
+  const now = Date.now();
   const db = await getDb();
-  const deleted = await db
-    .delete(schema.transactions)
+
+  const [existing] = await db
+    .select({
+      id: schema.transactions.id,
+      kindId: schema.transactions.kindId,
+      amountMinor: schema.transactions.amountMinor,
+    })
+    .from(schema.transactions)
     .where(
       and(
         eq(schema.transactions.id, input.transactionId),
         eq(schema.transactions.userId, actor.userId),
       ),
-    )
-    .returning({ id: schema.transactions.id });
-  if (deleted.length === 0) return fail(NOT_FOUND_TRANSACTION);
+    );
+  if (!existing) return fail(NOT_FOUND_TRANSACTION);
+
+  const patch: Partial<typeof schema.transactions.$inferInsert> & { updatedAt: number } = {
+    updatedAt: now,
+  };
+  let nextKindId = existing.kindId;
+  if (input.kindId !== undefined && input.kindId !== existing.kindId) {
+    const [kind] = await db
+      .select({ id: schema.kinds.id, currency: schema.kinds.currency })
+      .from(schema.kinds)
+      .where(and(eq(schema.kinds.id, input.kindId), eq(schema.kinds.userId, actor.userId)));
+    if (!kind) return fail(NOT_FOUND_KIND);
+    nextKindId = kind.id;
+    patch.kindId = kind.id;
+    patch.currency = kind.currency;
+  }
+  let nextAmountMinor = existing.amountMinor;
+  if (input.amountMinor !== undefined) {
+    const amountMinor = cleanAmountMinor(input.amountMinor, 'Amount');
+    if (typeof amountMinor !== 'number') return amountMinor;
+    nextAmountMinor = amountMinor;
+    patch.amountMinor = amountMinor;
+  }
+  if (input.occurredAt !== undefined) {
+    const occurredAt = cleanOccurredAt(input.occurredAt, now);
+    if (typeof occurredAt !== 'number') return occurredAt;
+    patch.occurredAt = occurredAt;
+  }
+  if (input.note !== undefined) patch.note = input.note.trim() || null;
+
+  await db.transaction(async (tx) => {
+    await tx.update(schema.transactions).set(patch).where(eq(schema.transactions.id, existing.id));
+    if (nextKindId === existing.kindId) {
+      await adjustLinkedLoanBalance(
+        tx,
+        actor.userId,
+        existing.kindId,
+        existing.amountMinor - nextAmountMinor,
+        now,
+      );
+    } else {
+      await adjustLinkedLoanBalance(tx, actor.userId, existing.kindId, existing.amountMinor, now);
+      await adjustLinkedLoanBalance(tx, actor.userId, nextKindId, -nextAmountMinor, now);
+    }
+  });
+  refresh();
+  return ok('Expense updated.');
+}
+
+export async function deleteTransaction(input: { transactionId: string }): Promise<ActionResult> {
+  const actor = await requireUser();
+  const db = await getDb();
+  const now = Date.now();
+  const [existing] = await db
+    .select({
+      id: schema.transactions.id,
+      kindId: schema.transactions.kindId,
+      amountMinor: schema.transactions.amountMinor,
+    })
+    .from(schema.transactions)
+    .where(
+      and(
+        eq(schema.transactions.id, input.transactionId),
+        eq(schema.transactions.userId, actor.userId),
+      ),
+    );
+  if (!existing) return fail(NOT_FOUND_TRANSACTION);
+
+  await db.transaction(async (tx) => {
+    await tx.delete(schema.transactions).where(eq(schema.transactions.id, existing.id));
+    await adjustLinkedLoanBalance(tx, actor.userId, existing.kindId, existing.amountMinor, now);
+  });
   refresh();
   return ok('Expense removed.');
 }
@@ -535,6 +803,9 @@ export async function createJarTransaction(input: {
   const actor = await requireUser();
   const amountMinor = cleanSignedAmountMinor(input.amountMinor, 'Amount');
   if (typeof amountMinor !== 'number') return amountMinor;
+  const now = Date.now();
+  const occurredAt = cleanOccurredAt(input.occurredAt, now);
+  if (typeof occurredAt !== 'number') return occurredAt;
 
   const db = await getDb();
   const [jar] = await db
@@ -551,7 +822,6 @@ export async function createJarTransaction(input: {
     return fail('This jar doesn’t have enough balance for that withdrawal.');
   }
 
-  const now = Date.now();
   await db.transaction(async (tx) => {
     await tx.insert(schema.jarTransactions).values({
       id: newId(),
@@ -561,11 +831,14 @@ export async function createJarTransaction(input: {
       amountMinor,
       categoryId: jar.categoryId,
       note: input.note?.trim() || null,
-      occurredAt: input.occurredAt ?? now,
+      occurredAt,
     });
     await tx
       .update(schema.savingJars)
-      .set({ balanceMinor: sql`${schema.savingJars.balanceMinor} + ${amountMinor}`, updatedAt: now })
+      .set({
+        balanceMinor: sql`${schema.savingJars.balanceMinor} + ${amountMinor}`,
+        updatedAt: now,
+      })
       .where(eq(schema.savingJars.id, input.jarId));
   });
   refresh();
@@ -591,6 +864,14 @@ export async function createAccount(input: {
   }
   const balanceMinor = cleanAmountMinor(input.balanceMinor, 'Balance');
   if (typeof balanceMinor !== 'number') return balanceMinor;
+  const currency = cleanCurrencyCode(input.currency);
+  if (typeof currency !== 'string') return currency;
+  let creditLimitMinor: number | null = null;
+  if (input.type === 'credit_card' && input.creditLimitMinor !== undefined) {
+    const limit = cleanAmountMinor(input.creditLimitMinor, 'Credit limit');
+    if (typeof limit !== 'number') return limit;
+    creditLimitMinor = limit;
+  }
 
   const db = await getDb();
   const now = Date.now();
@@ -602,8 +883,8 @@ export async function createAccount(input: {
     institution: input.institution?.trim() || null,
     type: input.type,
     balanceMinor,
-    currency: input.currency,
-    creditLimitMinor: input.creditLimitMinor ?? null,
+    currency,
+    creditLimitMinor,
     createdAt: now,
     updatedAt: now,
   });
@@ -616,7 +897,8 @@ export async function updateAccount(input: {
   name?: string;
   institution?: string;
   balanceMinor?: number;
-  creditLimitMinor?: number;
+  /** `null` clears a credit card's limit. */
+  creditLimitMinor?: number | null;
 }): Promise<ActionResult> {
   const actor = await requireUser();
   const patch: Partial<typeof schema.accounts.$inferInsert> & { updatedAt: number } = {
@@ -633,7 +915,15 @@ export async function updateAccount(input: {
     if (typeof balanceMinor !== 'number') return balanceMinor;
     patch.balanceMinor = balanceMinor;
   }
-  if (input.creditLimitMinor !== undefined) patch.creditLimitMinor = input.creditLimitMinor;
+  if (input.creditLimitMinor !== undefined) {
+    if (input.creditLimitMinor === null) {
+      patch.creditLimitMinor = null;
+    } else {
+      const limit = cleanAmountMinor(input.creditLimitMinor, 'Credit limit');
+      if (typeof limit !== 'number') return limit;
+      patch.creditLimitMinor = limit;
+    }
+  }
 
   const db = await getDb();
   const updated = await db
@@ -675,6 +965,8 @@ export async function createAsset(input: {
   }
   const valueMinor = cleanAmountMinor(input.valueMinor, 'Value');
   if (typeof valueMinor !== 'number') return valueMinor;
+  const currency = cleanCurrencyCode(input.currency);
+  if (typeof currency !== 'string') return currency;
 
   const db = await getDb();
   const now = Date.now();
@@ -685,7 +977,7 @@ export async function createAsset(input: {
     name,
     type: input.type,
     valueMinor,
-    currency: input.currency,
+    currency,
     createdAt: now,
     updatedAt: now,
   });
@@ -749,6 +1041,8 @@ export async function createDeposit(input: {
   if (typeof name !== 'string') return name;
   const amountMinor = cleanAmountMinor(input.amountMinor, 'Amount');
   if (typeof amountMinor !== 'number') return amountMinor;
+  const currency = cleanCurrencyCode(input.currency);
+  if (typeof currency !== 'string') return currency;
 
   const db = await getDb();
   const now = Date.now();
@@ -758,7 +1052,7 @@ export async function createDeposit(input: {
     userId: actor.userId,
     name,
     amountMinor,
-    currency: input.currency,
+    currency,
     createdAt: now,
     updatedAt: now,
   });
@@ -813,6 +1107,8 @@ export async function deleteDeposit(input: { depositId: string }): Promise<Actio
 // Loans — creating one auto-creates its linked Fixed kind (see
 // `LOANS_CATEGORY_NAME`'s doc comment); editing keeps the kind's name/
 // budget in sync; deleting removes the kind too, never leaving an orphan.
+// A transaction logged against the linked kind is an installment payment
+// and moves `remainingBalanceMinor` (see `adjustLinkedLoanBalance`).
 
 export async function createLoan(input: {
   name: string;
@@ -831,17 +1127,23 @@ export async function createLoan(input: {
   if (typeof lender !== 'string') return lender;
   const principalMinor = cleanAmountMinor(input.principalMinor, 'Principal');
   if (typeof principalMinor !== 'number') return principalMinor;
-  const remainingBalanceMinor = cleanAmountMinor(
-    input.remainingBalanceMinor,
-    'Remaining balance',
-  );
+  const remainingBalanceMinor = cleanAmountMinor(input.remainingBalanceMinor, 'Remaining balance');
   if (typeof remainingBalanceMinor !== 'number') return remainingBalanceMinor;
   const installmentAmountMinor = cleanAmountMinor(
     input.installmentAmountMinor,
     'Installment amount',
   );
   if (typeof installmentAmountMinor !== 'number') return installmentAmountMinor;
-  if (!input.startDate || !input.endDate) return fail('Start and end dates are required.');
+  if (remainingBalanceMinor > principalMinor) {
+    return fail('Remaining balance can’t be more than the principal.');
+  }
+  const startDate = cleanDateOnly(input.startDate, 'Start date');
+  if (typeof startDate !== 'string') return startDate;
+  const endDate = cleanDateOnly(input.endDate, 'End date');
+  if (typeof endDate !== 'string') return endDate;
+  if (endDate < startDate) return fail('End date must be on or after the start date.');
+  const currency = cleanCurrencyCode(input.currency);
+  if (typeof currency !== 'string') return currency;
 
   const db = await getDb();
   const now = Date.now();
@@ -877,7 +1179,7 @@ export async function createLoan(input: {
       categoryId,
       name,
       predictedAmountMinor: installmentAmountMinor,
-      currency: input.currency,
+      currency,
       recurrenceIntervalUnit: null,
       recurrenceIntervalCount: null,
       recurrenceAnchorDate: null,
@@ -894,9 +1196,9 @@ export async function createLoan(input: {
       principalMinor,
       remainingBalanceMinor,
       installmentAmountMinor,
-      currency: input.currency,
-      startDate: input.startDate,
-      endDate: input.endDate,
+      currency,
+      startDate,
+      endDate,
       linkedKindId: kindId,
       createdAt: now,
       updatedAt: now,
@@ -918,7 +1220,11 @@ export async function updateLoan(input: {
   const db = await getDb();
 
   const [loan] = await db
-    .select({ linkedKindId: schema.loans.linkedKindId })
+    .select({
+      linkedKindId: schema.loans.linkedKindId,
+      principalMinor: schema.loans.principalMinor,
+      startDate: schema.loans.startDate,
+    })
     .from(schema.loans)
     .where(and(eq(schema.loans.id, input.loanId), eq(schema.loans.userId, actor.userId)));
   if (!loan) return fail(NOT_FOUND_LOAN);
@@ -950,6 +1256,9 @@ export async function updateLoan(input: {
       'Remaining balance',
     );
     if (typeof remainingBalanceMinor !== 'number') return remainingBalanceMinor;
+    if (remainingBalanceMinor > loan.principalMinor) {
+      return fail('Remaining balance can’t be more than the principal.');
+    }
     loanPatch.remainingBalanceMinor = remainingBalanceMinor;
   }
   if (input.installmentAmountMinor !== undefined) {
@@ -962,7 +1271,12 @@ export async function updateLoan(input: {
     kindPatch.predictedAmountMinor = installmentAmountMinor;
     touchesKind = true;
   }
-  if (input.endDate !== undefined) loanPatch.endDate = input.endDate;
+  if (input.endDate !== undefined) {
+    const endDate = cleanDateOnly(input.endDate, 'End date');
+    if (typeof endDate !== 'string') return endDate;
+    if (endDate < loan.startDate) return fail('End date must be on or after the start date.');
+    loanPatch.endDate = endDate;
+  }
 
   await db.transaction(async (tx) => {
     await tx.update(schema.loans).set(loanPatch).where(eq(schema.loans.id, input.loanId));
@@ -1006,6 +1320,8 @@ export async function createPerson(input: {
   const actor = await requireUser();
   const name = cleanText(input.name, 'Person name');
   if (typeof name !== 'string') return name;
+  const currency = cleanCurrencyCode(input.currency);
+  if (typeof currency !== 'string') return currency;
 
   const db = await getDb();
   const now = Date.now();
@@ -1015,7 +1331,7 @@ export async function createPerson(input: {
     userId: actor.userId,
     name,
     balanceMinor: 0,
-    currency: input.currency,
+    currency,
     createdAt: now,
     updatedAt: now,
   });
@@ -1046,13 +1362,15 @@ export async function createPeopleTransaction(input: {
   if (typeof amountMinor !== 'number') return amountMinor;
 
   const db = await getDb();
+  const now = Date.now();
+  const occurredAt = cleanOccurredAt(input.occurredAt, now);
+  if (typeof occurredAt !== 'number') return occurredAt;
   const [person] = await db
     .select({ id: schema.people.id })
     .from(schema.people)
     .where(and(eq(schema.people.id, input.personId), eq(schema.people.userId, actor.userId)));
   if (!person) return fail(NOT_FOUND_PERSON);
 
-  const now = Date.now();
   await db.transaction(async (tx) => {
     await tx.insert(schema.peopleTransactions).values({
       id: newId(),
@@ -1061,7 +1379,7 @@ export async function createPeopleTransaction(input: {
       personId: input.personId,
       amountMinor,
       note: input.note?.trim() || null,
-      occurredAt: input.occurredAt ?? now,
+      occurredAt,
     });
     await tx
       .update(schema.people)
@@ -1085,8 +1403,20 @@ export async function markPeriodReviewed(input: {
   month: number;
 }): Promise<ActionResult> {
   const actor = await requireUser();
-  if (!Number.isInteger(input.year) || !Number.isInteger(input.month)) {
+  if (
+    !Number.isInteger(input.year) ||
+    !Number.isInteger(input.month) ||
+    input.month < 1 ||
+    input.month > 12 ||
+    input.year < 1970 ||
+    input.year > 9999
+  ) {
     return fail('Invalid period.');
+  }
+  const monthStart = Date.UTC(input.year, input.month - 1, 1);
+  if (monthStart > Date.now()) return fail('That month hasn’t started yet.');
+  if (isCurrentMonth(input.year, input.month)) {
+    return fail('This month isn’t over yet — review it once it ends.');
   }
   const db = await getDb();
   await db
@@ -1156,7 +1486,9 @@ export async function getExpenseFormOptions(): Promise<{
     db.select().from(schema.savingJars).where(eq(schema.savingJars.userId, actor.userId)),
   ]);
   const savingCategoryByKindId = new Map(
-    savingCategories.flatMap((category) => category.kinds.map((kind) => [kind.id, category] as const)),
+    savingCategories.flatMap((category) =>
+      category.kinds.map((kind) => [kind.id, category] as const),
+    ),
   );
   return {
     categories: categories.map((category) => ({

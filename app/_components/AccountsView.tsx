@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ResponsiveSurface } from '@sovereignfs/ui';
 import type { MobileAppEntry } from '../_lib/apps';
 import type { AccountsData } from '../_lib/accounts';
+import { LedgerLocaleProvider } from '../_lib/locale';
 import { AccountsDetail } from './AccountsDetail';
 import { AccountsMain } from './AccountsMain';
 import { CreateAccountDialog } from './CreateAccountDialog';
@@ -27,68 +28,100 @@ type OpenDialog = 'account' | 'asset' | 'deposit' | 'loan' | 'person' | null;
  * after any mutation just flows new props into this already-mounted tree.
  * The same `selected`/`openDialog` state drives both the desktop list+detail
  * columns and the mobile drill-down screen (`MobileAccountsScreen`,
- * mobile-fork.md screens 4-5) — only the presentation forks.
+ * mobile-fork.md screens 4-5) — only the presentation forks. Every create
+ * dialog defaults its currency to the user's base currency.
  */
-export function AccountsView({ data, apps }: { data: AccountsData; apps: MobileAppEntry[] }) {
+export function AccountsView({
+  data,
+  apps,
+  locale,
+}: {
+  data: AccountsData;
+  apps: MobileAppEntry[];
+  locale: string | undefined;
+}) {
   const [selected, setSelected] = useState<SelectedItem>(null);
   const [openDialog, setOpenDialog] = useState<OpenDialog>(null);
+  const base = data.baseCurrencyCode;
 
   const dialogs = (
     <>
-      <CreateAccountDialog open={openDialog === 'account'} onClose={() => setOpenDialog(null)} />
-      <CreateAssetDialog open={openDialog === 'asset'} onClose={() => setOpenDialog(null)} />
-      <CreateDepositDialog open={openDialog === 'deposit'} onClose={() => setOpenDialog(null)} />
-      <CreateLoanDialog open={openDialog === 'loan'} onClose={() => setOpenDialog(null)} />
-      <CreatePersonDialog open={openDialog === 'person'} onClose={() => setOpenDialog(null)} />
+      <CreateAccountDialog
+        open={openDialog === 'account'}
+        onClose={() => setOpenDialog(null)}
+        baseCurrencyCode={base}
+      />
+      <CreateAssetDialog
+        open={openDialog === 'asset'}
+        onClose={() => setOpenDialog(null)}
+        baseCurrencyCode={base}
+      />
+      <CreateDepositDialog
+        open={openDialog === 'deposit'}
+        onClose={() => setOpenDialog(null)}
+        baseCurrencyCode={base}
+      />
+      <CreateLoanDialog
+        open={openDialog === 'loan'}
+        onClose={() => setOpenDialog(null)}
+        baseCurrencyCode={base}
+      />
+      <CreatePersonDialog
+        open={openDialog === 'person'}
+        onClose={() => setOpenDialog(null)}
+        baseCurrencyCode={base}
+      />
     </>
   );
 
   return (
-    <ResponsiveSurface
-      web={
-        <>
-          <LedgerShell
-            detail={
-              selected && (
-                <AccountsDetail
-                  key={`${selected.type}:${selected.id}`}
-                  data={data}
-                  selected={selected}
-                  onDeselect={() => setSelected(null)}
-                />
-              )
-            }
-          >
-            <AccountsMain
+    <LedgerLocaleProvider locale={locale}>
+      <ResponsiveSurface
+        web={
+          <>
+            <LedgerShell
+              detail={
+                selected && (
+                  <AccountsDetail
+                    key={`${selected.type}:${selected.id}`}
+                    data={data}
+                    selected={selected}
+                    onDeselect={() => setSelected(null)}
+                  />
+                )
+              }
+            >
+              <AccountsMain
+                data={data}
+                selected={selected}
+                onSelect={setSelected}
+                onAddAccount={() => setOpenDialog('account')}
+                onAddAsset={() => setOpenDialog('asset')}
+                onAddDeposit={() => setOpenDialog('deposit')}
+                onAddLoan={() => setOpenDialog('loan')}
+                onAddPerson={() => setOpenDialog('person')}
+              />
+            </LedgerShell>
+            {dialogs}
+          </>
+        }
+        mobile={
+          <LedgerMobileShell apps={apps}>
+            <MobileAccountsScreen
               data={data}
               selected={selected}
               onSelect={setSelected}
+              onBack={() => setSelected(null)}
               onAddAccount={() => setOpenDialog('account')}
               onAddAsset={() => setOpenDialog('asset')}
               onAddDeposit={() => setOpenDialog('deposit')}
               onAddLoan={() => setOpenDialog('loan')}
               onAddPerson={() => setOpenDialog('person')}
             />
-          </LedgerShell>
-          {dialogs}
-        </>
-      }
-      mobile={
-        <LedgerMobileShell apps={apps}>
-          <MobileAccountsScreen
-            data={data}
-            selected={selected}
-            onSelect={setSelected}
-            onBack={() => setSelected(null)}
-            onAddAccount={() => setOpenDialog('account')}
-            onAddAsset={() => setOpenDialog('asset')}
-            onAddDeposit={() => setOpenDialog('deposit')}
-            onAddLoan={() => setOpenDialog('loan')}
-            onAddPerson={() => setOpenDialog('person')}
-          />
-          {dialogs}
-        </LedgerMobileShell>
-      }
-    />
+            {dialogs}
+          </LedgerMobileShell>
+        }
+      />
+    </LedgerLocaleProvider>
   );
 }

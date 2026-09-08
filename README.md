@@ -4,10 +4,14 @@ A budget-based personal finance tracker, built as an installable plugin for
 the [Sovereign](https://github.com/sovereignfs/sovereignfs) platform
 (`fs.sovereign.ledger`).
 
-**Status: scaffold only (task L.1).** No data model, no real screens yet —
-see [`ROADMAP.md`](ROADMAP.md) for what's next.
+**Status: Phase 1 complete (L.1–L.15).** Setup wizard, Overview, Budget,
+expense entry (with edit/delete), Accounts (full balance sheet with in-place
+edits), Reports with month-end review, saving jars, rule-based insights,
+Settings, a daily FX-rate job, and a month-end recap email/notification — on
+both the desktop and mobile shells. See [`ROADMAP.md`](ROADMAP.md) for what
+is tracked next.
 
-## What it will be
+## What it is
 
 Set up a budget once (currencies, incomes, fixed/dynamic expense
 categories, saving plans, and a full balance sheet of accounts, cards,

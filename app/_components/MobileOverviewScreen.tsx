@@ -1,15 +1,12 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { formatMoney } from '../_lib/format';
+import { useFormatters } from '../_lib/locale';
 import type { OverviewData } from '../_lib/overview';
 import { MobileSettingsLink } from './MobileSettingsLink';
 import { OverviewChecklist } from './OverviewChecklist';
 import styles from './Mobile.module.css';
-
-function monthLabel(): string {
-  return new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(new Date());
-}
+import { UnconvertedNote } from './UnconvertedNote';
 
 /**
  * mobile-fork.md screen 1 — a condensed single-column dashboard: one
@@ -17,12 +14,9 @@ function monthLabel(): string {
  * away on the Accounts footer destination, not repeated here), top 2 budget
  * rows instead of 5, top 2 recent-activity rows instead of 5, and (L.13)
  * "1 insight" per the wireframe's own explicit count — desktop shows every
- * applicable one, mobile caps to the single most relevant. The month-end
- * review nudge is omitted, same as desktop (L.5/L.8) — a deliberate desktop
- * scope cut this task doesn't retroactively revisit. The checklist state
- * reuses the exact same `OverviewChecklist` desktop renders — already a
- * plain, unconstrained card with no desktop-only layout assumptions, so a
- * second mobile variant would just be a duplicate.
+ * applicable one, mobile caps to the single most relevant. The checklist
+ * state reuses the exact same `OverviewChecklist` desktop renders — already
+ * a plain, unconstrained card with no desktop-only layout assumptions.
  */
 export function MobileOverviewScreen({
   data,
@@ -32,6 +26,7 @@ export function MobileOverviewScreen({
   insights: string[];
 }) {
   const router = useRouter();
+  const fmt = useFormatters();
 
   if (data.transactionCount === 0) {
     return <OverviewChecklist items={data.checklist} />;
@@ -44,31 +39,45 @@ export function MobileOverviewScreen({
       <div className={styles.titleRow}>
         <div>
           <h1 className={styles.title}>Overview</h1>
-          <p className={styles.subtitle}>{monthLabel()}</p>
+          <p className={styles.subtitle}>{fmt.period(data.period.year, data.period.month)}</p>
         </div>
         <MobileSettingsLink />
       </div>
+
+      <UnconvertedNote currencies={data.unconvertedCurrencies} />
 
       <div className={styles.card}>
         <p className={styles.cardTitle}>This month</p>
         <div className={styles.cardRow}>
           <span>Income</span>
-          <span>{formatMoney(data.thisMonth.incomeMinor, base)}</span>
+          <span>{fmt.money(data.thisMonth.incomeMinor, base)}</span>
         </div>
         <div className={styles.cardRow}>
-          <span>Spent</span>
-          <span>{formatMoney(data.thisMonth.spentMinor, base)}</span>
+          <span>Budgeted</span>
+          <span>{fmt.money(data.thisMonth.budgetedMinor, base)}</span>
+        </div>
+        <div className={styles.cardRow}>
+          <span>Spent so far</span>
+          <span>{fmt.money(data.thisMonth.spentMinor, base)}</span>
         </div>
         <div className={`${styles.cardRow} ${styles.cardRowTotal}`}>
-          <span>Projected saved</span>
-          <span>{formatMoney(data.thisMonth.projectedSavedMinor, base)}</span>
+          <span>Projected savings</span>
+          <span>{fmt.money(data.thisMonth.projectedSavingsMinor, base)}</span>
+        </div>
+        <div className={styles.cardRow}>
+          <span>Left this month</span>
+          <span>{fmt.money(data.thisMonth.remainingMinor, base)}</span>
         </div>
       </div>
 
       <section>
         <div className={styles.sectionHeader}>
           <h2 className={styles.sectionTitle}>Budget this month</h2>
-          <button type="button" className={styles.link} onClick={() => router.push('/ledger/budget')}>
+          <button
+            type="button"
+            className={styles.link}
+            onClick={() => router.push('/ledger/budget')}
+          >
             View all →
           </button>
         </div>
@@ -79,8 +88,8 @@ export function MobileOverviewScreen({
             <div key={category.categoryId} className={styles.cardRow}>
               <span>{category.name}</span>
               <span>
-                {formatMoney(category.actualAmountMinor, category.currency)} /{' '}
-                {formatMoney(category.predictedAmountMinor, category.currency)}
+                {fmt.money(category.actualAmountMinor, category.currency)} /{' '}
+                {fmt.money(category.predictedAmountMinor, category.currency)}
               </span>
             </div>
           ))
@@ -108,14 +117,14 @@ export function MobileOverviewScreen({
           data.recentActivity.slice(0, 2).map((item) => (
             <div key={item.id} className={styles.activityRow}>
               <span>
-                <span className={styles.activityDate}>
-                  {new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(
-                    new Date(item.occurredAt),
-                  )}
-                </span>{' '}
-                • {item.categoryName === item.kindName ? item.categoryName : `${item.categoryName} — ${item.kindName}`}
+                <span className={styles.activityDate}>{fmt.day(item.occurredAt)}</span> •{' '}
+                {item.source === 'jar'
+                  ? `${item.categoryName} — from jar`
+                  : item.categoryName === item.kindName
+                    ? item.categoryName
+                    : `${item.categoryName} — ${item.kindName}`}
               </span>
-              <span>-{formatMoney(item.amountMinor, item.currency)}</span>
+              <span>-{fmt.money(item.amountMinor, item.currency)}</span>
             </div>
           ))
         )}

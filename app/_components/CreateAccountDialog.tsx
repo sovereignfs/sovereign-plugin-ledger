@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { startTransition, useActionState, useState } from 'react';
+import { startTransition, useActionState, useEffect, useState } from 'react';
 import {
   Button,
   CurrencyInput,
@@ -16,12 +16,29 @@ import type { ActionResult } from '../_lib/action-result';
 import styles from './Accounts.module.css';
 import { CURRENCY_OPTIONS } from '../_lib/currency-options';
 
-export function CreateAccountDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+/**
+ * Currency defaults to the user's base currency on every open — the dialog
+ * stays mounted across opens, so a `useState` initializer alone would go
+ * stale after a base-currency change (same fix as the Settings dialogs).
+ */
+export function CreateAccountDialog({
+  open,
+  onClose,
+  baseCurrencyCode,
+}: {
+  open: boolean;
+  onClose: () => void;
+  baseCurrencyCode: string;
+}) {
   const router = useRouter();
   const [type, setType] = useState<'bank' | 'credit_card'>('bank');
   const [name, setName] = useState('');
   const [institution, setInstitution] = useState('');
-  const [currency, setCurrency] = useState('EUR');
+  const [currency, setCurrency] = useState(baseCurrencyCode || 'EUR');
+
+  useEffect(() => {
+    if (open) setCurrency(baseCurrencyCode || 'EUR');
+  }, [open, baseCurrencyCode]);
   const [balanceCents, setBalanceCents] = useState<number | null>(null);
   const [creditLimitCents, setCreditLimitCents] = useState<number | null>(null);
 
@@ -62,7 +79,11 @@ export function CreateAccountDialog({ open, onClose }: { open: boolean; onClose:
         </FormField>
         <FormField label="Institution (optional)">
           {(field) => (
-            <Input {...field} value={institution} onChange={(e) => setInstitution(e.target.value)} />
+            <Input
+              {...field}
+              value={institution}
+              onChange={(e) => setInstitution(e.target.value)}
+            />
           )}
         </FormField>
         <FormField label="Currency">
@@ -76,7 +97,9 @@ export function CreateAccountDialog({ open, onClose }: { open: boolean; onClose:
             </Select>
           )}
         </FormField>
-        <FormField label={type === 'credit_card' ? 'Current balance owed' : `Balance (${currency})`}>
+        <FormField
+          label={type === 'credit_card' ? 'Current balance owed' : `Balance (${currency})`}
+        >
           {(field) => (
             <CurrencyInput {...field} valueCents={balanceCents} onValueChange={setBalanceCents} />
           )}

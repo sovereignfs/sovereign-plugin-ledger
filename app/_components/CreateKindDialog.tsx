@@ -2,19 +2,19 @@
 
 import { useRouter } from 'next/navigation';
 import { startTransition, useActionState, useState } from 'react';
-import { Button, CurrencyInput, Dialog, FormField, Input, Select } from '@sovereignfs/ui';
+import { Button, CurrencyInput, Dialog, FormField, Input } from '@sovereignfs/ui';
 import { createKind } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
-import { CURRENCY_OPTIONS } from '../_lib/currency-options';
 import styles from './Settings.module.css';
 
 /**
  * Adds a subcategory to an already-existing category — `createKind`, not
- * `createCategoryWithKind` (that's for a brand-new category). No recurrence
- * field: no other kind-creation path in this app exposes one yet (the
- * schema carries `recurrence*` columns, but every kind's period is treated
- * as a calendar month today — see `period.ts`'s own documented v1
- * simplification), so adding one only here would be inconsistent.
+ * `createCategoryWithKind` (that's for a brand-new category). No currency
+ * picker: every subcategory in a category shares the category's currency
+ * (category totals sum subcategories raw), and `createKind` rejects a
+ * mismatch server-side — so the currency is shown, not chosen. No
+ * recurrence field: every kind's period is treated as a calendar month
+ * today (see `period.ts`'s documented v1 simplification).
  */
 export function CreateKindDialog({
   open,
@@ -29,7 +29,6 @@ export function CreateKindDialog({
 }) {
   const router = useRouter();
   const [name, setName] = useState('');
-  const [currency, setCurrency] = useState(categoryCurrency);
   const [amountCents, setAmountCents] = useState<number | null>(null);
 
   const [state, dispatch, pending] = useActionState<ActionResult | null, undefined>(async () => {
@@ -37,7 +36,7 @@ export function CreateKindDialog({
       categoryId,
       name,
       predictedAmountMinor: amountCents ?? 0,
-      currency,
+      currency: categoryCurrency,
     });
     if (result.ok) {
       router.refresh();
@@ -60,18 +59,7 @@ export function CreateKindDialog({
         <FormField label="Name">
           {(field) => <Input {...field} value={name} onChange={(e) => setName(e.target.value)} />}
         </FormField>
-        <FormField label="Currency">
-          {(field) => (
-            <Select {...field} value={currency} onChange={(e) => setCurrency(e.target.value)}>
-              {CURRENCY_OPTIONS.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.code} — {c.name}
-                </option>
-              ))}
-            </Select>
-          )}
-        </FormField>
-        <FormField label={`Budgeted amount (${currency})`}>
+        <FormField label={`Budgeted amount (${categoryCurrency})`}>
           {(field) => (
             <CurrencyInput {...field} valueCents={amountCents} onValueChange={setAmountCents} />
           )}

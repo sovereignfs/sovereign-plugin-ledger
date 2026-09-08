@@ -5,6 +5,7 @@ import { startTransition, useActionState, useState } from 'react';
 import { createCurrency, createIncome } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
 import { CURRENCY_OPTIONS } from '../_lib/currency-options';
+import { LedgerLocaleProvider } from '../_lib/locale';
 import type { IncompleteSetupStatus } from '../_lib/setup-status';
 import { CategoriesStep } from './CategoriesStep';
 import { ReadyStep } from './ReadyStep';
@@ -15,7 +16,10 @@ function Progress({ step }: { step: 1 | 2 | 3 }) {
     <>
       <div className={styles.progress}>
         {[1, 2, 3].map((n) => (
-          <div key={n} className={n <= step ? `${styles.segment} ${styles.segmentFilled}` : styles.segment} />
+          <div
+            key={n}
+            className={n <= step ? `${styles.segment} ${styles.segmentFilled}` : styles.segment}
+          />
         ))}
       </div>
       <p className={styles.stepLabel}>Step {step} of 3</p>
@@ -53,7 +57,11 @@ function CurrencyStep({ onNext }: { onNext: (code: string) => void }) {
       </div>
       {state && !state.ok && <p className={styles.feedbackError}>{state.error}</p>}
       <div className={styles.actions}>
-        <Button onClick={() => startTransition(() => dispatch(undefined))} loading={pending} disabled={pending}>
+        <Button
+          onClick={() => startTransition(() => dispatch(undefined))}
+          loading={pending}
+          disabled={pending}
+        >
           Continue
         </Button>
         <p className={styles.subtext}>You can add more currencies anytime from Settings.</p>
@@ -106,7 +114,11 @@ function IncomeStep({
       </div>
       {state && !state.ok && <p className={styles.feedbackError}>{state.error}</p>}
       <div className={styles.actions}>
-        <Button onClick={() => startTransition(() => dispatch(undefined))} loading={pending} disabled={pending || !canContinue}>
+        <Button
+          onClick={() => startTransition(() => dispatch(undefined))}
+          loading={pending}
+          disabled={pending || !canContinue}
+        >
           Continue
         </Button>
         <Button variant="ghost" className={styles.backLink} onClick={onBack} disabled={pending}>
@@ -119,7 +131,13 @@ function IncomeStep({
 
 type Step = 1 | 2 | 3 | 4;
 
-export function SetupWizard({ initialStatus }: { initialStatus: IncompleteSetupStatus }) {
+export function SetupWizard({
+  initialStatus,
+  locale,
+}: {
+  initialStatus: IncompleteSetupStatus;
+  locale: string | undefined;
+}) {
   // Snapshot on mount, deliberately ignoring subsequent prop updates — see
   // page.tsx's own doc comment for why this must survive an incidental
   // mid-wizard server refresh.
@@ -130,54 +148,56 @@ export function SetupWizard({ initialStatus }: { initialStatus: IncompleteSetupS
   const [createdCategoryNames, setCreatedCategoryNames] = useState<string[]>([]);
 
   return (
-    <div className={styles.page}>
-      <div className={styles.wordmark}>Ledger</div>
-      <div className={styles.column}>
-        {step === 1 && (
-          <CurrencyStep
-            onNext={(code) => {
-              setCurrencyCode(code);
-              setStep(2);
-            }}
-          />
-        )}
-        {step === 2 && (
-          <IncomeStep
-            currencyCode={currencyCode}
-            onBack={() => setStep(1)}
-            onNext={(amountMinor) => {
-              setIncomeAmountMinor(amountMinor);
-              setStep(3);
-            }}
-          />
-        )}
-        {step === 3 && (
-          <CategoriesStep
-            currencyCode={currencyCode}
-            onBack={() => setStep(2)}
-            onNext={(names) => {
-              setCreatedCategoryNames(names);
-              setStep(4);
-            }}
-          />
-        )}
-        {step === 4 && (
-          <ReadyStep
-            currencyCode={currencyCode}
-            incomeAmountMinor={incomeAmountMinor}
-            categoryNames={createdCategoryNames}
-            onGoToLedger={() => {
-              // Hard reload rather than router.push/replace to the same
-              // pathname: guarantees a genuinely fresh server render of
-              // page.tsx's status check (now complete) with zero risk of
-              // Next's client router cache serving a stale RSC payload from
-              // before the wizard's last write — a one-time transition, not
-              // a hot path, so the reload cost is a non-issue.
-              window.location.href = '/ledger';
-            }}
-          />
-        )}
+    <LedgerLocaleProvider locale={locale}>
+      <div className={styles.page}>
+        <div className={styles.wordmark}>Ledger</div>
+        <div className={styles.column}>
+          {step === 1 && (
+            <CurrencyStep
+              onNext={(code) => {
+                setCurrencyCode(code);
+                setStep(2);
+              }}
+            />
+          )}
+          {step === 2 && (
+            <IncomeStep
+              currencyCode={currencyCode}
+              onBack={() => setStep(1)}
+              onNext={(amountMinor) => {
+                setIncomeAmountMinor(amountMinor);
+                setStep(3);
+              }}
+            />
+          )}
+          {step === 3 && (
+            <CategoriesStep
+              currencyCode={currencyCode}
+              onBack={() => setStep(2)}
+              onNext={(names) => {
+                setCreatedCategoryNames(names);
+                setStep(4);
+              }}
+            />
+          )}
+          {step === 4 && (
+            <ReadyStep
+              currencyCode={currencyCode}
+              incomeAmountMinor={incomeAmountMinor}
+              categoryNames={createdCategoryNames}
+              onGoToLedger={() => {
+                // Hard reload rather than router.push/replace to the same
+                // pathname: guarantees a genuinely fresh server render of
+                // page.tsx's status check (now complete) with zero risk of
+                // Next's client router cache serving a stale RSC payload from
+                // before the wizard's last write — a one-time transition, not
+                // a hot path, so the reload cost is a non-issue.
+                window.location.href = '/ledger';
+              }}
+            />
+          )}
+        </div>
       </div>
-    </div>
+    </LedgerLocaleProvider>
   );
 }

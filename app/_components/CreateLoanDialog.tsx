@@ -1,19 +1,44 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { startTransition, useActionState, useState } from 'react';
-import { Button, CurrencyInput, DatePicker, Dialog, FormField, Input, Select } from '@sovereignfs/ui';
+import { startTransition, useActionState, useEffect, useState } from 'react';
+import {
+  Button,
+  CurrencyInput,
+  DatePicker,
+  Dialog,
+  FormField,
+  Input,
+  Select,
+} from '@sovereignfs/ui';
 import { createLoan } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
 import { toDateOnly } from '../_lib/format';
 import styles from './Accounts.module.css';
 import { CURRENCY_OPTIONS } from '../_lib/currency-options';
 
-export function CreateLoanDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+/**
+ * Currency defaults to the user's base currency on every open — the dialog
+ * stays mounted across opens, so a `useState` initializer alone would go
+ * stale after a base-currency change (same fix as the Settings dialogs).
+ */
+export function CreateLoanDialog({
+  open,
+  onClose,
+  baseCurrencyCode,
+}: {
+  open: boolean;
+  onClose: () => void;
+  baseCurrencyCode: string;
+}) {
   const router = useRouter();
   const [name, setName] = useState('');
   const [lender, setLender] = useState('');
-  const [currency, setCurrency] = useState('EUR');
+  const [currency, setCurrency] = useState(baseCurrencyCode || 'EUR');
+
+  useEffect(() => {
+    if (open) setCurrency(baseCurrencyCode || 'EUR');
+  }, [open, baseCurrencyCode]);
   const [principalCents, setPrincipalCents] = useState<number | null>(null);
   const [remainingCents, setRemainingCents] = useState<number | null>(null);
   const [installmentCents, setInstallmentCents] = useState<number | null>(null);
@@ -60,8 +85,8 @@ export function CreateLoanDialog({ open, onClose }: { open: boolean; onClose: ()
     <Dialog open={open} onClose={onClose} size="md" title="Add loan" aria-label="Add loan">
       <div className={styles.detailBody}>
         <p className={styles.linkedNote}>
-          Adding a loan creates a matching &quot;Loans&quot; fixed expense with this
-          installment as its budget — log payments against it from Add expense as normal.
+          Adding a loan creates a matching &quot;Loans&quot; fixed expense with this installment as
+          its budget — log payments against it from Add expense as normal.
         </p>
         <div className={styles.statGrid}>
           <FormField label="Name">
@@ -87,12 +112,20 @@ export function CreateLoanDialog({ open, onClose }: { open: boolean; onClose: ()
         <div className={styles.statGrid}>
           <FormField label="Principal">
             {(field) => (
-              <CurrencyInput {...field} valueCents={principalCents} onValueChange={setPrincipalCents} />
+              <CurrencyInput
+                {...field}
+                valueCents={principalCents}
+                onValueChange={setPrincipalCents}
+              />
             )}
           </FormField>
           <FormField label="Remaining balance">
             {(field) => (
-              <CurrencyInput {...field} valueCents={remainingCents} onValueChange={setRemainingCents} />
+              <CurrencyInput
+                {...field}
+                valueCents={remainingCents}
+                onValueChange={setRemainingCents}
+              />
             )}
           </FormField>
         </div>
@@ -108,7 +141,12 @@ export function CreateLoanDialog({ open, onClose }: { open: boolean; onClose: ()
         <div className={styles.statGrid}>
           <FormField label="Start date">
             {(field) => (
-              <DatePicker {...field} value={startDate} onChange={setStartDate} aria-label="Start date" />
+              <DatePicker
+                {...field}
+                value={startDate}
+                onChange={setStartDate}
+                aria-label="Start date"
+              />
             )}
           </FormField>
           <FormField label="End date">

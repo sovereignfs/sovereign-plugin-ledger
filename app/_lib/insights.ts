@@ -1,7 +1,7 @@
 import type { LedgerDb } from '../_db/client';
 import { formatMoney } from './format';
 import { listCategoriesWithKinds, listTransactions } from './queries';
-import { getReportsData, type PeriodReport } from './reports';
+import { getReportsData, type PeriodReport, type ReportsData } from './reports';
 
 /**
  * Rule-based budget-variance tips (L.13) — "a small rule set computed at
@@ -13,20 +13,20 @@ import { getReportsData, type PeriodReport } from './reports';
  * Reports wireframe example** ("Eating out has run over budget 3 months
  * running"). CONCEPT.md's own wording is just "multiple consecutive
  * months" — no fixed number — and 2 is the smallest value "multiple" can
- * mean; it's also the threshold the L.13 review checklist's own test
- * scenario is written to exercise ("a SECOND seeded month with a
- * deliberately over-budget category produces exactly the expected tip" —
- * unreachable with a 3-month threshold from just two periods). The
- * rendered copy always states the *real* computed streak length, not this
- * constant, so a streak that happens to reach 3 reproduces the wireframe's
- * own example text verbatim without hardcoding it.
+ * mean. The rendered copy always states the *real* computed streak length,
+ * not this constant.
  *
- * **No display cap anywhere insights are shown** (Overview, Reports, both
- * desktop and mobile) — every wireframe mockup happens to show only one
- * insight card, but that reads as "this demo data only triggered one
- * rule," not a hard "show at most N" requirement stated anywhere in
- * CONCEPT.md or this task's own deliverables. Simpler to reason about and
- * test than an arbitrary ranking/truncation policy nobody asked for.
+ * **Streaks are counted from the last *completed* month.** The current
+ * month is still accumulating — early in it, almost nothing is over
+ * budget yet, and a category with no spend at all is absent from that
+ * period's `topCategories` — so starting the walk there broke every streak
+ * at index 0 and the rule effectively never fired. The current period is
+ * skipped (not counted for or against), then consecutive completed months
+ * are walked backwards.
+ *
+ * **No display cap anywhere insights are shown** — every wireframe mockup
+ * happens to show only one insight card, but that reads as "this demo data
+ * only triggered one rule," not a hard "show at most N" requirement.
  */
 const CONSECUTIVE_OVER_BUDGET_THRESHOLD = 2;
 
@@ -41,31 +41,37 @@ const LARGE_TRANSACTION_MULTIPLIER = 2;
  *  positives... nothing to compare against yet" requirement. */
 const MIN_PRIOR_TRANSACTIONS_FOR_BASELINE = 3;
 
+/** A large-transaction tip is only actionable while it's recent — a spike
+ *  from months ago shouldn't sit on Overview forever just because nothing
+ *  newer was logged against that kind. */
+const LARGE_TRANSACTION_MAX_AGE_DAYS = 45;
+
 /**
  * Walks `periods` (most-recent-first, `getReportsData`'s own contract)
- * per category, counting how many consecutive periods — starting from the
- * most recent — had `actualMinor > predictedMinor`. Sourced from
- * `topCategories` rather than a dedicated per-category-per-period query:
- * `getReportsData` already computes this exact comparison for its own
- * Reports screen, and re-deriving it here would be a second, divergent
- * implementation of the same math. A category outside the top 5 in some
- * period (rare at this app's real single-user scale — `topCategories`
- * already includes every category with any real spend, up to 5) reads as
- * "not over budget that period," breaking its streak — a documented,
- * deliberate simplification, not an oversight.
+ * per category, counting how many consecutive *completed* periods had
+ * `actualMinor > predictedMinor`. Sourced from `topCategories` rather than
+ * a dedicated per-category-per-period query: `getReportsData` already
+ * computes this exact comparison for its own Reports screen. A category
+ * outside the top 5 in some period (rare at this app's real single-user
+ * scale) reads as "not over budget that period," breaking its streak — a
+ * documented, deliberate simplification.
  */
 export function computeOverBudgetStreakInsights(periods: PeriodReport[]): string[] {
+  const completed = periods.filter((p) => !p.isCurrent);
   const categoryNames = new Map<string, string>();
-  for (const period of periods) {
-    for (const category of period.topCategories) categoryNames.set(category.categoryId, category.name);
+  for (const period of completed) {
+    for (const category of period.topCategories) {
+      categoryNames.set(category.categoryId, category.name);
+    }
   }
 
   const insights: string[] = [];
   for (const [categoryId, name] of categoryNames) {
     let streak = 0;
-    for (const period of periods) {
+    for (const period of completed) {
       const entry = period.topCategories.find((c) => c.categoryId === categoryId);
-      const overBudget = entry !== undefined && entry.predictedMinor > 0 && entry.actualMinor > entry.predictedMinor;
+      const overBudget =
+        entry !== undefined && entry.predictedMinor > 0 && entry.actualMinor > entry.predictedMinor;
       if (!overBudget) break;
       streak += 1;
     }
@@ -85,15 +91,16 @@ export interface InsightTransaction {
 
 /**
  * For each kind with enough history, compares its single most recent
- * transaction against the average of every earlier one. Scoped to "the
- * latest transaction only" (not every historically-anomalous one) so a
- * one-off spike from months ago doesn't sit in this list forever — the
- * actionable moment is when it just happened, not every time this
- * function runs afterward.
+ * transaction (if it's recent enough to still be actionable) against the
+ * average of every earlier one. Scoped to "the latest transaction only"
+ * (not every historically-anomalous one) so a one-off spike from months
+ * ago doesn't sit in this list forever — the actionable moment is when it
+ * just happened, not every time this function runs afterward.
  */
 export function computeLargeTransactionInsights(
   transactions: InsightTransaction[],
   kindNames: Map<string, string>,
+  now: number = Date.now(),
 ): string[] {
   const byKind = new Map<string, InsightTransaction[]>();
   for (const tx of transactions) {
@@ -102,39 +109,56 @@ export function computeLargeTransactionInsights(
     byKind.set(tx.kindId, list);
   }
 
+  const maxAgeMs = LARGE_TRANSACTION_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
   const insights: string[] = [];
   for (const [kindId, txs] of byKind) {
     if (txs.length < MIN_PRIOR_TRANSACTIONS_FOR_BASELINE + 1) continue;
     const [latest, ...prior] = [...txs].sort((a, b) => b.occurredAt - a.occurredAt);
-    if (!latest) continue;
+    if (!latest || now - latest.occurredAt > maxAgeMs) continue;
 
     const averagePriorMinor = prior.reduce((sum, tx) => sum + tx.amountMinor, 0) / prior.length;
-    if (averagePriorMinor > 0 && latest.amountMinor >= averagePriorMinor * LARGE_TRANSACTION_MULTIPLIER) {
+    if (
+      averagePriorMinor > 0 &&
+      latest.amountMinor >= averagePriorMinor * LARGE_TRANSACTION_MULTIPLIER
+    ) {
       const name = kindNames.get(kindId) ?? 'expense';
+      // Server-rendered copy with no viewer locale available at this
+      // layer; `en-US` keeps it deterministic between SSR and hydration.
       insights.push(
-        `Your latest ${name} expense of ${formatMoney(latest.amountMinor, latest.currency)} is unusually large compared to your typical ${formatMoney(Math.round(averagePriorMinor), latest.currency)}.`,
+        `Your latest ${name} expense of ${formatMoney(latest.amountMinor, latest.currency, 'en-US')} is unusually large compared to your typical ${formatMoney(Math.round(averagePriorMinor), latest.currency, 'en-US')}.`,
       );
     }
   }
   return insights;
 }
 
-/** Overview's and Reports' shared insights payload — reuses `getReportsData`
- *  (L.8) rather than a second implementation of the same budget-variance
- *  math, per this task's own explicit requirement. */
-export async function getInsights(db: LedgerDb, userId: string): Promise<string[]> {
+/**
+ * Overview's and Reports' shared insights payload — reuses `getReportsData`
+ * (L.8) rather than a second implementation of the same budget-variance
+ * math. A caller that has already computed the reports payload for its own
+ * screen passes it in so the (comparatively expensive) report math runs
+ * once per request, not twice.
+ */
+export async function getInsights(
+  db: LedgerDb,
+  userId: string,
+  reports?: ReportsData,
+  now: number = Date.now(),
+): Promise<string[]> {
   const [{ periods }, transactions, categoriesWithKinds] = await Promise.all([
-    getReportsData(db, userId),
+    reports ?? getReportsData(db, userId, now),
     listTransactions(db, userId),
     listCategoriesWithKinds(db, userId),
   ]);
 
   const kindNames = new Map(
-    categoriesWithKinds.flatMap((category) => category.kinds.map((kind) => [kind.id, kind.name] as const)),
+    categoriesWithKinds.flatMap((category) =>
+      category.kinds.map((kind) => [kind.id, kind.name] as const),
+    ),
   );
 
   return [
     ...computeOverBudgetStreakInsights(periods),
-    ...computeLargeTransactionInsights(transactions, kindNames),
+    ...computeLargeTransactionInsights(transactions, kindNames, now),
   ];
 }

@@ -2,7 +2,7 @@
 
 import { Button, CurrencyInput, Input } from '@sovereignfs/ui';
 import { useState, useTransition } from 'react';
-import { createCategoryWithKind } from '../actions';
+import { createCategoriesWithKinds } from '../actions';
 import { CategoryChip } from './CategoryChip';
 import styles from './SetupWizard.module.css';
 
@@ -63,18 +63,21 @@ export function CategoriesStep({
 
   function handleContinue(): void {
     setError(null);
+    // One action, one transaction: either every picked category lands or
+    // none does — a per-chip loop left partial results behind on failure
+    // and duplicated them on retry.
     startTransition(async () => {
-      for (const name of orderedSelected) {
-        const result = await createCategoryWithKind({
+      const result = await createCategoriesWithKinds({
+        categories: orderedSelected.map((name) => ({
           name,
-          type: 'dynamic',
           predictedAmountMinor: amounts[name] ?? 0,
-          currency: currencyCode,
-        });
-        if (!result.ok) {
-          setError(`Couldn't add "${name}": ${result.error}`);
-          return;
-        }
+        })),
+        type: 'dynamic',
+        currency: currencyCode,
+      });
+      if (!result.ok) {
+        setError(result.error);
+        return;
       }
       onNext(orderedSelected);
     });
@@ -104,7 +107,11 @@ export function CategoriesStep({
           </CategoryChip>
         ))}
         {customNames.map((name) => (
-          <CategoryChip key={name} selected onClick={() => setSelectedNames((prev) => new Set(prev).add(name))}>
+          <CategoryChip
+            key={name}
+            selected
+            onClick={() => setSelectedNames((prev) => new Set(prev).add(name))}
+          >
             {name}
           </CategoryChip>
         ))}

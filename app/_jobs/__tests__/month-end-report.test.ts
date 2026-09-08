@@ -22,13 +22,16 @@ const sendToUser = vi.hoisted(() =>
     errorCode: undefined as string | undefined,
   })),
 );
-const sendNotification = vi.hoisted(() => vi.fn(async (_input: unknown, _headers?: Headers) => undefined));
+const sendNotification = vi.hoisted(() =>
+  vi.fn(async (_input: unknown, _headers?: Headers) => undefined),
+);
 
 vi.mock('@sovereignfs/sdk', () => ({
   sdk: {
     db: { getClient: vi.fn(async () => harness.dbClient) },
     email: { sendToUser },
     notifications: { send: sendNotification },
+    platform: { getConfig: vi.fn(async () => ({ instanceUrl: 'https://ledger.example.test' })) },
   },
 }));
 
@@ -128,17 +131,33 @@ afterEach(() => {
 });
 
 describe('runMonthEndReport', () => {
-  it('no-ops on any day other than the 1st, without touching the DB', async () => {
+  it("still sends last month's recap on a later day when the 1st was missed", async () => {
+    // A restart or drift past the 1st must not cost the user a whole
+    // month's recap — the marker table, not the calendar day, is the gate.
     await seedUserWithAugustActivity('user-1');
     const notFirst = Date.UTC(2026, 8, 2);
 
     await runMonthEndReport(headers, notFirst);
 
-    expect(sendToUser).not.toHaveBeenCalled();
-    expect(sendNotification).not.toHaveBeenCalled();
+    expect(sendToUser).toHaveBeenCalledTimes(1);
+    expect(sendNotification).toHaveBeenCalledTimes(1);
   });
 
-  it('sends one email and one notification for a user with last month\'s activity', async () => {
+  it('formats the recap in the base currency and links to an absolute reports URL', async () => {
+    await seedUserWithAugustActivity('user-1');
+
+    await runMonthEndReport(headers, SEPT_1);
+
+    const [emailInput] = sendToUser.mock.calls[0] ?? [];
+    expect(emailInput).toMatchObject({
+      text: expect.stringContaining('€4,000.00') as string,
+    });
+    expect(emailInput).toMatchObject({
+      text: expect.stringContaining('https://ledger.example.test/ledger/reports') as string,
+    });
+  });
+
+  it("sends one email and one notification for a user with last month's activity", async () => {
     await seedUserWithAugustActivity('user-1');
 
     await runMonthEndReport(headers, SEPT_1);
@@ -146,7 +165,10 @@ describe('runMonthEndReport', () => {
     expect(sendToUser).toHaveBeenCalledTimes(1);
     expect(sendNotification).toHaveBeenCalledTimes(1);
     const [emailInput] = sendToUser.mock.calls[0] ?? [];
-    expect(emailInput).toMatchObject({ recipientUserId: 'user-1', subject: 'Your August 2026 recap' });
+    expect(emailInput).toMatchObject({
+      recipientUserId: 'user-1',
+      subject: 'Your August 2026 recap',
+    });
     const [notificationInput] = sendNotification.mock.calls[0] ?? [];
     expect(notificationInput).toMatchObject({ recipientUserId: 'user-1', url: '/ledger/reports' });
 
@@ -195,7 +217,7 @@ describe('runMonthEndReport', () => {
     expect(rows).toHaveLength(1);
   });
 
-  it('one user\'s send failure does not prevent another user\'s recap', async () => {
+  it("one user's send failure does not prevent another user's recap", async () => {
     // Rejects whichever user's email is attempted first — candidate order
     // isn't guaranteed, so the assertions below don't depend on which one.
     sendToUser.mockRejectedValueOnce(new Error('mail provider down'));

@@ -1,6 +1,6 @@
 # Ledger — Roadmap
 
-**Manifest version:** 0.14.0 · **Last updated:** 2026-08-28
+**Manifest version:** 0.15.0 · **Last updated:** 2026-09-08
 
 Chronological build index — one row per PR, platform-`ROADMAP.md` style. Full
 task detail lives in [SPEC.md](SPEC.md); the product concept in
@@ -61,6 +61,26 @@ depend on the previous row unless noted.
 | Slot   | Task                                  | Status | Spec task                        |
 | ------ | -------------------------------------- | ------ | ----------------------------------- |
 | 0.14.0 | Settings                               | ✅     | [L.14](SPEC.md#l14--settings)       |
+
+## Phase H — Review fixes
+
+| Slot   | Task                                  | Status | Spec task                                    |
+| ------ | -------------------------------------- | ------ | ----------------------------------------------- |
+| 0.15.0 | Full review — bugs, UX gaps, docs     | ✅     | [L.15](SPEC.md#l15--full-review-fixes)          |
+
+## Phase I — CONCEPT.md §4 scope not yet built
+
+Tracked here so nothing in the concept's v1 scope is silently missing;
+none of these is scheduled yet. Each gets its own `L.<n>` spec entry when
+picked up.
+
+| Slot | Task                                                                 | Status | Spec task |
+| ---- | -------------------------------------------------------------------- | ------ | --------- |
+| —    | Fixed-expense recurrence (the `recurrence_*` columns are never set)  | ⬜     | —         |
+| —    | Fixed actuals defaulting to their budgeted amount each period        | ⬜     | —         |
+| —    | Automatic monthly jar contributions from the linked saving plan      | ⬜     | —         |
+| —    | Yearly report view (by category and by subcategory)                  | ⬜     | —         |
+| —    | Effective-dated budget/income history (CONCEPT.md §7 open question)  | ⬜     | —         |
 
 ---
 

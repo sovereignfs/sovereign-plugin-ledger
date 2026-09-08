@@ -2,20 +2,22 @@
 
 import { useRouter } from 'next/navigation';
 import { startTransition, useActionState } from 'react';
-import { Button, Card, StatusBadge } from '@sovereignfs/ui';
+import { Button, Card } from '@sovereignfs/ui';
 import { markPeriodReviewed } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
-import { formatMoney } from '../_lib/format';
+import { useFormatters } from '../_lib/locale';
 import type { PeriodReport } from '../_lib/reports';
-import { periodLabel } from './ReportsMain';
+import { PeriodStatusBadge } from './ReportsMain';
 import styles from './Reports.module.css';
+import { UnconvertedNote } from './UnconvertedNote';
 
 /**
  * The three savings figures + category breakdown for a selected period.
- * `insights` (L.13) is the same current, un-scoped-to-this-period list
- * `getInsights` returns everywhere else — not recomputed "as of" this
- * specific period from historical data, a deliberate simplification for a
- * "small rule set" feature (see `insights.ts`'s own doc comment).
+ * `insights` (L.13) is the same current list `getInsights` returns
+ * everywhere else — not recomputed "as of" this specific period from
+ * historical data, a deliberate simplification for a "small rule set"
+ * feature (see `insights.ts`'s own doc comment). "Mark as reviewed" is
+ * unavailable while the month is still in progress.
  */
 export function ReportsDetail({
   period,
@@ -27,6 +29,7 @@ export function ReportsDetail({
   insights: string[];
 }) {
   const router = useRouter();
+  const fmt = useFormatters();
   const [state, dispatch, pending] = useActionState<ActionResult | null, undefined>(async () => {
     const result = await markPeriodReviewed({ year: period.year, month: period.month });
     if (result.ok) router.refresh();
@@ -36,29 +39,28 @@ export function ReportsDetail({
   return (
     <div>
       <div className={styles.detailHeader}>
-        <h2 className={styles.detailTitle}>{periodLabel(period.year, period.month)}</h2>
-        <StatusBadge status={period.reviewed ? 'synced' : 'warning'}>
-          {period.reviewed ? 'Reviewed' : 'Needs review'}
-        </StatusBadge>
+        <h2 className={styles.detailTitle}>{fmt.period(period.year, period.month)}</h2>
+        <PeriodStatusBadge period={period} />
       </div>
       <div className={styles.detailBody}>
+        <UnconvertedNote currencies={period.unconvertedCurrencies} />
         <div className={styles.statGrid}>
           <div>
             <p className={styles.statLabel}>Projected savings</p>
             <p className={styles.statValue}>
-              {formatMoney(period.projectedSavingsMinor, baseCurrencyCode)}
+              {fmt.money(period.projectedSavingsMinor, baseCurrencyCode)}
             </p>
           </div>
           <div>
             <p className={styles.statLabel}>Actual savings</p>
             <p className={styles.statValue}>
-              {formatMoney(period.actualSavingsMinor, baseCurrencyCode)}
+              {fmt.money(period.actualSavingsMinor, baseCurrencyCode)}
             </p>
           </div>
           <div>
             <p className={styles.statLabel}>Actual, net of jars</p>
             <p className={styles.statValue}>
-              {formatMoney(period.actualSavingsNetOfJarsMinor, baseCurrencyCode)}
+              {fmt.money(period.actualSavingsNetOfJarsMinor, baseCurrencyCode)}
             </p>
           </div>
         </div>
@@ -86,7 +88,7 @@ export function ReportsDetail({
                   )}
                 </span>
                 <span className={styles.categoryAmount}>
-                  {formatMoney(category.actualMinor, category.currency)}
+                  {fmt.money(category.actualMinor, category.currency)}
                 </span>
               </div>
             ))
@@ -97,8 +99,8 @@ export function ReportsDetail({
           <section>
             <p className={styles.sectionLabel}>Insights</p>
             <div className={styles.insightsList}>
-              {insights.map((insight) => (
-                <Card key={insight} padding="md">
+              {insights.map((insight, index) => (
+                <Card key={`${index}-${insight}`} padding="md">
                   <p className={styles.insightText}>{insight}</p>
                 </Card>
               ))}
@@ -106,16 +108,22 @@ export function ReportsDetail({
           </section>
         )}
 
-        {state && !state.ok && <p>{state.error}</p>}
+        {state && !state.ok && (
+          <p className={styles.feedbackError} role="alert">
+            {state.error}
+          </p>
+        )}
 
         <div className={styles.actions}>
-          <Button
-            onClick={() => startTransition(() => dispatch(undefined))}
-            loading={pending}
-            disabled={period.reviewed || pending}
-          >
-            {period.reviewed ? 'Reviewed' : 'Mark as reviewed'}
-          </Button>
+          {!period.isCurrent && (
+            <Button
+              onClick={() => startTransition(() => dispatch(undefined))}
+              loading={pending}
+              disabled={period.reviewed || pending}
+            >
+              {period.reviewed ? 'Reviewed' : 'Mark as reviewed'}
+            </Button>
+          )}
           <Button variant="secondary" onClick={() => router.push('/ledger/budget')}>
             Adjust budget →
           </Button>

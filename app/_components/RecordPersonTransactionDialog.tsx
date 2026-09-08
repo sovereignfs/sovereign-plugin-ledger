@@ -6,6 +6,7 @@ import { Button, CurrencyInput, Dialog, FormField, Input, SegmentedControl } fro
 import { createPeopleTransaction } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
 import type { PersonItem } from '../_lib/accounts';
+import { utcNoonOf } from '../_lib/period';
 import styles from './Accounts.module.css';
 
 /**
@@ -33,6 +34,7 @@ export function RecordPersonTransactionDialog({
     const result = await createPeopleTransaction({
       personId: person.id,
       amountMinor: signedAmountMinor,
+      occurredAt: utcNoonOf(new Date()),
       note: note.trim() || undefined,
     });
     if (result.ok) {

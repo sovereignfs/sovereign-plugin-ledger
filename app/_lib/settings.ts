@@ -1,7 +1,12 @@
 import { eq } from 'drizzle-orm';
 import type { LedgerDb } from '../_db/client';
 import * as schema from '../_db/schema';
-import { listCategoriesWithKinds, listCurrencies, listIncomes, type CategoryWithKinds } from './queries';
+import {
+  listCategoriesWithKinds,
+  listCurrencies,
+  listIncomes,
+  type CategoryWithKinds,
+} from './queries';
 
 export interface CurrencyItem {
   id: string;

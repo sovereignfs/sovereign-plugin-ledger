@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { startTransition, useActionState, useState } from 'react';
+import { startTransition, useActionState, useEffect, useState } from 'react';
 import { Button, CurrencyInput, Dialog, FormField, Input, Select } from '@sovereignfs/ui';
 import { createCategoryWithKind } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
@@ -15,16 +15,27 @@ import styles from './Budget.module.css';
  * `type: 'saving'` also creates the linked jar server-side in the same
  * transaction — this dialog only collects the name and monthly target.
  *
- * Dynamic/Fixed categories have no equivalent "add" dialog anywhere in the
- * app today (a pre-existing gap, not introduced or fixed here) — this is
- * deliberately scoped to just Saving, the one category type L.12 actually
- * needs a creation flow for.
+ * The currency defaults to the user's base currency on every open (the
+ * dialog stays mounted across opens, so a `useState` initializer alone
+ * would go stale — same fix as the Settings dialogs).
  */
-export function CreateSavingJarDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function CreateSavingJarDialog({
+  open,
+  onClose,
+  baseCurrencyCode,
+}: {
+  open: boolean;
+  onClose: () => void;
+  baseCurrencyCode: string;
+}) {
   const router = useRouter();
   const [name, setName] = useState('');
-  const [currency, setCurrency] = useState('EUR');
+  const [currency, setCurrency] = useState(baseCurrencyCode || 'EUR');
   const [amountCents, setAmountCents] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (open) setCurrency(baseCurrencyCode || 'EUR');
+  }, [open, baseCurrencyCode]);
 
   const [state, dispatch, pending] = useActionState<ActionResult | null, undefined>(async () => {
     const result = await createCategoryWithKind({
@@ -43,7 +54,13 @@ export function CreateSavingJarDialog({ open, onClose }: { open: boolean; onClos
   }, null);
 
   return (
-    <Dialog open={open} onClose={onClose} size="sm" title="New saving jar" aria-label="New saving jar">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      size="sm"
+      title="New saving jar"
+      aria-label="New saving jar"
+    >
       <div className={styles.dialogBody}>
         <FormField label="Name">
           {(field) => (

@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { ConfirmDialog, Icon } from '@sovereignfs/ui';
 import { deleteCurrency, deleteIncome, setBaseCurrency } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
-import { formatMoney } from '../_lib/format';
+import { useFormatters } from '../_lib/locale';
 import type { SettingsData } from '../_lib/settings';
 import styles from './Mobile.module.css';
 import { SettingsDetail } from './SettingsDetail';
@@ -92,6 +92,8 @@ export function MobileSettingsScreen({
   onAddCategory: () => void;
   onAddKind: (categoryId: string, currency: string) => void;
 }) {
+  const fmt = useFormatters();
+  const router = useRouter();
   if (selectedCategoryId) {
     return (
       <div className={styles.screen}>
@@ -142,7 +144,8 @@ export function MobileSettingsScreen({
                   type="button"
                   className={styles.link}
                   onClick={async () => {
-                    await setBaseCurrency({ currencyId: c.id });
+                    const result = await setBaseCurrency({ currencyId: c.id });
+                    if (result.ok) router.refresh();
                   }}
                 >
                   Set as base
@@ -175,7 +178,7 @@ export function MobileSettingsScreen({
             <span className={styles.rowText}>
               <span className={styles.rowTitle}>{i.label}</span>
               <span className={styles.rowSubtitle}>
-                {formatMoney(i.amountMinor, i.currency)} ·{' '}
+                {fmt.money(i.amountMinor, i.currency)} ·{' '}
                 {i.kind === 'primary' ? 'Primary' : 'Secondary'}
               </span>
             </span>

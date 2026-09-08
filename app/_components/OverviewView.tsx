@@ -2,6 +2,7 @@
 
 import { ResponsiveSurface } from '@sovereignfs/ui';
 import type { MobileAppEntry } from '../_lib/apps';
+import { LedgerLocaleProvider } from '../_lib/locale';
 import type { OverviewData } from '../_lib/overview';
 import { LedgerMobileShell } from './LedgerMobileShell';
 import { LedgerShell } from './LedgerShell';
@@ -15,26 +16,21 @@ import { OverviewDashboard } from './OverviewDashboard';
  * vs-dashboard decision itself doesn't fork: a fresh account reads as
  * "fresh" on both breakpoints.
  *
- * The wireframe's own trigger condition ("until enough of the budget is
- * filled in... or dismissed") can't be reached literally yet — every
- * "beyond minimum" checklist section (accounts, saving jars, ...) has no
- * task shipped, so nothing can ever populate them, and this task doesn't
- * add a persisted dismiss action (not asked for, and inventing one now
- * would be scope creep for a screen this phase of the build can't
- * otherwise reach anyway). The signal used instead — has the user logged
- * at least one expense — is reachable today (the DB/actions layer accepts
- * transactions since L.3, even though L.6's dialog hasn't shipped) and
- * matches the wireframe's own spirit: tracking expenses is what "using the
- * budget for real" means here.
+ * The signal for "using the budget for real" is: has the user logged at
+ * least one expense — matching the wireframe's own spirit (its literal
+ * "until enough of the budget is filled in... or dismissed" has no
+ * persisted dismiss action behind it).
  */
 export function OverviewView({
   data,
   apps,
   insights,
+  locale,
 }: {
   data: OverviewData;
   apps: MobileAppEntry[];
   insights: string[];
+  locale: string | undefined;
 }) {
   const desktopContent =
     data.transactionCount === 0 ? (
@@ -44,13 +40,15 @@ export function OverviewView({
     );
 
   return (
-    <ResponsiveSurface
-      web={<LedgerShell>{desktopContent}</LedgerShell>}
-      mobile={
-        <LedgerMobileShell apps={apps}>
-          <MobileOverviewScreen data={data} insights={insights} />
-        </LedgerMobileShell>
-      }
-    />
+    <LedgerLocaleProvider locale={locale}>
+      <ResponsiveSurface
+        web={<LedgerShell>{desktopContent}</LedgerShell>}
+        mobile={
+          <LedgerMobileShell apps={apps}>
+            <MobileOverviewScreen data={data} insights={insights} />
+          </LedgerMobileShell>
+        }
+      />
+    </LedgerLocaleProvider>
   );
 }

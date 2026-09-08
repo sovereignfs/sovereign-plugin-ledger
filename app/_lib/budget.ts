@@ -1,12 +1,17 @@
 import { eq } from 'drizzle-orm';
 import * as schema from '../_db/schema';
 import type { LedgerDb } from '../_db/client';
-import { getCurrentMonthRange } from './period';
-import { listCategoriesWithKinds, listSavingCategoriesWithKinds, listTransactions } from './queries';
+import { getCurrentMonthRange, getUtcYearMonth } from './period';
+import {
+  listCategoriesWithKinds,
+  listSavingCategoriesWithKinds,
+  listTransactions,
+} from './queries';
 
 export interface BudgetTransaction {
   id: string;
   occurredAt: number;
+  kindId: string;
   kindName: string;
   amountMinor: number;
   currency: string;
@@ -27,12 +32,8 @@ export interface BudgetCategory {
   type: 'dynamic' | 'fixed';
   predictedAmountMinor: number;
   actualAmountMinor: number;
-  /** All of a category's kinds share one currency in every flow the current
-   *  UI can reach (`createCategoryWithKind` is the only creation path, and
-   *  it always writes one kind in the category's own currency) — `createKind`
-   *  could in principle add a second kind in a different currency, but
-   *  nothing wires that up yet. Documented rather than silently assumed;
-   *  revisit if a later task adds a second-kind-per-category flow. */
+  /** Every kind in a category shares one currency — `createKind` rejects a
+   *  mismatch, so summing kinds raw here is safe. */
   currency: string;
   kinds: BudgetKind[];
   /** Most recent 5 transactions across every kind in this category,
@@ -52,6 +53,8 @@ export interface BudgetJarTransaction {
 export interface BudgetSavingCategory {
   id: string;
   name: string;
+  /** The jar's single saving kind — the row `updateKindBudget` edits for the target. */
+  kindId: string;
   /** The saving kind's own `predictedAmountMinor` — the monthly saving target. */
   targetAmountMinor: number;
   currency: string;
@@ -63,6 +66,9 @@ export interface BudgetSavingCategory {
 }
 
 export interface BudgetData {
+  baseCurrencyCode: string;
+  /** The UTC month every "this month" figure below is scoped to. */
+  period: { year: number; month: number };
   dynamic: BudgetCategory[];
   fixed: BudgetCategory[];
   saving: BudgetSavingCategory[];
@@ -78,17 +84,30 @@ export interface BudgetData {
  * categories/kinds), preloading everything in one round trip is simpler and
  * just as fast, so that's the deliberate deviation here.
  */
-export async function getBudgetData(db: LedgerDb, userId: string): Promise<BudgetData> {
-  const [categoriesWithKinds, allTransactions, savingCategoriesWithKinds, jars, allJarTransactions] =
-    await Promise.all([
-      listCategoriesWithKinds(db, userId),
-      listTransactions(db, userId),
-      listSavingCategoriesWithKinds(db, userId),
-      db.select().from(schema.savingJars).where(eq(schema.savingJars.userId, userId)),
-      db.select().from(schema.jarTransactions).where(eq(schema.jarTransactions.userId, userId)),
-    ]);
+export async function getBudgetData(
+  db: LedgerDb,
+  userId: string,
+  now: number = Date.now(),
+): Promise<BudgetData> {
+  const [
+    currencies,
+    categoriesWithKinds,
+    allTransactions,
+    savingCategoriesWithKinds,
+    jars,
+    allJarTransactions,
+  ] = await Promise.all([
+    db.select().from(schema.currencies).where(eq(schema.currencies.userId, userId)),
+    listCategoriesWithKinds(db, userId),
+    listTransactions(db, userId),
+    listSavingCategoriesWithKinds(db, userId),
+    db.select().from(schema.savingJars).where(eq(schema.savingJars.userId, userId)),
+    db.select().from(schema.jarTransactions).where(eq(schema.jarTransactions.userId, userId)),
+  ]);
 
-  const { start, end } = getCurrentMonthRange();
+  const baseCurrencyCode =
+    currencies.find((c) => c.isBase === 1)?.code ?? currencies[0]?.code ?? '';
+  const { start, end } = getCurrentMonthRange(now);
   const kindNameById = new Map(
     categoriesWithKinds.flatMap((c) => c.kinds.map((k) => [k.id, k.name])),
   );
@@ -133,6 +152,7 @@ export async function getBudgetData(db: LedgerDb, userId: string): Promise<Budge
       .map((tx) => ({
         id: tx.id,
         occurredAt: tx.occurredAt,
+        kindId: tx.kindId,
         kindName: kindNameById.get(tx.kindId) ?? 'Unknown',
         amountMinor: tx.amountMinor,
         currency: tx.currency,
@@ -145,7 +165,7 @@ export async function getBudgetData(db: LedgerDb, userId: string): Promise<Budge
       type: category.type as 'dynamic' | 'fixed',
       predictedAmountMinor: kinds.reduce((sum, k) => sum + k.predictedAmountMinor, 0),
       actualAmountMinor: kinds.reduce((sum, k) => sum + k.actualAmountMinor, 0),
-      currency: kinds[0]?.currency ?? '',
+      currency: kinds[0]?.currency ?? baseCurrencyCode,
       kinds,
       recentTransactions,
     };
@@ -186,6 +206,7 @@ export async function getBudgetData(db: LedgerDb, userId: string): Promise<Budge
     saving.push({
       id: category.id,
       name: category.name,
+      kindId: kind.id,
       targetAmountMinor: kind.predictedAmountMinor,
       currency: kind.currency,
       jarId: jar.id,
@@ -194,5 +215,5 @@ export async function getBudgetData(db: LedgerDb, userId: string): Promise<Budge
     });
   }
 
-  return { dynamic, fixed, saving };
+  return { baseCurrencyCode, period: getUtcYearMonth(now), dynamic, fixed, saving };
 }

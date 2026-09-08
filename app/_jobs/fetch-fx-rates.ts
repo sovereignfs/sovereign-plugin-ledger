@@ -1,6 +1,6 @@
 import type { ScheduleContext } from '@sovereignfs/sdk';
 import { fxRates } from '../_db/schema';
-import { CURRENCY_OPTIONS } from '../_lib/currency-options';
+import { CURRENCY_OPTIONS, FX_PIVOT_CODE } from '../_lib/currency-options';
 import { getDb } from '../_lib/db';
 import { newId } from '../_lib/ids';
 
@@ -45,7 +45,7 @@ import { newId } from '../_lib/ids';
  * multi-node deployment ticks independently) inserts nothing a second time,
  * with no coordination between the job's own invocations required.
  */
-const PIVOT_CODE = 'USD';
+const PIVOT_CODE = FX_PIVOT_CODE;
 
 interface FrankfurterLatestResponse {
   amount: number;
@@ -59,7 +59,9 @@ async function fetchFrankfurterRates(
   symbols: string[],
 ): Promise<FrankfurterLatestResponse> {
   const url = `https://api.frankfurter.dev/v1/latest?base=${encodeURIComponent(base)}&symbols=${encodeURIComponent(symbols.join(','))}`;
-  const res = await fetch(url, { cache: 'no-store' });
+  // Bounded like every other outbound fetch in this codebase — a hung
+  // upstream must not pin the scheduler's slot for this plugin.
+  const res = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(15_000) });
   if (!res.ok) {
     throw new Error(`Frankfurter request failed: ${res.status} ${res.statusText}`);
   }

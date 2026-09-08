@@ -4,7 +4,8 @@
  * mutating anything, no action accepts a client-supplied `userId` (there is
  * no such parameter on any action's input type at all — ownership always
  * comes from `requireUser()`'s resolved session, never client input), and
- * saving-type category/kind creation is rejected (reserved for L.12). Runs
+ * saving-type categories are only ever created via `createCategoryWithKind`
+ * (which also provisions the jar). Runs
  * against the real generated migrations on an ephemeral libsql DB
  * (production client semantics) with the SDK mocked to impersonate
  * switchable users.
@@ -65,8 +66,14 @@ async function setup(): Promise<Fixture> {
   const currency = must((await t.db.select().from(schema.currencies))[0], 'currency');
 
   expect(
-    (await actions.createIncome({ label: 'Primary', amountMinor: 400_000, currency: 'EUR', kind: 'primary' }))
-      .ok,
+    (
+      await actions.createIncome({
+        label: 'Primary',
+        amountMinor: 400_000,
+        currency: 'EUR',
+        kind: 'primary',
+      })
+    ).ok,
   ).toBe(true);
   const income = must((await t.db.select().from(schema.incomes))[0], 'income');
 
@@ -85,9 +92,7 @@ async function setup(): Promise<Fixture> {
   ).toBe(true);
   const kind = must((await t.db.select().from(schema.kinds))[0], 'kind');
 
-  expect(
-    (await actions.createTransaction({ kindId: kind.id, amountMinor: 2_340, currency: 'EUR' })).ok,
-  ).toBe(true);
+  expect((await actions.createTransaction({ kindId: kind.id, amountMinor: 2_340 })).ok).toBe(true);
   const transaction = must((await t.db.select().from(schema.transactions))[0], 'transaction');
 
   return {
@@ -109,8 +114,8 @@ afterEach(() => {
   actAs(null);
 });
 
-describe('authorization — a session can never mutate another user\'s rows', () => {
-  it('denies every mutation on another user\'s rows, with no side effects', async () => {
+describe("authorization — a session can never mutate another user's rows", () => {
+  it("denies every mutation on another user's rows, with no side effects", async () => {
     const fixture = await setup();
     const before = {
       currencies: await t.db.select().from(schema.currencies),
@@ -135,7 +140,8 @@ describe('authorization — a session can never mutate another user\'s rows', ()
       }),
       actions.updateKindBudget({ kindId: fixture.kindId, predictedAmountMinor: 1 }),
       actions.deleteKind({ kindId: fixture.kindId }),
-      actions.createTransaction({ kindId: fixture.kindId, amountMinor: 1, currency: 'EUR' }),
+      actions.createTransaction({ kindId: fixture.kindId, amountMinor: 1 }),
+      actions.updateTransaction({ transactionId: fixture.transactionId, amountMinor: 1 }),
       actions.deleteTransaction({ transactionId: fixture.transactionId }),
     ]);
     for (const result of denials) expect(result.ok).toBe(false);
@@ -173,7 +179,7 @@ describe('authorization — a session can never mutate another user\'s rows', ()
   });
 });
 
-describe('saving-type categories/kinds are rejected (reserved for L.12)', () => {
+describe('saving-type categories/kinds are only created through createCategoryWithKind', () => {
   it('rejects creating a saving-type category', async () => {
     actAs(owner);
     const result = await actions.createCategory({
@@ -215,7 +221,12 @@ describe('happy path', () => {
   it('creates a currency, income, category/kind, and transaction owned by the caller', async () => {
     const fixture = await setup();
     const currency = must(
-      (await t.db.select().from(schema.currencies).where(eq(schema.currencies.id, fixture.currencyId)))[0],
+      (
+        await t.db
+          .select()
+          .from(schema.currencies)
+          .where(eq(schema.currencies.id, fixture.currencyId))
+      )[0],
       'currency',
     );
     expect(currency.userId).toBe(owner.id);
@@ -241,7 +252,12 @@ describe('happy path', () => {
     expect((await actions.setBaseCurrency({ currencyId: usd.id })).ok).toBe(true);
     const all = await t.db.select().from(schema.currencies);
     expect(all.filter((c) => c.isBase === 1)).toHaveLength(1);
-    expect(must(all.find((c) => c.code === 'USD'), 'USD').isBase).toBe(1);
+    expect(
+      must(
+        all.find((c) => c.code === 'USD'),
+        'USD',
+      ).isBase,
+    ).toBe(1);
   });
 
   it('createCategoryWithKind creates both rows atomically, correctly owned', async () => {
@@ -303,7 +319,10 @@ describe('happy path', () => {
       .from(schema.categories)
       .where(eq(schema.categories.name, 'Travel jar'));
     expect(category?.type).toBe('saving');
-    const [kind] = await t.db.select().from(schema.kinds).where(eq(schema.kinds.categoryId, must(category, 'category').id));
+    const [kind] = await t.db
+      .select()
+      .from(schema.kinds)
+      .where(eq(schema.kinds.categoryId, must(category, 'category').id));
     const jars = await t.db.select().from(schema.savingJars);
     expect(jars).toHaveLength(1);
     expect(jars[0]).toMatchObject({
@@ -328,7 +347,10 @@ describe('L.12 — saving jars', () => {
 
     const result = await actions.createJarTransaction({ jarId, amountMinor: 3_000 });
     expect(result.ok).toBe(true);
-    const [updatedJar] = await t.db.select().from(schema.savingJars).where(eq(schema.savingJars.id, jarId));
+    const [updatedJar] = await t.db
+      .select()
+      .from(schema.savingJars)
+      .where(eq(schema.savingJars.id, jarId));
     expect(updatedJar?.balanceMinor).toBe(3_000);
     const jarTransactions = await t.db.select().from(schema.jarTransactions);
     expect(jarTransactions).toHaveLength(1);
@@ -349,7 +371,10 @@ describe('L.12 — saving jars', () => {
 
     const result = await actions.createJarTransaction({ jarId, amountMinor: -4_000 });
     expect(result.ok).toBe(true);
-    const [updatedJar] = await t.db.select().from(schema.savingJars).where(eq(schema.savingJars.id, jarId));
+    const [updatedJar] = await t.db
+      .select()
+      .from(schema.savingJars)
+      .where(eq(schema.savingJars.id, jarId));
     expect(updatedJar?.balanceMinor).toBe(6_000);
   });
 
@@ -367,12 +392,15 @@ describe('L.12 — saving jars', () => {
 
     const result = await actions.createJarTransaction({ jarId, amountMinor: -2_000 });
     expect(result.ok).toBe(false);
-    const [updatedJar] = await t.db.select().from(schema.savingJars).where(eq(schema.savingJars.id, jarId));
+    const [updatedJar] = await t.db
+      .select()
+      .from(schema.savingJars)
+      .where(eq(schema.savingJars.id, jarId));
     expect(updatedJar?.balanceMinor).toBe(1_000);
     expect(await t.db.select().from(schema.jarTransactions)).toHaveLength(1);
   });
 
-  it('denies createJarTransaction on another user\'s jar, with no balance change', async () => {
+  it("denies createJarTransaction on another user's jar, with no balance change", async () => {
     actAs(owner);
     await actions.createCategoryWithKind({
       type: 'saving',
@@ -386,13 +414,16 @@ describe('L.12 — saving jars', () => {
     actAs(outsider);
     const result = await actions.createJarTransaction({ jarId, amountMinor: 1_000 });
     expect(result.ok).toBe(false);
-    const [updatedJar] = await t.db.select().from(schema.savingJars).where(eq(schema.savingJars.id, jarId));
+    const [updatedJar] = await t.db
+      .select()
+      .from(schema.savingJars)
+      .where(eq(schema.savingJars.id, jarId));
     expect(updatedJar?.balanceMinor).toBe(0);
   });
 });
 
 describe('L.7 — accounts, assets, deposits, loans, people', () => {
-  it('denies every new mutation on another user\'s rows, with no side effects', async () => {
+  it("denies every new mutation on another user's rows, with no side effects", async () => {
     actAs(owner);
     await actions.createAccount({
       name: 'Checking',
@@ -401,7 +432,12 @@ describe('L.7 — accounts, assets, deposits, loans, people', () => {
       currency: 'EUR',
     });
     const account = must((await t.db.select().from(schema.accounts))[0], 'account');
-    await actions.createAsset({ name: 'Gold', type: 'physical', valueMinor: 5_000, currency: 'EUR' });
+    await actions.createAsset({
+      name: 'Gold',
+      type: 'physical',
+      valueMinor: 5_000,
+      currency: 'EUR',
+    });
     const asset = must((await t.db.select().from(schema.assets))[0], 'asset');
     await actions.createDeposit({ name: 'Apartment', amountMinor: 3_000, currency: 'EUR' });
     const deposit = must((await t.db.select().from(schema.deposits))[0], 'deposit');
@@ -456,8 +492,14 @@ describe('L.7 — accounts, assets, deposits, loans, people', () => {
   it('creates and updates a bank account and a credit card', async () => {
     actAs(owner);
     expect(
-      (await actions.createAccount({ name: 'Checking', type: 'bank', balanceMinor: 10_000, currency: 'EUR' }))
-        .ok,
+      (
+        await actions.createAccount({
+          name: 'Checking',
+          type: 'bank',
+          balanceMinor: 10_000,
+          currency: 'EUR',
+        })
+      ).ok,
     ).toBe(true);
     expect(
       (
@@ -477,7 +519,9 @@ describe('L.7 — accounts, assets, deposits, loans, people', () => {
     );
     expect(card.creditLimitMinor).toBe(200_000);
 
-    expect((await actions.updateAccount({ accountId: card.id, balanceMinor: 40_000 })).ok).toBe(true);
+    expect((await actions.updateAccount({ accountId: card.id, balanceMinor: 40_000 })).ok).toBe(
+      true,
+    );
     const updated = must(
       (await t.db.select().from(schema.accounts).where(eq(schema.accounts.id, card.id)))[0],
       'updated card',
@@ -510,7 +554,9 @@ describe('L.7 — accounts, assets, deposits, loans, people', () => {
     expect(kind.predictedAmountMinor).toBe(18_000);
 
     const category = must(
-      (await t.db.select().from(schema.categories).where(eq(schema.categories.id, kind.categoryId)))[0],
+      (
+        await t.db.select().from(schema.categories).where(eq(schema.categories.id, kind.categoryId))
+      )[0],
       'linked category',
     );
     expect(category.name).toBe('Loans');
@@ -552,7 +598,7 @@ describe('L.7 — accounts, assets, deposits, loans, people', () => {
     expect(kindsUnderIt.map((k) => k.name).sort()).toEqual(['Car loan', 'Student loan']);
   });
 
-  it('updateLoan keeps the linked kind\'s name/budget in sync', async () => {
+  it("updateLoan keeps the linked kind's name/budget in sync", async () => {
     actAs(owner);
     await actions.createLoan({
       name: 'Car loan',
@@ -612,7 +658,9 @@ describe('L.7 — accounts, assets, deposits, loans, people', () => {
     // The shared "Loans" category itself is left behind (documented, minor
     // cosmetic gap — see LOANS_CATEGORY_NAME's doc comment) — only the
     // kind is expected to be gone.
-    expect(await t.db.select().from(schema.categories).where(eq(schema.categories.name, 'Loans'))).toHaveLength(1);
+    expect(
+      await t.db.select().from(schema.categories).where(eq(schema.categories.name, 'Loans')),
+    ).toHaveLength(1);
   });
 
   it('createPeopleTransaction keeps the cached balance in sync, both directions', async () => {
@@ -772,5 +820,202 @@ describe('L.14 — Settings', () => {
     expect(data.categories.map((c) => c.name).sort()).toEqual(['Groceries', 'Loans']);
     expect(data.loanLinkedKindIds.has(loan.linkedKindId)).toBe(true);
     expect(data.loanLinkedKindIds.has(fixture.kindId)).toBe(false);
+  });
+});
+
+describe('review fixes — validation, idempotency, loan payments', () => {
+  it('createCurrency is idempotent on the code and re-applies isBase', async () => {
+    actAs(owner);
+    expect((await actions.createCurrency({ code: 'EUR', isBase: true })).ok).toBe(true);
+    expect((await actions.createCurrency({ code: 'USD' })).ok).toBe(true);
+    expect((await actions.createCurrency({ code: 'EUR', isBase: true })).ok).toBe(true);
+    expect((await actions.createCurrency({ code: 'USD', isBase: true })).ok).toBe(true);
+    const rows = await t.db.select().from(schema.currencies);
+    expect(rows).toHaveLength(2);
+    expect(rows.filter((r) => r.isBase === 1).map((r) => r.code)).toEqual(['USD']);
+  });
+
+  it('rejects an unsupported or malformed currency on every create action', async () => {
+    const fixture = await setup();
+    const results = await Promise.all([
+      actions.createCurrency({ code: 'XXX' }),
+      actions.createIncome({ label: 'x', amountMinor: 1, currency: 'nope', kind: 'secondary' }),
+      actions.createCategoryWithKind({
+        name: 'x',
+        type: 'dynamic',
+        predictedAmountMinor: 1,
+        currency: 'XXX',
+      }),
+      actions.createKind({
+        categoryId: fixture.categoryId,
+        name: 'x',
+        predictedAmountMinor: 1,
+        currency: 'XXX',
+      }),
+      actions.createAccount({ name: 'x', type: 'bank', balanceMinor: 1, currency: 'XXX' }),
+      actions.createAsset({ name: 'x', type: 'physical', valueMinor: 1, currency: 'XXX' }),
+      actions.createDeposit({ name: 'x', amountMinor: 1, currency: 'XXX' }),
+      actions.createPerson({ name: 'x', currency: 'XXX' }),
+      actions.createLoan({
+        name: 'x',
+        lender: 'y',
+        principalMinor: 10,
+        remainingBalanceMinor: 5,
+        installmentAmountMinor: 1,
+        currency: 'XXX',
+        startDate: '2025-01-01',
+        endDate: '2026-01-01',
+      }),
+    ]);
+    for (const result of results) expect(result.ok).toBe(false);
+  });
+
+  it("createTransaction stores the kind's own currency, never a client-supplied one", async () => {
+    const fixture = await setup();
+    const [tx] = await t.db.select().from(schema.transactions);
+    expect(tx?.currency).toBe('EUR');
+    expect(tx?.kindId).toBe(fixture.kindId);
+  });
+
+  it('createKind rejects a second subcategory in a different currency', async () => {
+    const fixture = await setup();
+    const result = await actions.createKind({
+      categoryId: fixture.categoryId,
+      name: 'Snacks',
+      predictedAmountMinor: 1_000,
+      currency: 'USD',
+    });
+    expect(result.ok).toBe(false);
+    expect(await t.db.select().from(schema.kinds)).toHaveLength(1);
+  });
+
+  it('createCategoriesWithKinds creates every category in one go and rejects duplicates atomically', async () => {
+    actAs(owner);
+    await actions.createCurrency({ code: 'EUR', isBase: true });
+    const ok = await actions.createCategoriesWithKinds({
+      categories: [
+        { name: 'Groceries', predictedAmountMinor: 15_000 },
+        { name: 'Transport', predictedAmountMinor: 3_000 },
+      ],
+      type: 'dynamic',
+      currency: 'EUR',
+    });
+    expect(ok.ok).toBe(true);
+    expect(await t.db.select().from(schema.categories)).toHaveLength(2);
+    expect(await t.db.select().from(schema.kinds)).toHaveLength(2);
+
+    const dup = await actions.createCategoriesWithKinds({
+      categories: [
+        { name: 'Fun', predictedAmountMinor: 1 },
+        { name: 'fun', predictedAmountMinor: 2 },
+      ],
+      type: 'dynamic',
+      currency: 'EUR',
+    });
+    expect(dup.ok).toBe(false);
+    expect(await t.db.select().from(schema.categories)).toHaveLength(2);
+  });
+
+  it("a payment logged against a loan's linked kind reduces the remaining balance, and is reversed on delete/edit", async () => {
+    actAs(owner);
+    await actions.createCurrency({ code: 'EUR', isBase: true });
+    await actions.createLoan({
+      name: 'Car loan',
+      lender: 'Bank',
+      principalMinor: 10_000,
+      remainingBalanceMinor: 8_000,
+      installmentAmountMinor: 500,
+      currency: 'EUR',
+      startDate: '2025-01-01',
+      endDate: '2027-12-01',
+    });
+    const loan = must((await t.db.select().from(schema.loans))[0], 'loan');
+
+    expect(
+      (await actions.createTransaction({ kindId: loan.linkedKindId, amountMinor: 500 })).ok,
+    ).toBe(true);
+    let [row] = await t.db.select().from(schema.loans);
+    expect(row?.remainingBalanceMinor).toBe(7_500);
+
+    const tx = must((await t.db.select().from(schema.transactions))[0], 'transaction');
+    expect((await actions.updateTransaction({ transactionId: tx.id, amountMinor: 700 })).ok).toBe(
+      true,
+    );
+    [row] = await t.db.select().from(schema.loans);
+    expect(row?.remainingBalanceMinor).toBe(7_300);
+
+    expect((await actions.deleteTransaction({ transactionId: tx.id })).ok).toBe(true);
+    [row] = await t.db.select().from(schema.loans);
+    expect(row?.remainingBalanceMinor).toBe(8_000);
+  });
+
+  it('updateTransaction edits amount, date, note, and subcategory', async () => {
+    const fixture = await setup();
+    await actions.createKind({
+      categoryId: fixture.categoryId,
+      name: 'Snacks',
+      predictedAmountMinor: 1_000,
+      currency: 'EUR',
+    });
+    const snacks = must(
+      (await t.db.select().from(schema.kinds)).find((k) => k.name === 'Snacks'),
+      'snacks kind',
+    );
+    const when = Date.UTC(2026, 6, 15, 12);
+    const result = await actions.updateTransaction({
+      transactionId: fixture.transactionId,
+      kindId: snacks.id,
+      amountMinor: 999,
+      occurredAt: when,
+      note: '  chips ',
+    });
+    expect(result.ok).toBe(true);
+    const [tx] = await t.db.select().from(schema.transactions);
+    expect(tx).toMatchObject({
+      kindId: snacks.id,
+      amountMinor: 999,
+      occurredAt: when,
+      note: 'chips',
+    });
+  });
+
+  it('createLoan validates dates and balance', async () => {
+    actAs(owner);
+    await actions.createCurrency({ code: 'EUR', isBase: true });
+    const base = {
+      name: 'x',
+      lender: 'y',
+      principalMinor: 10_000,
+      remainingBalanceMinor: 8_000,
+      installmentAmountMinor: 500,
+      currency: 'EUR',
+    };
+    expect(
+      (await actions.createLoan({ ...base, startDate: '2025-13-01', endDate: '2026-01-01' })).ok,
+    ).toBe(false);
+    expect(
+      (await actions.createLoan({ ...base, startDate: '2026-01-01', endDate: '2025-01-01' })).ok,
+    ).toBe(false);
+    expect(
+      (
+        await actions.createLoan({
+          ...base,
+          remainingBalanceMinor: 20_000,
+          startDate: '2025-01-01',
+          endDate: '2026-01-01',
+        })
+      ).ok,
+    ).toBe(false);
+    expect(await t.db.select().from(schema.loans)).toHaveLength(0);
+  });
+
+  it('markPeriodReviewed rejects the current month, a future month, and an invalid month', async () => {
+    actAs(owner);
+    const now = new Date();
+    const current = { year: now.getUTCFullYear(), month: now.getUTCMonth() + 1 };
+    expect((await actions.markPeriodReviewed(current)).ok).toBe(false);
+    expect((await actions.markPeriodReviewed({ year: current.year + 1, month: 1 })).ok).toBe(false);
+    expect((await actions.markPeriodReviewed({ year: 2026, month: 13 })).ok).toBe(false);
+    expect(await t.db.select().from(schema.periodReviews)).toHaveLength(0);
   });
 });

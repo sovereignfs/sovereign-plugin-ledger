@@ -2,12 +2,13 @@
 
 import type { ReactNode } from 'react';
 import { BalanceChip, Icon } from '@sovereignfs/ui';
-import { formatMoney } from '../_lib/format';
 import type { AccountsData } from '../_lib/accounts';
+import { useFormatters } from '../_lib/locale';
 import { AccountsDetail } from './AccountsDetail';
 import type { SelectedItem, SelectedItemType } from './AccountsView';
 import { MobileSettingsLink } from './MobileSettingsLink';
 import styles from './Mobile.module.css';
+import { UnconvertedNote } from './UnconvertedNote';
 
 function Row({
   name,
@@ -88,6 +89,7 @@ export function MobileAccountsScreen({
   onAddLoan: () => void;
   onAddPerson: () => void;
 }) {
+  const fmt = useFormatters();
   if (selected) {
     return (
       <div className={styles.screen}>
@@ -116,10 +118,14 @@ export function MobileAccountsScreen({
       <div className={styles.titleRow}>
         <div>
           <h1 className={styles.title}>Accounts</h1>
-          <p className={styles.subtitle}>{formatMoney(data.netWorthMinor, data.baseCurrencyCode)} net worth</p>
+          <p className={styles.subtitle}>
+            {fmt.money(data.netWorthMinor, data.baseCurrencyCode)} net worth
+          </p>
         </div>
         <MobileSettingsLink />
       </div>
+
+      <UnconvertedNote currencies={data.unconvertedCurrencies} />
 
       <Section label="Banking" onAdd={onAddAccount}>
         {data.banking.length === 0 ? (
@@ -130,7 +136,7 @@ export function MobileAccountsScreen({
               key={a.id}
               name={a.name}
               subtitle={a.institution ?? undefined}
-              value={formatMoney(a.balanceMinor, a.currency)}
+              value={fmt.money(a.balanceMinor, a.currency)}
               onSelect={() => select('account', a.id)}
             />
           ))
@@ -148,8 +154,8 @@ export function MobileAccountsScreen({
               subtitle={a.institution ?? undefined}
               value={
                 a.creditLimitMinor
-                  ? `${formatMoney(a.balanceMinor, a.currency)} / ${formatMoney(a.creditLimitMinor, a.currency)}`
-                  : formatMoney(a.balanceMinor, a.currency)
+                  ? `${fmt.money(a.balanceMinor, a.currency)} / ${fmt.money(a.creditLimitMinor, a.currency)}`
+                  : fmt.money(a.balanceMinor, a.currency)
               }
               onSelect={() => select('account', a.id)}
             />
@@ -165,7 +171,7 @@ export function MobileAccountsScreen({
             <Row
               key={a.id}
               name={a.name}
-              value={formatMoney(a.valueMinor, a.currency)}
+              value={fmt.money(a.valueMinor, a.currency)}
               onSelect={() => select('asset', a.id)}
             />
           ))
@@ -180,7 +186,7 @@ export function MobileAccountsScreen({
             <Row
               key={d.id}
               name={d.name}
-              value={formatMoney(d.amountMinor, d.currency)}
+              value={fmt.money(d.amountMinor, d.currency)}
               onSelect={() => select('deposit', d.id)}
             />
           ))
@@ -195,7 +201,7 @@ export function MobileAccountsScreen({
             <Row
               key={l.id}
               name={l.name}
-              value={`${formatMoney(l.remainingBalanceMinor, l.currency)} remaining`}
+              value={`${fmt.money(l.remainingBalanceMinor, l.currency)} remaining`}
               onSelect={() => select('loan', l.id)}
             />
           ))

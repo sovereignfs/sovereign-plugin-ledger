@@ -9,9 +9,10 @@ import styles from './Overview.module.css';
  * that's the signal this task uses). "+ Add expense" living in the sidebar,
  * not this card, is what stays live from the very first screen.
  *
- * A pending row with `href` links into `/ledger/accounts` (real since L.7);
- * only "Saving plans" (`comingSoon`, L.12) is still a disabled, non-linking
- * row — never a link to a route that doesn't exist yet.
+ * A pending row with `href` links to the page that fills it in (Accounts
+ * for balance-sheet rows, Budget for saving jars); a row flagged
+ * `comingSoon` renders disabled — never a link to a route that doesn't
+ * exist. Nothing sets that flag today.
  */
 export function OverviewChecklist({ items }: { items: OverviewChecklistItem[] }) {
   return (
@@ -59,8 +60,8 @@ export function OverviewChecklist({ items }: { items: OverviewChecklistItem[] })
       </div>
 
       <p className={styles.checklistFooter}>
-        Start tracking expenses right now with the button above — finishing this list just gives
-        you a fuller picture.
+        Start tracking expenses right now with the Add expense button — finishing this list just
+        gives you a fuller picture.
       </p>
     </div>
   );

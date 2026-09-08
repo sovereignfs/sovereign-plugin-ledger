@@ -45,7 +45,11 @@ function stubFrankfurter(rates: Record<string, number> = FRANKFURTER_RATES, date
   );
 }
 
-const ctx = { pluginId: 'fs.sovereign.ledger', scheduleId: 'fetch-fx-rates', headers: new Headers() };
+const ctx = {
+  pluginId: 'fs.sovereign.ledger',
+  scheduleId: 'fetch-fx-rates',
+  headers: new Headers(),
+};
 
 let t: TestDb;
 
@@ -68,12 +72,10 @@ describe('fetchFxRates', () => {
     const [firstCall] = vi.mocked(fetch).mock.calls;
     const url = new URL(firstCall?.[0] as string);
     expect(url.searchParams.get('base')).toBe('USD');
-    expect(url.searchParams.get('symbols')?.split(',').sort()).toEqual(
-      [...NON_PIVOT_CODES].sort(),
-    );
+    expect(url.searchParams.get('symbols')?.split(',').sort()).toEqual([...NON_PIVOT_CODES].sort());
   });
 
-  it('inverts Frankfurter\'s USD-per-unit rate into value-of-1-X-in-USD', async () => {
+  it("inverts Frankfurter's USD-per-unit rate into value-of-1-X-in-USD", async () => {
     stubFrankfurter({ EUR: 0.92 });
     await fetchFxRates(ctx);
 
@@ -88,7 +90,7 @@ describe('fetchFxRates', () => {
     expect(rows[0]?.rate).toBeCloseTo(1 / 0.92);
   });
 
-  it('uses Frankfurter\'s own returned date, not the current date', async () => {
+  it("uses Frankfurter's own returned date, not the current date", async () => {
     stubFrankfurter({ EUR: 0.92 }, '2026-01-02');
     await fetchFxRates(ctx);
 
@@ -119,7 +121,7 @@ describe('fetchFxRates', () => {
     expect(rows).toHaveLength(NON_PIVOT_CODES.length - UNCOVERED.size);
   });
 
-  it('a second run on a later date adds new rows alongside the earlier day\'s, not replacing them', async () => {
+  it("a second run on a later date adds new rows alongside the earlier day's, not replacing them", async () => {
     stubFrankfurter({ EUR: 0.92 }, '2026-08-27');
     await fetchFxRates(ctx);
     stubFrankfurter({ EUR: 0.93 }, '2026-08-28');

@@ -4,6 +4,7 @@ import { listMobileApps } from '../_lib/apps';
 import { requireUser } from '../_lib/authz';
 import { getBudgetData } from '../_lib/budget';
 import { getDb } from '../_lib/db';
+import { getRequestLocale } from '../_lib/request-locale';
 import { getSetupStatus } from '../_lib/setup-status';
 
 /**
@@ -14,11 +15,10 @@ import { getSetupStatus } from '../_lib/setup-status';
  * the user hasn't even picked a currency yet.
  */
 export default async function BudgetPage() {
-  const actor = await requireUser();
-  const db = await getDb();
+  const [actor, db, locale] = await Promise.all([requireUser(), getDb(), getRequestLocale()]);
   const status = await getSetupStatus(db, actor.userId);
   if (!status.complete) redirect('/ledger');
 
   const [data, apps] = await Promise.all([getBudgetData(db, actor.userId), listMobileApps()]);
-  return <BudgetView data={data} apps={apps} />;
+  return <BudgetView data={data} apps={apps} locale={locale} />;
 }

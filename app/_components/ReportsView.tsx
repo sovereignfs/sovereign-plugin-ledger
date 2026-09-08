@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { ResponsiveSurface } from '@sovereignfs/ui';
 import type { MobileAppEntry } from '../_lib/apps';
+import { LedgerLocaleProvider } from '../_lib/locale';
 import type { PeriodReport, ReportsData } from '../_lib/reports';
 import { LedgerMobileShell } from './LedgerMobileShell';
 import { LedgerShell } from './LedgerShell';
@@ -15,62 +16,68 @@ function periodKeyOf(period: PeriodReport): string {
 }
 
 /**
- * Selection defaults to the most recent period (periods are already sorted
- * most-recent-first by `getReportsData`) rather than starting with nothing
- * selected — a Reports page with an empty detail column on first load would
- * make the screen's main content invisible until the user clicks something.
- * On mobile that same default instead opens straight into the most recent
- * period's drill-down screen — `MobileReportsScreen`'s own back button
- * returns to the period list, matching mobile-fork.md screens 6-7.
+ * Desktop defaults the detail column to the most recent period (periods
+ * are already sorted most-recent-first by `getReportsData`) — a Reports
+ * page with an empty detail column on first load would make the screen's
+ * main content invisible until the user clicks something. Mobile does NOT
+ * inherit that default: the drill-down stack opens on the period list, and
+ * only an explicit tap opens a period (an earlier version landed straight
+ * in the latest month's detail, leaving the list reachable only via Back).
+ * `selectedKey` therefore tracks the user's own choice; the desktop default
+ * is applied at render time.
  */
 export function ReportsView({
   data,
   apps,
   insights,
+  locale,
 }: {
   data: ReportsData;
   apps: MobileAppEntry[];
   insights: string[];
+  locale: string | undefined;
 }) {
-  const [selectedKey, setSelectedKey] = useState<string | null>(
-    data.periods[0] ? periodKeyOf(data.periods[0]) : null,
-  );
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
-  const selected = data.periods.find((p) => periodKeyOf(p) === selectedKey) ?? null;
+  const explicit = data.periods.find((p) => periodKeyOf(p) === selectedKey) ?? null;
+  const desktopSelected = explicit ?? data.periods[0] ?? null;
+  const desktopKey = desktopSelected ? periodKeyOf(desktopSelected) : null;
 
   return (
-    <ResponsiveSurface
-      web={
-        <LedgerShell
-          detail={
-            selected && (
-              <ReportsDetail
-                key={selectedKey}
-                period={selected}
-                baseCurrencyCode={data.baseCurrencyCode}
-                insights={insights}
-              />
-            )
-          }
-        >
-          <ReportsMain
-            data={data}
-            selectedKey={selectedKey}
-            onSelect={(period) => setSelectedKey(periodKeyOf(period))}
-          />
-        </LedgerShell>
-      }
-      mobile={
-        <LedgerMobileShell apps={apps}>
-          <MobileReportsScreen
-            data={data}
-            selected={selected}
-            insights={insights}
-            onSelect={(period) => setSelectedKey(periodKeyOf(period))}
-            onBack={() => setSelectedKey(null)}
-          />
-        </LedgerMobileShell>
-      }
-    />
+    <LedgerLocaleProvider locale={locale}>
+      <ResponsiveSurface
+        web={
+          <LedgerShell
+            detail={
+              desktopSelected && (
+                <ReportsDetail
+                  key={desktopKey}
+                  period={desktopSelected}
+                  baseCurrencyCode={data.baseCurrencyCode}
+                  insights={insights}
+                />
+              )
+            }
+          >
+            <ReportsMain
+              data={data}
+              selectedKey={desktopKey}
+              onSelect={(period) => setSelectedKey(periodKeyOf(period))}
+            />
+          </LedgerShell>
+        }
+        mobile={
+          <LedgerMobileShell apps={apps}>
+            <MobileReportsScreen
+              data={data}
+              selected={explicit}
+              insights={insights}
+              onSelect={(period) => setSelectedKey(periodKeyOf(period))}
+              onBack={() => setSelectedKey(null)}
+            />
+          </LedgerMobileShell>
+        }
+      />
+    </LedgerLocaleProvider>
   );
 }

@@ -979,6 +979,67 @@ planned task for this plugin is now shipped.
 
 ---
 
+
+✅ **L.15 shipped (0.15.0)** — a full review pass over everything L.1–L.14
+built, addressing every finding rather than a slice. Correctness first:
+
+- **Cross-currency conversion only ever worked for a USD base.** The FX job
+  stores every rate against the USD pivot, but `sumConvertedToBase` looked
+  up `(currency, pivot = base currency)` directly, so a EUR-base user's USD
+  account was silently excluded from every total. `getCrossRateAsOf` now
+  derives the cross-rate from both legs against the pivot (CONCEPT.md's
+  "derived at query time"), historical amounts price at their own date
+  (`CurrencyAmount.asOfDate`), and anything still unconvertible is reported
+  (`ConvertedSum.unconvertedCurrencies`) and rendered as an explicit
+  "not included" note on Overview, Accounts, and Reports.
+- **Expenses landed in the wrong month for anyone east of UTC.** Every
+  user-picked day is now stored as UTC noon of that day (`utcNoonOf`) and
+  rendered in UTC (`formatDay`), so it always falls inside the UTC month
+  the user meant.
+- **Month-end recap** formats totals in the base currency (not the top
+  category's, or `USD`), links to an absolute URL built from
+  `sdk.platform.getConfig().instanceUrl`, and no longer gates on
+  `isFirstOfMonthUtc` — the marker table was already the idempotency
+  guard, so the calendar gate only ever cost users a whole month's recap
+  after a missed tick.
+- **Insights' consecutive-months rule could never fire**: it walked from
+  the in-progress current month, where nothing is over budget yet. It now
+  skips the current period and counts from the last completed month; the
+  large-transaction rule also ages out after 45 days.
+- **Overview and Reports disagreed on "projected savings"**; both now mean
+  income minus everything budgeted, and Overview shows "Left this month"
+  separately.
+- **Settings could add a second subcategory Budget couldn't edit**, in a
+  different currency the totals then summed raw. Every subcategory row has
+  its own edit affordance; `createKind` enforces one currency per category
+  and the dialog no longer offers a picker.
+- **Every `currency` a client sends is validated** against
+  `CURRENCY_OPTIONS`; `createTransaction` derives the currency from the kind
+  instead of trusting the client. Loan dates, balances, credit limits,
+  recurrence, and the review period (month 1–12, not the current month)
+  are validated too.
+- `ledger_currencies` is unique per `(user_id, code)` (migration 0003) and
+  `createCurrency` is idempotent on it — the wizard's Back→Continue path
+  previously created a second base row.
+- **Hydration mismatches for non-`en-US` browsers**: every formatter now
+  takes the request's `Accept-Language` locale, threaded through
+  `LedgerLocaleProvider`/`useFormatters()`, so SSR and hydration agree.
+
+Product gaps closed in the same pass: expenses can be edited and deleted
+(`updateTransaction`, `EditTransactionDialog`); accounts, assets, and
+deposits have in-place edit dialogs; a payment logged against a loan's
+linked subcategory reduces the loan's remaining balance (and is reversed
+on delete/edit); saving jars can have their target edited and be deleted;
+every route has a `loading.tsx`; the wizard's category step is one atomic
+action; the in-progress month reads "In progress" rather than "Needs
+review" and can't be marked; mobile Reports opens on the list; jar-funded
+expenses appear in Recent activity and count toward a month's report;
+Overview's Net worth card carries CONCEPT.md's card-utilisation and
+loan-balance mini overviews; every create dialog defaults to the base
+currency. Remaining CONCEPT.md §4 scope that is still unbuilt is now
+tracked as ROADMAP.md's Phase I rather than left implicit. 120 tests pass
+(20 new); typecheck, lint, Prettier, and `design:tokens:check` are clean.
+
 ## Architecture
 
 ### Terminology
@@ -1086,6 +1147,7 @@ data, same rationale already used by `sovereign-plugin-sheets.local`'s own
 
 ```
 ledger_currencies          id, tenant_id, user_id, code, is_base, timestamps
+                           UNIQUE(user_id, code)
 ledger_fx_rates            [UNTENANTED] id, currency_code, pivot_code, rate,
                            as_of_date, source (nullable)
 ledger_incomes             id, tenant_id, user_id, label, amount, currency,
@@ -1648,3 +1710,37 @@ a loan-linked category or kind is rejected with a friendly error until the
 loan itself is deleted from Accounts, after which the same delete
 succeeds; the sidebar link and mobile gear icon both reach
 `/ledger/settings` correctly on both breakpoints.
+
+---
+
+#### L.15 — Full review fixes
+
+**Goal:** Address every finding of the 2026-09-07 review of L.1–L.14 —
+correctness bugs, validation gaps, UX gaps, and documentation drift — in
+one pass, so the plugin's actual behaviour matches CONCEPT.md's promises
+(cross-rates derived at query time, historical amounts priced at their own
+date, expenses in the month the user meant).
+
+**Deliverables:** see this task's Status entry for the full list — FX
+cross-rates + unconverted-amount reporting, UTC-noon day storage, recap
+email fixes, insights streak fix, consistent "projected savings", per-
+subcategory budget editing with one currency per category, currency/date/
+balance validation on every action, `(user_id, code)` uniqueness, request-
+locale formatting, expense edit/delete, account/asset/deposit edits, loan
+payments reducing the balance, jar edit/delete, `loading.tsx` per route,
+atomic wizard categories, "In progress" month, mobile Reports list-first,
+jar-funded expenses in activity/reports, mini overviews, base-currency
+dialog defaults, and the README/ROADMAP/comment drift.
+
+**Dependencies:** L.14.
+
+**Review checklist:** a EUR-base user with a USD account sees it in net
+worth once a rate exists and sees a "not included" note before; an expense
+dated the 1st in a UTC+2 browser appears in that month's Budget and
+Reports; the recap email shows base-currency totals and an absolute link;
+two completed over-budget months produce the streak insight regardless of
+the current month; the same subcategory can be edited from Budget whether
+it is the first or second in its category; a malformed currency is
+rejected, never stored; logging a loan installment reduces the loan's
+remaining balance and deleting the expense restores it.
+

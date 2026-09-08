@@ -47,8 +47,24 @@ async function seedTwoMonths() {
     updatedAt: now,
   });
   await t.db.insert(schema.categories).values([
-    { id: 'cat-groceries', tenantId, userId, name: 'Groceries', type: 'dynamic', createdAt: now, updatedAt: now },
-    { id: 'cat-rent', tenantId, userId, name: 'Rent', type: 'fixed', createdAt: now, updatedAt: now },
+    {
+      id: 'cat-groceries',
+      tenantId,
+      userId,
+      name: 'Groceries',
+      type: 'dynamic',
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'cat-rent',
+      tenantId,
+      userId,
+      name: 'Rent',
+      type: 'fixed',
+      createdAt: now,
+      updatedAt: now,
+    },
   ]);
   await t.db.insert(schema.kinds).values([
     {

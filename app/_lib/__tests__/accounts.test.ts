@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import * as schema from '../../_db/schema';
 import { createTestDb, type TestDb } from '../../_db/__tests__/test-db';
-import { getAccountsData, getNetWorthMinor } from '../accounts';
+import { getAccountsData, getNetWorth } from '../accounts';
 
 let t: TestDb;
 const userId = 'user-1';
@@ -28,9 +28,9 @@ async function seedCurrency() {
   });
 }
 
-describe('getNetWorthMinor', () => {
+describe('getNetWorth', () => {
   it('is zero with no accounts/assets/deposits/loans at all', async () => {
-    expect(await getNetWorthMinor(t.ledger, userId, 'EUR')).toBe(0);
+    expect((await getNetWorth(t.ledger, userId, 'EUR')).netWorthMinor).toBe(0);
   });
 
   it('sums bank/assets/deposits as assets, subtracts credit cards/loans as liabilities', async () => {
@@ -129,12 +129,32 @@ describe('getNetWorthMinor', () => {
     // assets: 200_000 + 100_000 + 300_000 = 600_000
     // liabilities: 30_000 + 420_000 = 450_000
     // net worth: 150_000
-    expect(await getNetWorthMinor(t.ledger, userId, 'EUR')).toBe(150_000);
+    expect((await getNetWorth(t.ledger, userId, 'EUR')).netWorthMinor).toBe(150_000);
+  });
+
+  it('reports a currency it could not convert instead of silently dropping it', async () => {
+    const now = Date.now();
+    await t.db.insert(schema.accounts).values({
+      id: 'acc-usd',
+      tenantId,
+      userId,
+      name: 'US savings',
+      institution: null,
+      type: 'bank',
+      balanceMinor: 100_000,
+      currency: 'USD',
+      creditLimitMinor: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const result = await getNetWorth(t.ledger, userId, 'EUR');
+    expect(result.netWorthMinor).toBe(0);
+    expect(result.unconvertedCurrencies).toEqual(['USD']);
   });
 });
 
 describe('getAccountsData', () => {
-  it('groups accounts by type and preloads each person\'s transaction history, sorted most recent first', async () => {
+  it("groups accounts by type and preloads each person's transaction history, sorted most recent first", async () => {
     await seedCurrency();
     const now = Date.now();
     await t.db.insert(schema.people).values({
@@ -148,8 +168,24 @@ describe('getAccountsData', () => {
       updatedAt: now,
     });
     await t.db.insert(schema.peopleTransactions).values([
-      { id: 'ptx-1', tenantId, userId, personId: 'person-1', amountMinor: 18_000, note: null, occurredAt: now - 1000 },
-      { id: 'ptx-2', tenantId, userId, personId: 'person-1', amountMinor: -6_000, note: 'Paid back', occurredAt: now },
+      {
+        id: 'ptx-1',
+        tenantId,
+        userId,
+        personId: 'person-1',
+        amountMinor: 18_000,
+        note: null,
+        occurredAt: now - 1000,
+      },
+      {
+        id: 'ptx-2',
+        tenantId,
+        userId,
+        personId: 'person-1',
+        amountMinor: -6_000,
+        note: 'Paid back',
+        occurredAt: now,
+      },
     ]);
 
     const data = await getAccountsData(t.ledger, userId);

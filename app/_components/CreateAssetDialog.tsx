@@ -1,18 +1,43 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { startTransition, useActionState, useState } from 'react';
-import { Button, CurrencyInput, Dialog, FormField, Input, SegmentedControl, Select } from '@sovereignfs/ui';
+import { startTransition, useActionState, useEffect, useState } from 'react';
+import {
+  Button,
+  CurrencyInput,
+  Dialog,
+  FormField,
+  Input,
+  SegmentedControl,
+  Select,
+} from '@sovereignfs/ui';
 import { createAsset } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
 import styles from './Accounts.module.css';
 import { CURRENCY_OPTIONS } from '../_lib/currency-options';
 
-export function CreateAssetDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+/**
+ * Currency defaults to the user's base currency on every open — the dialog
+ * stays mounted across opens, so a `useState` initializer alone would go
+ * stale after a base-currency change (same fix as the Settings dialogs).
+ */
+export function CreateAssetDialog({
+  open,
+  onClose,
+  baseCurrencyCode,
+}: {
+  open: boolean;
+  onClose: () => void;
+  baseCurrencyCode: string;
+}) {
   const router = useRouter();
   const [type, setType] = useState<'physical' | 'security'>('physical');
   const [name, setName] = useState('');
-  const [currency, setCurrency] = useState('EUR');
+  const [currency, setCurrency] = useState(baseCurrencyCode || 'EUR');
+
+  useEffect(() => {
+    if (open) setCurrency(baseCurrencyCode || 'EUR');
+  }, [open, baseCurrencyCode]);
   const [valueCents, setValueCents] = useState<number | null>(null);
 
   const [state, dispatch, pending] = useActionState<ActionResult | null, undefined>(async () => {
@@ -53,7 +78,9 @@ export function CreateAssetDialog({ open, onClose }: { open: boolean; onClose: (
           )}
         </FormField>
         <FormField label={`Value (${currency})`}>
-          {(field) => <CurrencyInput {...field} valueCents={valueCents} onValueChange={setValueCents} />}
+          {(field) => (
+            <CurrencyInput {...field} valueCents={valueCents} onValueChange={setValueCents} />
+          )}
         </FormField>
         {state && !state.ok && <p className={styles.feedbackError}>{state.error}</p>}
         <div className={styles.actions}>

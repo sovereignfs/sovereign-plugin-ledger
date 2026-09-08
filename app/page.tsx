@@ -5,6 +5,7 @@ import { requireUser } from './_lib/authz';
 import { getDb } from './_lib/db';
 import { getInsights } from './_lib/insights';
 import { getOverviewData } from './_lib/overview';
+import { getRequestLocale } from './_lib/request-locale';
 import { getSetupStatus } from './_lib/setup-status';
 
 /**
@@ -23,19 +24,16 @@ import { getSetupStatus } from './_lib/setup-status';
  * see `SetupWizard`'s own doc comment for the full incident. That risk is
  * specific to an in-progress client interaction on the currently-rendered
  * component getting yanked out from under it; it doesn't apply to a fresh,
- * first render deciding which branch to take at all. Overview (as built in
- * L.5) triggers no mutations of its own yet, so there's no path by which an
- * incidental refresh could fire while a user is mid-interaction with it —
- * re-check this reasoning if a later task (e.g. L.6's Add-expense dialog)
- * adds one directly on this page.
+ * first render deciding which branch to take at all. Overview's own
+ * mutations (Add expense) all end in `router.refresh()` against an
+ * already-complete setup, so the branch can't flip under a user mid-flow.
  */
 export default async function LedgerHomePage() {
-  const actor = await requireUser();
-  const db = await getDb();
+  const [actor, db, locale] = await Promise.all([requireUser(), getDb(), getRequestLocale()]);
   const status = await getSetupStatus(db, actor.userId);
 
   if (!status.complete) {
-    return <SetupWizard initialStatus={status} />;
+    return <SetupWizard initialStatus={status} locale={locale} />;
   }
 
   const [data, apps, insights] = await Promise.all([
@@ -43,5 +41,5 @@ export default async function LedgerHomePage() {
     listMobileApps(),
     getInsights(db, actor.userId),
   ]);
-  return <OverviewView data={data} apps={apps} insights={insights} />;
+  return <OverviewView data={data} apps={apps} insights={insights} locale={locale} />;
 }

@@ -57,7 +57,9 @@ export const currencies = sqliteTable(
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),
   },
-  (t) => [index('ledger_currencies_user_code_idx').on(t.userId, t.code)],
+  // Unique, not just an index: a user adds a code once; `createCurrency`
+  // is idempotent on it (the wizard re-submits step 1 after a "Back").
+  (t) => [uniqueIndex('ledger_currencies_user_code_idx').on(t.userId, t.code)],
 );
 
 /**
@@ -82,9 +84,7 @@ export const fxRates = sqliteTable(
     /** Provenance of the rate (e.g. 'frankfurter', 'coingecko'). Nullable — not always known. */
     source: text('source'),
   },
-  (t) => [
-    uniqueIndex('ledger_fx_rates_lookup_idx').on(t.currencyCode, t.pivotCode, t.asOfDate),
-  ],
+  (t) => [uniqueIndex('ledger_fx_rates_lookup_idx').on(t.currencyCode, t.pivotCode, t.asOfDate)],
 );
 
 export const incomes = sqliteTable(
@@ -211,7 +211,9 @@ export const jarTransactions = sqliteTable(
     note: text('note'),
     occurredAt: integer('occurred_at').notNull(),
   },
-  (t) => [index('ledger_jar_transactions_user_jar_occurred_idx').on(t.userId, t.jarId, t.occurredAt)],
+  (t) => [
+    index('ledger_jar_transactions_user_jar_occurred_idx').on(t.userId, t.jarId, t.occurredAt),
+  ],
 );
 
 export const accounts = sqliteTable(

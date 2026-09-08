@@ -3,11 +3,13 @@
 import { useState } from 'react';
 import { ResponsiveSurface } from '@sovereignfs/ui';
 import type { MobileAppEntry } from '../_lib/apps';
-import type { BudgetData, BudgetKind } from '../_lib/budget';
+import type { BudgetData, BudgetKind, BudgetTransaction } from '../_lib/budget';
+import { LedgerLocaleProvider } from '../_lib/locale';
 import { BudgetMain } from './BudgetMain';
 import { CategoryDetail } from './CategoryDetail';
 import { CreateSavingJarDialog } from './CreateSavingJarDialog';
 import { EditBudgetDialog } from './EditBudgetDialog';
+import { EditTransactionDialog } from './EditTransactionDialog';
 import { LedgerMobileShell } from './LedgerMobileShell';
 import { LedgerShell } from './LedgerShell';
 import { MobileBudgetScreen } from './MobileBudgetScreen';
@@ -27,65 +29,94 @@ import { SavingJarDetail } from './SavingJarDetail';
  * `CategoryDetail`'s prop type at all, so `SavingJarDetail` is a distinct
  * detail component picked by which list actually matched.
  */
-export function BudgetView({ data, apps }: { data: BudgetData; apps: MobileAppEntry[] }) {
+export function BudgetView({
+  data,
+  apps,
+  locale,
+}: {
+  data: BudgetData;
+  apps: MobileAppEntry[];
+  locale: string | undefined;
+}) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<BudgetKind | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<BudgetTransaction | null>(null);
   const [addingSavingJar, setAddingSavingJar] = useState(false);
 
   const selected = [...data.dynamic, ...data.fixed].find((c) => c.id === selectedId) ?? null;
   const selectedSaving = data.saving.find((c) => c.id === selectedId) ?? null;
 
   const detail = selected ? (
-    <CategoryDetail category={selected} onEditBudget={(kind) => setEditing(kind)} />
+    <CategoryDetail
+      category={selected}
+      onEditBudget={(kind) => setEditing(kind)}
+      onEditTransaction={(tx) => setEditingTransaction(tx)}
+    />
   ) : selectedSaving ? (
-    <SavingJarDetail category={selectedSaving} />
+    <SavingJarDetail
+      category={selectedSaving}
+      onEditTarget={(kind) => setEditing(kind)}
+      onDeleted={() => setSelectedId(null)}
+    />
   ) : null;
 
-  const editDialog = editing && (
-    <EditBudgetDialog
-      kindId={editing.id}
-      kindName={editing.name}
-      currentAmountMinor={editing.predictedAmountMinor}
-      currency={editing.currency}
-      onClose={() => setEditing(null)}
-    />
-  );
-
-  const createSavingJarDialog = (
-    <CreateSavingJarDialog open={addingSavingJar} onClose={() => setAddingSavingJar(false)} />
+  const dialogs = (
+    <>
+      {editing && (
+        <EditBudgetDialog
+          kindId={editing.id}
+          kindName={editing.name}
+          currentAmountMinor={editing.predictedAmountMinor}
+          currency={editing.currency}
+          onClose={() => setEditing(null)}
+        />
+      )}
+      {editingTransaction && (
+        <EditTransactionDialog
+          transaction={editingTransaction}
+          onClose={() => setEditingTransaction(null)}
+        />
+      )}
+      <CreateSavingJarDialog
+        open={addingSavingJar}
+        onClose={() => setAddingSavingJar(false)}
+        baseCurrencyCode={data.baseCurrencyCode}
+      />
+    </>
   );
 
   return (
-    <ResponsiveSurface
-      web={
-        <>
-          <LedgerShell detail={detail}>
-            <BudgetMain
+    <LedgerLocaleProvider locale={locale}>
+      <ResponsiveSurface
+        web={
+          <>
+            <LedgerShell detail={detail}>
+              <BudgetMain
+                data={data}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                onAddSavingJar={() => setAddingSavingJar(true)}
+              />
+            </LedgerShell>
+            {dialogs}
+          </>
+        }
+        mobile={
+          <LedgerMobileShell apps={apps}>
+            <MobileBudgetScreen
               data={data}
-              selectedId={selectedId}
+              selected={selected}
+              selectedSaving={selectedSaving}
               onSelect={setSelectedId}
+              onBack={() => setSelectedId(null)}
+              onEditBudget={setEditing}
+              onEditTransaction={setEditingTransaction}
               onAddSavingJar={() => setAddingSavingJar(true)}
             />
-          </LedgerShell>
-          {editDialog}
-          {createSavingJarDialog}
-        </>
-      }
-      mobile={
-        <LedgerMobileShell apps={apps}>
-          <MobileBudgetScreen
-            data={data}
-            selected={selected}
-            selectedSaving={selectedSaving}
-            onSelect={setSelectedId}
-            onBack={() => setSelectedId(null)}
-            onEditBudget={setEditing}
-            onAddSavingJar={() => setAddingSavingJar(true)}
-          />
-          {editDialog}
-          {createSavingJarDialog}
-        </LedgerMobileShell>
-      }
-    />
+            {dialogs}
+          </LedgerMobileShell>
+        }
+      />
+    </LedgerLocaleProvider>
   );
 }

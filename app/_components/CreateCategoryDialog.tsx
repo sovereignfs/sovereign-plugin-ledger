@@ -2,7 +2,15 @@
 
 import { useRouter } from 'next/navigation';
 import { startTransition, useActionState, useEffect, useState } from 'react';
-import { Button, CurrencyInput, Dialog, FormField, Input, SegmentedControl, Select } from '@sovereignfs/ui';
+import {
+  Button,
+  CurrencyInput,
+  Dialog,
+  FormField,
+  Input,
+  SegmentedControl,
+  Select,
+} from '@sovereignfs/ui';
 import { createCategoryWithKind } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
 import { CURRENCY_OPTIONS } from '../_lib/currency-options';

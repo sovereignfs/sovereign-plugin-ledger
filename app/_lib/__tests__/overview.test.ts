@@ -53,8 +53,24 @@ async function seedBudget() {
     },
   ]);
   await t.db.insert(schema.categories).values([
-    { id: 'cat-groceries', tenantId, userId, name: 'Groceries', type: 'dynamic', createdAt: now, updatedAt: now },
-    { id: 'cat-rent', tenantId, userId, name: 'Rent', type: 'fixed', createdAt: now, updatedAt: now },
+    {
+      id: 'cat-groceries',
+      tenantId,
+      userId,
+      name: 'Groceries',
+      type: 'dynamic',
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'cat-rent',
+      tenantId,
+      userId,
+      name: 'Rent',
+      type: 'fixed',
+      createdAt: now,
+      updatedAt: now,
+    },
   ]);
   await t.db.insert(schema.kinds).values([
     {
@@ -123,7 +139,11 @@ describe('getOverviewData', () => {
     expect(data.transactionCount).toBe(2);
     expect(data.thisMonth.incomeMinor).toBe(450000);
     expect(data.thisMonth.spentMinor).toBe(5000);
-    expect(data.thisMonth.projectedSavedMinor).toBe(445000);
+    // Projected = income − everything budgeted (15_000 + 170_000), the same
+    // definition Reports uses; remaining = income − spent so far.
+    expect(data.thisMonth.budgetedMinor).toBe(185000);
+    expect(data.thisMonth.projectedSavingsMinor).toBe(265000);
+    expect(data.thisMonth.remainingMinor).toBe(445000);
   });
 
   it('reports zero net worth and saving jars when no accounts/jars exist yet', async () => {
@@ -205,7 +225,12 @@ describe('getOverviewData', () => {
 
     const data = await getOverviewData(t.ledger, userId);
     const savingRow = data.checklist.find((c) => c.key === 'saving-plans');
-    expect(savingRow).toMatchObject({ done: true, comingSoon: false, detail: '1 jar', href: undefined });
+    expect(savingRow).toMatchObject({
+      done: true,
+      comingSoon: false,
+      detail: '1 jar',
+      href: undefined,
+    });
   });
 
   it('excludes a zero-kind category (e.g. an empty shared "Loans" category) from top categories', async () => {

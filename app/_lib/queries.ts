@@ -15,10 +15,10 @@ export type KindRow = typeof schema.kinds.$inferSelect;
 export type CategoryWithKinds = CategoryRow & { kinds: KindRow[] };
 
 /**
- * Dynamic + Fixed categories only — saving-type categories can't exist yet
- * (creating one is rejected by `createCategory`, reserved for L.12), but
- * this filters defensively anyway rather than assuming that invariant holds
- * forever.
+ * Dynamic + Fixed categories only — saving-type categories (L.12's jars)
+ * have their own list below and their own home on the Budget page; every
+ * consumer of this list (Overview, Budget's Dynamic/Fixed sections, the
+ * expense-entry pickers, Settings) is expense-only by design.
  */
 export async function listCategoriesWithKinds(
   db: LedgerDb,

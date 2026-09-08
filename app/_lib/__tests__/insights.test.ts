@@ -28,10 +28,17 @@ function category(
 
 /** Most-recent-first by construction — callers pass periods newest first,
  *  matching `getReportsData`'s own documented ordering contract. */
-function period(year: number, month: number, topCategories: ReportTopCategory[]): PeriodReport {
+function period(
+  year: number,
+  month: number,
+  topCategories: ReportTopCategory[],
+  isCurrent = false,
+): PeriodReport {
   return {
     year,
     month,
+    isCurrent,
+    unconvertedCurrencies: [],
     incomeMinor: 0,
     spentMinor: 0,
     projectedSavingsMinor: 0,
@@ -59,7 +66,7 @@ describe('computeOverBudgetStreakInsights', () => {
     ]);
   });
 
-  it('states the real streak length — 3 months reproduces the wireframe\'s own example text', () => {
+  it("states the real streak length — 3 months reproduces the wireframe's own example text", () => {
     const periods = [
       period(2026, 9, [category('cat-1', 'Eating out', 200, 150)]),
       period(2026, 8, [category('cat-1', 'Eating out', 180, 150)]),
@@ -98,10 +105,28 @@ describe('computeOverBudgetStreakInsights', () => {
   it('returns nothing for an empty period list', () => {
     expect(computeOverBudgetStreakInsights([])).toEqual([]);
   });
+
+  it('skips the in-progress current month and counts the streak from the last completed one', () => {
+    // Nothing spent yet this month (category absent from the current
+    // period) — that must not break a streak built over the two completed
+    // months before it.
+    const periods = [
+      period(2026, 9, [], true),
+      period(2026, 8, [category('c1', 'Eating out', 20_000, 15_000)]),
+      period(2026, 7, [category('c1', 'Eating out', 18_000, 15_000)]),
+    ];
+    expect(computeOverBudgetStreakInsights(periods)).toEqual([
+      'Eating out has run over budget 2 months running.',
+    ]);
+  });
 });
 
 describe('computeLargeTransactionInsights', () => {
   const kindNames = new Map([['kind-1', 'Groceries']]);
+
+  // `occurredAt` is a small sequence number here; the rule only looks at
+  // ordering and recency, so `now` is pinned just after the newest one.
+  const NOW = 10;
 
   function tx(amountMinor: number, occurredAt: number): InsightTransaction {
     return { kindId: 'kind-1', amountMinor, occurredAt, currency: 'EUR' };
@@ -109,17 +134,17 @@ describe('computeLargeTransactionInsights', () => {
 
   it('produces no insight with fewer than 4 total transactions (no baseline yet)', () => {
     const transactions = [tx(1000, 3), tx(1000, 2), tx(1000, 1)];
-    expect(computeLargeTransactionInsights(transactions, kindNames)).toEqual([]);
+    expect(computeLargeTransactionInsights(transactions, kindNames, NOW)).toEqual([]);
   });
 
   it('produces no insight when the latest transaction is close to typical', () => {
     const transactions = [tx(1100, 4), tx(1000, 3), tx(1000, 2), tx(1000, 1)];
-    expect(computeLargeTransactionInsights(transactions, kindNames)).toEqual([]);
+    expect(computeLargeTransactionInsights(transactions, kindNames, NOW)).toEqual([]);
   });
 
   it('flags the latest transaction when it is at least 2x the average of prior ones', () => {
     const transactions = [tx(3000, 4), tx(1000, 3), tx(1000, 2), tx(1000, 1)];
-    expect(computeLargeTransactionInsights(transactions, kindNames)).toEqual([
+    expect(computeLargeTransactionInsights(transactions, kindNames, NOW)).toEqual([
       'Your latest Groceries expense of €30.00 is unusually large compared to your typical €10.00.',
     ]);
   });
@@ -128,7 +153,7 @@ describe('computeLargeTransactionInsights', () => {
     // An old spike (tx at occurredAt=2) is 3x its own prior average, but it's
     // not the latest — only occurredAt=5 (in line with typical) is checked.
     const transactions = [tx(1000, 5), tx(3000, 2), tx(1000, 4), tx(1000, 3), tx(1000, 1)];
-    expect(computeLargeTransactionInsights(transactions, kindNames)).toEqual([]);
+    expect(computeLargeTransactionInsights(transactions, kindNames, NOW)).toEqual([]);
   });
 
   it('returns nothing for an empty transaction list', () => {
@@ -236,10 +261,54 @@ describe('getInsights', () => {
     await seedCategory();
     const now = Date.now();
     await t.db.insert(schema.transactions).values([
-      { id: 'tx-1', tenantId, userId, kindId: 'kind-eating-out', amountMinor: 1_000, currency: 'EUR', occurredAt: now - 4000, note: null, createdAt: now, updatedAt: now },
-      { id: 'tx-2', tenantId, userId, kindId: 'kind-eating-out', amountMinor: 1_000, currency: 'EUR', occurredAt: now - 3000, note: null, createdAt: now, updatedAt: now },
-      { id: 'tx-3', tenantId, userId, kindId: 'kind-eating-out', amountMinor: 1_000, currency: 'EUR', occurredAt: now - 2000, note: null, createdAt: now, updatedAt: now },
-      { id: 'tx-4', tenantId, userId, kindId: 'kind-eating-out', amountMinor: 5_000, currency: 'EUR', occurredAt: now - 1000, note: null, createdAt: now, updatedAt: now },
+      {
+        id: 'tx-1',
+        tenantId,
+        userId,
+        kindId: 'kind-eating-out',
+        amountMinor: 1_000,
+        currency: 'EUR',
+        occurredAt: now - 4000,
+        note: null,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: 'tx-2',
+        tenantId,
+        userId,
+        kindId: 'kind-eating-out',
+        amountMinor: 1_000,
+        currency: 'EUR',
+        occurredAt: now - 3000,
+        note: null,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: 'tx-3',
+        tenantId,
+        userId,
+        kindId: 'kind-eating-out',
+        amountMinor: 1_000,
+        currency: 'EUR',
+        occurredAt: now - 2000,
+        note: null,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: 'tx-4',
+        tenantId,
+        userId,
+        kindId: 'kind-eating-out',
+        amountMinor: 5_000,
+        currency: 'EUR',
+        occurredAt: now - 1000,
+        note: null,
+        createdAt: now,
+        updatedAt: now,
+      },
     ]);
 
     const insights = await getInsights(t.ledger, userId);

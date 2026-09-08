@@ -1,7 +1,13 @@
 import { eq } from 'drizzle-orm';
 import type { LedgerDb } from '../_db/client';
 import * as schema from '../_db/schema';
-import { sumConvertedToBase } from './money';
+import { mergeUnconverted, sumConvertedToBaseDetailed } from './money';
+
+export interface NetWorth {
+  netWorthMinor: number;
+  /** Currencies left out of the total for lack of a rate — see `ConvertedSum`. */
+  unconvertedCurrencies: string[];
+}
 
 /**
  * Net worth = assets (bank balances + assets + deposits) minus liabilities
@@ -10,11 +16,11 @@ import { sumConvertedToBase } from './money';
  * summary card computes the exact same number rather than a second,
  * independently-maintained copy of this math.
  */
-export async function getNetWorthMinor(
+export async function getNetWorth(
   db: LedgerDb,
   userId: string,
   baseCurrencyCode: string,
-): Promise<number> {
+): Promise<NetWorth> {
   const [accounts, assets, deposits, loans] = await Promise.all([
     db.select().from(schema.accounts).where(eq(schema.accounts.userId, userId)),
     db.select().from(schema.assets).where(eq(schema.assets.userId, userId)),
@@ -25,7 +31,7 @@ export async function getNetWorthMinor(
   const bankBalances = accounts.filter((a) => a.type === 'bank');
   const creditCardBalances = accounts.filter((a) => a.type === 'credit_card');
 
-  const assetsMinor = await sumConvertedToBase(
+  const assetsSum = await sumConvertedToBaseDetailed(
     db,
     [
       ...bankBalances.map((a) => ({ amountMinor: a.balanceMinor, currency: a.currency })),
@@ -34,7 +40,7 @@ export async function getNetWorthMinor(
     ],
     baseCurrencyCode,
   );
-  const liabilitiesMinor = await sumConvertedToBase(
+  const liabilitiesSum = await sumConvertedToBaseDetailed(
     db,
     [
       ...creditCardBalances.map((a) => ({ amountMinor: a.balanceMinor, currency: a.currency })),
@@ -42,7 +48,10 @@ export async function getNetWorthMinor(
     ],
     baseCurrencyCode,
   );
-  return assetsMinor - liabilitiesMinor;
+  return {
+    netWorthMinor: assetsSum.totalMinor - liabilitiesSum.totalMinor,
+    unconvertedCurrencies: mergeUnconverted(assetsSum, liabilitiesSum),
+  };
 }
 
 export interface AccountItem {
@@ -102,6 +111,8 @@ export interface PersonItem {
 export interface AccountsData {
   baseCurrencyCode: string;
   netWorthMinor: number;
+  /** Currencies excluded from `netWorthMinor` for lack of an exchange rate. */
+  unconvertedCurrencies: string[];
   banking: AccountItem[];
   creditCards: AccountItem[];
   assets: AssetItem[];
@@ -125,12 +136,15 @@ export async function getAccountsData(db: LedgerDb, userId: string): Promise<Acc
       db.select().from(schema.deposits).where(eq(schema.deposits.userId, userId)),
       db.select().from(schema.loans).where(eq(schema.loans.userId, userId)),
       db.select().from(schema.people).where(eq(schema.people.userId, userId)),
-      db.select().from(schema.peopleTransactions).where(eq(schema.peopleTransactions.userId, userId)),
+      db
+        .select()
+        .from(schema.peopleTransactions)
+        .where(eq(schema.peopleTransactions.userId, userId)),
     ]);
 
   const baseCurrencyCode =
     currencies.find((c) => c.isBase === 1)?.code ?? currencies[0]?.code ?? '';
-  const netWorthMinor = await getNetWorthMinor(db, userId, baseCurrencyCode);
+  const netWorth = await getNetWorth(db, userId, baseCurrencyCode);
 
   const transactionsByPersonId = new Map<string, PersonTransactionItem[]>();
   for (const tx of peopleTxRows) {
@@ -142,31 +156,22 @@ export async function getAccountsData(db: LedgerDb, userId: string): Promise<Acc
     list.sort((a, b) => b.occurredAt - a.occurredAt);
   }
 
+  const toAccountItem = (a: (typeof accountRows)[number]): AccountItem => ({
+    id: a.id,
+    name: a.name,
+    institution: a.institution,
+    type: a.type as 'bank' | 'credit_card',
+    balanceMinor: a.balanceMinor,
+    currency: a.currency,
+    creditLimitMinor: a.creditLimitMinor,
+  });
+
   return {
     baseCurrencyCode,
-    netWorthMinor,
-    banking: accountRows
-      .filter((a) => a.type === 'bank')
-      .map((a) => ({
-        id: a.id,
-        name: a.name,
-        institution: a.institution,
-        type: 'bank' as const,
-        balanceMinor: a.balanceMinor,
-        currency: a.currency,
-        creditLimitMinor: a.creditLimitMinor,
-      })),
-    creditCards: accountRows
-      .filter((a) => a.type === 'credit_card')
-      .map((a) => ({
-        id: a.id,
-        name: a.name,
-        institution: a.institution,
-        type: 'credit_card' as const,
-        balanceMinor: a.balanceMinor,
-        currency: a.currency,
-        creditLimitMinor: a.creditLimitMinor,
-      })),
+    netWorthMinor: netWorth.netWorthMinor,
+    unconvertedCurrencies: netWorth.unconvertedCurrencies,
+    banking: accountRows.filter((a) => a.type === 'bank').map(toAccountItem),
+    creditCards: accountRows.filter((a) => a.type === 'credit_card').map(toAccountItem),
     assets: assetRows.map((a) => ({
       id: a.id,
       name: a.name,

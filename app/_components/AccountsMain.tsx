@@ -1,14 +1,22 @@
+'use client';
+
 import { BalanceChip, Icon, PageHeader } from '@sovereignfs/ui';
-import { formatMoney } from '../_lib/format';
 import type { AccountsData } from '../_lib/accounts';
+import { useFormatters } from '../_lib/locale';
 import styles from './Accounts.module.css';
 import type { SelectedItem, SelectedItemType } from './AccountsView';
+import { UnconvertedNote } from './UnconvertedNote';
 
 function SectionHeader({ label, onAdd }: { label: string; onAdd: () => void }) {
   return (
     <div className={styles.sectionHeader}>
       <p className={styles.sectionLabel}>{label}</p>
-      <button type="button" className={styles.sectionAddButton} onClick={onAdd} aria-label={`Add ${label.toLowerCase()}`}>
+      <button
+        type="button"
+        className={styles.sectionAddButton}
+        onClick={onAdd}
+        aria-label={`Add ${label.toLowerCase()}`}
+      >
         <Icon name="plus" size="sm" aria-hidden />
       </button>
     </div>
@@ -69,6 +77,7 @@ export function AccountsMain({
   onAddLoan: () => void;
   onAddPerson: () => void;
 }) {
+  const fmt = useFormatters();
   function isSelected(type: SelectedItemType, id: string) {
     return selected?.type === type && selected.id === id;
   }
@@ -79,9 +88,10 @@ export function AccountsMain({
       <div className={styles.netWorth}>
         <span className={styles.statLabel}>Net worth</span>
         <span className={styles.netWorthValue}>
-          {formatMoney(data.netWorthMinor, data.baseCurrencyCode)}
+          {fmt.money(data.netWorthMinor, data.baseCurrencyCode)}
         </span>
       </div>
+      <UnconvertedNote currencies={data.unconvertedCurrencies} />
 
       <div className={styles.section}>
         <SectionHeader label="Banking" onAdd={onAddAccount} />
@@ -93,7 +103,7 @@ export function AccountsMain({
               key={a.id}
               name={a.name}
               subtitle={a.institution ?? undefined}
-              value={formatMoney(a.balanceMinor, a.currency)}
+              value={fmt.money(a.balanceMinor, a.currency)}
               selected={isSelected('account', a.id)}
               onSelect={() => onSelect({ type: 'account', id: a.id })}
             />
@@ -113,8 +123,8 @@ export function AccountsMain({
               subtitle={a.institution ?? undefined}
               value={
                 a.creditLimitMinor
-                  ? `${formatMoney(a.balanceMinor, a.currency)} / ${formatMoney(a.creditLimitMinor, a.currency)}`
-                  : formatMoney(a.balanceMinor, a.currency)
+                  ? `${fmt.money(a.balanceMinor, a.currency)} / ${fmt.money(a.creditLimitMinor, a.currency)}`
+                  : fmt.money(a.balanceMinor, a.currency)
               }
               selected={isSelected('account', a.id)}
               onSelect={() => onSelect({ type: 'account', id: a.id })}
@@ -132,7 +142,7 @@ export function AccountsMain({
             <Row
               key={a.id}
               name={a.name}
-              value={formatMoney(a.valueMinor, a.currency)}
+              value={fmt.money(a.valueMinor, a.currency)}
               selected={isSelected('asset', a.id)}
               onSelect={() => onSelect({ type: 'asset', id: a.id })}
             />
@@ -149,7 +159,7 @@ export function AccountsMain({
             <Row
               key={d.id}
               name={d.name}
-              value={formatMoney(d.amountMinor, d.currency)}
+              value={fmt.money(d.amountMinor, d.currency)}
               selected={isSelected('deposit', d.id)}
               onSelect={() => onSelect({ type: 'deposit', id: d.id })}
             />
@@ -166,7 +176,7 @@ export function AccountsMain({
             <Row
               key={l.id}
               name={l.name}
-              value={`${formatMoney(l.remainingBalanceMinor, l.currency)} remaining`}
+              value={`${fmt.money(l.remainingBalanceMinor, l.currency)} remaining`}
               selected={isSelected('loan', l.id)}
               onSelect={() => onSelect({ type: 'loan', id: l.id })}
             />

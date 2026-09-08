@@ -7,6 +7,13 @@
  * treats every kind's period as a calendar month too — documented as a
  * known v1 simplification in SPEC.md's L.5 status entry, not silently
  * assumed.
+ *
+ * **Every user-chosen calendar day is stored as UTC noon of that day**
+ * (`utcNoonOf`), never local midnight: a local-midnight instant for "Sep 1"
+ * in any timezone east of UTC is still Aug 31 in UTC and would land in the
+ * wrong month's budget and report. UTC noon of the chosen day reads back as
+ * that same day in every timezone from UTC-11 to UTC+12, and always falls
+ * inside the UTC month the user meant.
  */
 export interface MonthRange {
   /** Inclusive, Unix ms. */
@@ -38,11 +45,19 @@ export function todayDateOnly(now: number = Date.now()): string {
   return new Date(now).toISOString().slice(0, 10);
 }
 
-/** True when `now`'s UTC calendar date is the 1st of the month — the
- *  month-end report job's (L.11) own gate, since the scheduler only offers
- *  a fixed interval, not a cron-style day-of-month trigger. */
-export function isFirstOfMonthUtc(now: number = Date.now()): boolean {
-  return new Date(now).getUTCDate() === 1;
+/** `YYYY-MM-DD` (UTC) of an `occurred_at` instant — the FX pricing date for a historical amount. */
+export function dateOnlyOf(timestampMs: number): string {
+  return todayDateOnly(timestampMs);
+}
+
+/**
+ * UTC noon of the calendar day a local `Date` falls on — the instant every
+ * user-picked day is stored as (see this file's header). Takes the local
+ * year/month/day, deliberately not `.toISOString()`, for the same reason
+ * `format.ts`'s `toDateOnly` does.
+ */
+export function utcNoonOf(localDate: Date): number {
+  return Date.UTC(localDate.getFullYear(), localDate.getMonth(), localDate.getDate(), 12);
 }
 
 /** The calendar month immediately before `now`'s UTC month — December of
@@ -50,4 +65,10 @@ export function isFirstOfMonthUtc(now: number = Date.now()): boolean {
 export function getPreviousYearMonth(now: number = Date.now()): { year: number; month: number } {
   const { year, month } = getUtcYearMonth(now);
   return month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
+}
+
+/** True when `(year, month)` is `now`'s own UTC calendar month — still accumulating, not closed. */
+export function isCurrentMonth(year: number, month: number, now: number = Date.now()): boolean {
+  const current = getUtcYearMonth(now);
+  return current.year === year && current.month === month;
 }
