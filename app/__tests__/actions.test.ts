@@ -140,10 +140,16 @@ describe("authorization — a session can never mutate another user's rows", () 
         predictedAmountMinor: 1,
         currency: 'EUR',
       }),
-      actions.updateKindBudget({ kindId: fixture.kindId, predictedAmountMinor: 1 }),
+      actions.updateKindBudget({
+        kindId: fixture.kindId,
+        predictedAmountMinor: 1,
+      }),
       actions.deleteKind({ kindId: fixture.kindId }),
       actions.createTransaction({ kindId: fixture.kindId, amountMinor: 1 }),
-      actions.updateTransaction({ transactionId: fixture.transactionId, amountMinor: 1 }),
+      actions.updateTransaction({
+        transactionId: fixture.transactionId,
+        amountMinor: 1,
+      }),
       actions.deleteTransaction({ transactionId: fixture.transactionId }),
     ]);
     for (const result of denials) expect(result.ok).toBe(false);
@@ -304,7 +310,11 @@ describe('happy path', () => {
     });
     const { jars } = await actions.getExpenseFormOptions();
     expect(jars).toHaveLength(1);
-    expect(jars[0]).toMatchObject({ name: 'Travel jar', balanceMinor: 0, currency: 'EUR' });
+    expect(jars[0]).toMatchObject({
+      name: 'Travel jar',
+      balanceMinor: 0,
+      currency: 'EUR',
+    });
   });
 
   it('createCategoryWithKind with type saving also creates a linked jar at zero balance (L.12)', async () => {
@@ -347,7 +357,10 @@ describe('L.12 — saving jars', () => {
     const [jar] = await t.db.select().from(schema.savingJars);
     const jarId = must(jar, 'jar').id;
 
-    const result = await actions.createJarTransaction({ jarId, amountMinor: 3_000 });
+    const result = await actions.createJarTransaction({
+      jarId,
+      amountMinor: 3_000,
+    });
     expect(result.ok).toBe(true);
     const [updatedJar] = await t.db
       .select()
@@ -371,7 +384,10 @@ describe('L.12 — saving jars', () => {
     const jarId = must(jar, 'jar').id;
     await actions.createJarTransaction({ jarId, amountMinor: 10_000 });
 
-    const result = await actions.createJarTransaction({ jarId, amountMinor: -4_000 });
+    const result = await actions.createJarTransaction({
+      jarId,
+      amountMinor: -4_000,
+    });
     expect(result.ok).toBe(true);
     const [updatedJar] = await t.db
       .select()
@@ -392,7 +408,10 @@ describe('L.12 — saving jars', () => {
     const jarId = must(jar, 'jar').id;
     await actions.createJarTransaction({ jarId, amountMinor: 1_000 });
 
-    const result = await actions.createJarTransaction({ jarId, amountMinor: -2_000 });
+    const result = await actions.createJarTransaction({
+      jarId,
+      amountMinor: -2_000,
+    });
     expect(result.ok).toBe(false);
     const [updatedJar] = await t.db
       .select()
@@ -414,7 +433,10 @@ describe('L.12 — saving jars', () => {
     const jarId = must(jar, 'jar').id;
 
     actAs(outsider);
-    const result = await actions.createJarTransaction({ jarId, amountMinor: 1_000 });
+    const result = await actions.createJarTransaction({
+      jarId,
+      amountMinor: 1_000,
+    });
     expect(result.ok).toBe(false);
     const [updatedJar] = await t.db
       .select()
@@ -441,7 +463,11 @@ describe('L.7 — accounts, assets, deposits, loans, people', () => {
       currency: 'EUR',
     });
     const asset = must((await t.db.select().from(schema.assets))[0], 'asset');
-    await actions.createDeposit({ name: 'Apartment', amountMinor: 3_000, currency: 'EUR' });
+    await actions.createDeposit({
+      name: 'Apartment',
+      amountMinor: 3_000,
+      currency: 'EUR',
+    });
     const deposit = must((await t.db.select().from(schema.deposits))[0], 'deposit');
     await actions.createLoan({
       name: 'Car loan',
@@ -478,7 +504,10 @@ describe('L.7 — accounts, assets, deposits, loans, people', () => {
       actions.updateLoan({ loanId: loan.id, name: 'stolen' }),
       actions.deleteLoan({ loanId: loan.id }),
       actions.deletePerson({ personId: person.id }),
-      actions.createPeopleTransaction({ personId: person.id, amountMinor: 100 }),
+      actions.createPeopleTransaction({
+        personId: person.id,
+        amountMinor: 100,
+      }),
     ]);
     for (const result of denials) expect(result.ok).toBe(false);
 
@@ -521,9 +550,14 @@ describe('L.7 — accounts, assets, deposits, loans, people', () => {
     );
     expect(card.creditLimitMinor).toBe(200_000);
 
-    expect((await actions.updateAccount({ accountId: card.id, balanceMinor: 40_000 })).ok).toBe(
-      true,
-    );
+    expect(
+      (
+        await actions.updateAccount({
+          accountId: card.id,
+          balanceMinor: 40_000,
+        })
+      ).ok,
+    ).toBe(true);
     const updated = must(
       (await t.db.select().from(schema.accounts).where(eq(schema.accounts.id, card.id)))[0],
       'updated card',
@@ -671,7 +705,12 @@ describe('L.7 — accounts, assets, deposits, loans, people', () => {
     const person = must((await t.db.select().from(schema.people))[0], 'person');
 
     expect(
-      (await actions.createPeopleTransaction({ personId: person.id, amountMinor: 18_000 })).ok,
+      (
+        await actions.createPeopleTransaction({
+          personId: person.id,
+          amountMinor: 18_000,
+        })
+      ).ok,
     ).toBe(true);
     let updated = must(
       (await t.db.select().from(schema.people).where(eq(schema.people.id, person.id)))[0],
@@ -680,7 +719,12 @@ describe('L.7 — accounts, assets, deposits, loans, people', () => {
     expect(updated.balanceMinor).toBe(18_000);
 
     expect(
-      (await actions.createPeopleTransaction({ personId: person.id, amountMinor: -6_000 })).ok,
+      (
+        await actions.createPeopleTransaction({
+          personId: person.id,
+          amountMinor: -6_000,
+        })
+      ).ok,
     ).toBe(true);
     updated = must(
       (await t.db.select().from(schema.people).where(eq(schema.people.id, person.id)))[0],
@@ -695,7 +739,10 @@ describe('L.7 — accounts, assets, deposits, loans, people', () => {
     actAs(owner);
     await actions.createPerson({ name: 'Alex', currency: 'EUR' });
     const person = must((await t.db.select().from(schema.people))[0], 'person');
-    const result = await actions.createPeopleTransaction({ personId: person.id, amountMinor: 0 });
+    const result = await actions.createPeopleTransaction({
+      personId: person.id,
+      amountMinor: 0,
+    });
     expect(result.ok).toBe(false);
     expect(await t.db.select().from(schema.peopleTransactions)).toHaveLength(0);
   });
@@ -704,7 +751,10 @@ describe('L.7 — accounts, assets, deposits, loans, people', () => {
     actAs(owner);
     await actions.createPerson({ name: 'Alex', currency: 'EUR' });
     const person = must((await t.db.select().from(schema.people))[0], 'person');
-    await actions.createPeopleTransaction({ personId: person.id, amountMinor: 5_000 });
+    await actions.createPeopleTransaction({
+      personId: person.id,
+      amountMinor: 5_000,
+    });
 
     expect((await actions.deletePerson({ personId: person.id })).ok).toBe(true);
     expect(await t.db.select().from(schema.people)).toHaveLength(0);
@@ -841,7 +891,12 @@ describe('review fixes — validation, idempotency, loan payments', () => {
     const fixture = await setup();
     const results = await Promise.all([
       actions.createCurrency({ code: 'XXX' }),
-      actions.createIncome({ label: 'x', amountMinor: 1, currency: 'nope', kind: 'secondary' }),
+      actions.createIncome({
+        label: 'x',
+        amountMinor: 1,
+        currency: 'nope',
+        kind: 'secondary',
+      }),
       actions.createCategoryWithKind({
         name: 'x',
         type: 'dynamic',
@@ -854,8 +909,18 @@ describe('review fixes — validation, idempotency, loan payments', () => {
         predictedAmountMinor: 1,
         currency: 'XXX',
       }),
-      actions.createAccount({ name: 'x', type: 'bank', balanceMinor: 1, currency: 'XXX' }),
-      actions.createAsset({ name: 'x', type: 'physical', valueMinor: 1, currency: 'XXX' }),
+      actions.createAccount({
+        name: 'x',
+        type: 'bank',
+        balanceMinor: 1,
+        currency: 'XXX',
+      }),
+      actions.createAsset({
+        name: 'x',
+        type: 'physical',
+        valueMinor: 1,
+        currency: 'XXX',
+      }),
       actions.createDeposit({ name: 'x', amountMinor: 1, currency: 'XXX' }),
       actions.createPerson({ name: 'x', currency: 'XXX' }),
       actions.createLoan({
@@ -934,15 +999,25 @@ describe('review fixes — validation, idempotency, loan payments', () => {
     const loan = must((await t.db.select().from(schema.loans))[0], 'loan');
 
     expect(
-      (await actions.createTransaction({ kindId: loan.linkedKindId, amountMinor: 500 })).ok,
+      (
+        await actions.createTransaction({
+          kindId: loan.linkedKindId,
+          amountMinor: 500,
+        })
+      ).ok,
     ).toBe(true);
     let [row] = await t.db.select().from(schema.loans);
     expect(row?.remainingBalanceMinor).toBe(7_500);
 
     const tx = must((await t.db.select().from(schema.transactions))[0], 'transaction');
-    expect((await actions.updateTransaction({ transactionId: tx.id, amountMinor: 700 })).ok).toBe(
-      true,
-    );
+    expect(
+      (
+        await actions.updateTransaction({
+          transactionId: tx.id,
+          amountMinor: 700,
+        })
+      ).ok,
+    ).toBe(true);
     [row] = await t.db.select().from(schema.loans);
     expect(row?.remainingBalanceMinor).toBe(7_300);
 
@@ -993,10 +1068,22 @@ describe('review fixes — validation, idempotency, loan payments', () => {
       currency: 'EUR',
     };
     expect(
-      (await actions.createLoan({ ...base, startDate: '2025-13-01', endDate: '2026-01-01' })).ok,
+      (
+        await actions.createLoan({
+          ...base,
+          startDate: '2025-13-01',
+          endDate: '2026-01-01',
+        })
+      ).ok,
     ).toBe(false);
     expect(
-      (await actions.createLoan({ ...base, startDate: '2026-01-01', endDate: '2025-01-01' })).ok,
+      (
+        await actions.createLoan({
+          ...base,
+          startDate: '2026-01-01',
+          endDate: '2025-01-01',
+        })
+      ).ok,
     ).toBe(false);
     expect(
       (
@@ -1014,7 +1101,10 @@ describe('review fixes — validation, idempotency, loan payments', () => {
   it('markPeriodReviewed rejects the current month, a future month, and an invalid month', async () => {
     actAs(owner);
     const now = new Date();
-    const current = { year: now.getUTCFullYear(), month: now.getUTCMonth() + 1 };
+    const current = {
+      year: now.getUTCFullYear(),
+      month: now.getUTCMonth() + 1,
+    };
     expect((await actions.markPeriodReviewed(current)).ok).toBe(false);
     expect((await actions.markPeriodReviewed({ year: current.year + 1, month: 1 })).ok).toBe(false);
     expect((await actions.markPeriodReviewed({ year: 2026, month: 13 })).ok).toBe(false);
@@ -1042,12 +1132,21 @@ describe('L.16 — loan payment reversal and per-currency loan grouping', () => 
   }
 
   it('reverses a payment larger than the remaining balance without inflating it', async () => {
-    await actions.createLoan({ ...loanBase, name: 'Car loan', currency: 'EUR' });
+    await actions.createLoan({
+      ...loanBase,
+      name: 'Car loan',
+      currency: 'EUR',
+    });
     const loan = must((await t.db.select().from(schema.loans))[0], 'loan');
 
     // An overpayment: more than the 8_000 still owed.
     expect(
-      (await actions.createTransaction({ kindId: loan.linkedKindId, amountMinor: 10_000 })).ok,
+      (
+        await actions.createTransaction({
+          kindId: loan.linkedKindId,
+          amountMinor: 10_000,
+        })
+      ).ok,
     ).toBe(true);
     const overpaid = await remaining();
     const tx = must((await t.db.select().from(schema.transactions))[0], 'transaction');
@@ -1061,22 +1160,41 @@ describe('L.16 — loan payment reversal and per-currency loan grouping', () => 
   });
 
   it('edits a payment down from an overpayment to the right balance', async () => {
-    await actions.createLoan({ ...loanBase, name: 'Car loan', currency: 'EUR' });
+    await actions.createLoan({
+      ...loanBase,
+      name: 'Car loan',
+      currency: 'EUR',
+    });
     const loan = must((await t.db.select().from(schema.loans))[0], 'loan');
-    await actions.createTransaction({ kindId: loan.linkedKindId, amountMinor: 10_000 });
+    await actions.createTransaction({
+      kindId: loan.linkedKindId,
+      amountMinor: 10_000,
+    });
     const tx = must((await t.db.select().from(schema.transactions))[0], 'transaction');
 
     expect(
-      (await actions.updateTransaction({ transactionId: tx.id, amountMinor: 500 })).ok,
+      (
+        await actions.updateTransaction({
+          transactionId: tx.id,
+          amountMinor: 500,
+        })
+      ).ok,
     ).toBe(true);
     // 8_000 owed minus a 500 payment.
     expect(await remaining()).toBe(7_500);
   });
 
   it('floors an overpaid loan at zero in the Accounts payload and in net worth', async () => {
-    await actions.createLoan({ ...loanBase, name: 'Car loan', currency: 'EUR' });
+    await actions.createLoan({
+      ...loanBase,
+      name: 'Car loan',
+      currency: 'EUR',
+    });
     const loan = must((await t.db.select().from(schema.loans))[0], 'loan');
-    await actions.createTransaction({ kindId: loan.linkedKindId, amountMinor: 10_000 });
+    await actions.createTransaction({
+      kindId: loan.linkedKindId,
+      amountMinor: 10_000,
+    });
 
     const data = await getAccountsData(t.ledger, owner.id);
     expect(must(data.loans[0], 'loan item').remainingBalanceMinor).toBe(0);
@@ -1086,8 +1204,16 @@ describe('L.16 — loan payment reversal and per-currency loan grouping', () => 
 
   it('keeps a second loan in another currency out of the first loan’s category', async () => {
     await actions.createCurrency({ code: 'USD' });
-    await actions.createLoan({ ...loanBase, name: 'Car loan', currency: 'EUR' });
-    await actions.createLoan({ ...loanBase, name: 'Study loan', currency: 'USD' });
+    await actions.createLoan({
+      ...loanBase,
+      name: 'Car loan',
+      currency: 'EUR',
+    });
+    await actions.createLoan({
+      ...loanBase,
+      name: 'Study loan',
+      currency: 'USD',
+    });
 
     const categories = await t.db.select().from(schema.categories);
     expect(categories).toHaveLength(2);
@@ -1105,8 +1231,16 @@ describe('L.16 — loan payment reversal and per-currency loan grouping', () => 
   });
 
   it('reuses the shared Loans category for a second loan in the same currency', async () => {
-    await actions.createLoan({ ...loanBase, name: 'Car loan', currency: 'EUR' });
-    await actions.createLoan({ ...loanBase, name: 'Study loan', currency: 'EUR' });
+    await actions.createLoan({
+      ...loanBase,
+      name: 'Car loan',
+      currency: 'EUR',
+    });
+    await actions.createLoan({
+      ...loanBase,
+      name: 'Study loan',
+      currency: 'EUR',
+    });
 
     const categories = await t.db.select().from(schema.categories);
     expect(categories).toHaveLength(1);
@@ -1116,12 +1250,20 @@ describe('L.16 — loan payment reversal and per-currency loan grouping', () => 
 
   it('reuses an emptied Loans category for a loan in a different currency', async () => {
     await actions.createCurrency({ code: 'USD' });
-    await actions.createLoan({ ...loanBase, name: 'Car loan', currency: 'EUR' });
+    await actions.createLoan({
+      ...loanBase,
+      name: 'Car loan',
+      currency: 'EUR',
+    });
     const loan = must((await t.db.select().from(schema.loans))[0], 'loan');
     // deleteLoan removes the kind but leaves the category behind.
     expect((await actions.deleteLoan({ loanId: loan.id })).ok).toBe(true);
 
-    await actions.createLoan({ ...loanBase, name: 'Study loan', currency: 'USD' });
+    await actions.createLoan({
+      ...loanBase,
+      name: 'Study loan',
+      currency: 'USD',
+    });
     const categories = await t.db.select().from(schema.categories);
     expect(categories).toHaveLength(1);
     expect(must(categories[0], 'category').name).toBe('Loans');
@@ -1129,8 +1271,16 @@ describe('L.16 — loan payment reversal and per-currency loan grouping', () => 
 
   it('a mixed-currency Budget total can no longer be produced through createLoan', async () => {
     await actions.createCurrency({ code: 'USD' });
-    await actions.createLoan({ ...loanBase, name: 'Car loan', currency: 'EUR' });
-    await actions.createLoan({ ...loanBase, name: 'Study loan', currency: 'USD' });
+    await actions.createLoan({
+      ...loanBase,
+      name: 'Car loan',
+      currency: 'EUR',
+    });
+    await actions.createLoan({
+      ...loanBase,
+      name: 'Study loan',
+      currency: 'USD',
+    });
 
     const budget = await getBudgetData(t.ledger, owner.id);
     // Two separate Fixed rows, each budgeted 500 in its own currency — never

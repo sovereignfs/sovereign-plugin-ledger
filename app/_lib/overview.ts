@@ -148,7 +148,10 @@ export async function getOverviewData(
   const budgetedSum = await sumConvertedToBaseDetailed(
     db,
     categoriesWithKinds.flatMap((c) =>
-      c.kinds.map((k) => ({ amountMinor: k.predictedAmountMinor, currency: k.currency })),
+      c.kinds.map((k) => ({
+        amountMinor: k.predictedAmountMinor,
+        currency: k.currency,
+      })),
     ),
     baseCurrencyCode,
   );
@@ -159,14 +162,20 @@ export async function getOverviewData(
   );
   const cardBalanceSum = await sumConvertedToBaseDetailed(
     db,
-    creditCards.map((a) => ({ amountMinor: a.balanceMinor, currency: a.currency })),
+    creditCards.map((a) => ({
+      amountMinor: a.balanceMinor,
+      currency: a.currency,
+    })),
     baseCurrencyCode,
   );
   const cardLimitSum = await sumConvertedToBaseDetailed(
     db,
     creditCards
       .filter((a) => a.creditLimitMinor !== null)
-      .map((a) => ({ amountMinor: a.creditLimitMinor ?? 0, currency: a.currency })),
+      .map((a) => ({
+        amountMinor: a.creditLimitMinor ?? 0,
+        currency: a.currency,
+      })),
     baseCurrencyCode,
   );
   const loansSum = await sumConvertedToBaseDetailed(
