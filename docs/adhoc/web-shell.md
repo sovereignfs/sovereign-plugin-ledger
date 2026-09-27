@@ -24,14 +24,14 @@ documents the resulting design, not the alternatives considered.
 
 ## Jargon table
 
-| Internal/schema term | User-facing copy |
-|---|---|
-| Predicted (amount) | Budgeted |
-| Actual (amount) | Spent |
-| Kind | Subcategory |
-| Dynamic / Fixed expense | Not shown as a distinction in the UI — both appear as plain categories in one Budget list, grouped by section header |
-| Saving Jar | Kept as-is — already plain language |
-| Person (signed ledger entry) | Shown by name, signed amount via `BalanceChip` |
+| Internal/schema term         | User-facing copy                                                                                                     |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Predicted (amount)           | Budgeted                                                                                                             |
+| Actual (amount)              | Spent                                                                                                                |
+| Kind                         | Subcategory                                                                                                          |
+| Dynamic / Fixed expense      | Not shown as a distinction in the UI — both appear as plain categories in one Budget list, grouped by section header |
+| Saving Jar                   | Kept as-is — already plain language                                                                                  |
+| Person (signed ledger entry) | Shown by name, signed amount via `BalanceChip`                                                                       |
 
 ## Screens
 

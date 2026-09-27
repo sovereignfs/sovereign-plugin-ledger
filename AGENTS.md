@@ -6,7 +6,7 @@ Guidance for Claude Code (and other agents) working in this repository.
 
 **Ledger** — a budget-based personal finance tracker, built as an
 installable plugin for the
-[Sovereign](https://github.com/sovereignfs/sovereignfs) platform
+[Sovereign](https://github.com/sovereignfs/sovereign) platform
 (`fs.sovereign.ledger`).
 
 ## Where this runs
@@ -15,7 +15,7 @@ This repo has no build/test/lint tooling of its own — `package.json` has
 only a `typecheck` script, and both it (`@sovereignfs/sdk`,
 `@sovereignfs/ui`, `@sovereignfs/tsconfig`, all `workspace:*`) and
 `tsconfig.json` (extends `@sovereignfs/tsconfig/nextjs.json`) depend on
-packages that only resolve inside a `sovereignfs/sovereignfs` monorepo
+packages that only resolve inside a `sovereignfs/sovereign` monorepo
 checkout's pnpm workspace.
 
 Develop this plugin by cloning this repo into that monorepo at

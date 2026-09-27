@@ -1,7 +1,7 @@
 # Ledger
 
 A budget-based personal finance tracker, built as an installable plugin for
-the [Sovereign](https://github.com/sovereignfs/sovereignfs) platform
+the [Sovereign](https://github.com/sovereignfs/sovereign) platform
 (`fs.sovereign.ledger`).
 
 **Status: Phase 1 complete (L.1–L.15).** Setup wizard, Overview, Budget,
@@ -60,7 +60,7 @@ another.
 ## Running it locally
 
 This repo has no build/test/lint tooling of its own — it depends on
-packages that only resolve inside a `sovereignfs/sovereignfs` monorepo
+packages that only resolve inside a `sovereignfs/sovereign` monorepo
 checkout's pnpm workspace. Clone it into that monorepo at
 `plugins/<slug>.local/` (the trailing `.local` marks it as a locally-cloned
 dev plugin — see the platform repo's `docs/plugin-development.md`), then
@@ -84,4 +84,4 @@ workflow and conventions.
 
 ## License
 
-Same license as the [Sovereign platform](https://github.com/sovereignfs/sovereignfs).
+Same license as the [Sovereign platform](https://github.com/sovereignfs/sovereign).
