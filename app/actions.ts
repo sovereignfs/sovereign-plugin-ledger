@@ -111,10 +111,12 @@ function cleanOccurredAt(raw: unknown, now: number): number | ActionResult {
 
 const RECURRENCE_UNITS = new Set(['day', 'week', 'month', 'year']);
 
-function cleanRecurrence(
-  raw: { unit: string; count: number; anchorDate: string } | undefined,
-):
-  | { unit: 'day' | 'week' | 'month' | 'year'; count: number; anchorDate: string }
+function cleanRecurrence(raw: { unit: string; count: number; anchorDate: string } | undefined):
+  | {
+      unit: 'day' | 'week' | 'month' | 'year';
+      count: number;
+      anchorDate: string;
+    }
   | null
   | ActionResult {
   if (raw === undefined) return null;
@@ -529,7 +531,11 @@ export async function createKind(input: {
   name: string;
   predictedAmountMinor: number;
   currency: string;
-  recurrence?: { unit: 'day' | 'week' | 'month' | 'year'; count: number; anchorDate: string };
+  recurrence?: {
+    unit: 'day' | 'week' | 'month' | 'year';
+    count: number;
+    anchorDate: string;
+  };
 }): Promise<ActionResult> {
   const actor = await requireUser();
   const name = cleanText(input.name, 'Kind name');
@@ -659,7 +665,10 @@ async function adjustLinkedLoanBalance(
 ): Promise<void> {
   if (deltaMinor === 0) return;
   const [loan] = await tx
-    .select({ id: schema.loans.id, remainingBalanceMinor: schema.loans.remainingBalanceMinor })
+    .select({
+      id: schema.loans.id,
+      remainingBalanceMinor: schema.loans.remainingBalanceMinor,
+    })
     .from(schema.loans)
     .where(and(eq(schema.loans.linkedKindId, kindId), eq(schema.loans.userId, userId)));
   if (!loan) return;
@@ -737,7 +746,9 @@ export async function updateTransaction(input: {
     );
   if (!existing) return fail(NOT_FOUND_TRANSACTION);
 
-  const patch: Partial<typeof schema.transactions.$inferInsert> & { updatedAt: number } = {
+  const patch: Partial<typeof schema.transactions.$inferInsert> & {
+    updatedAt: number;
+  } = {
     updatedAt: now,
   };
   let nextKindId = existing.kindId;
@@ -927,7 +938,9 @@ export async function updateAccount(input: {
   creditLimitMinor?: number | null;
 }): Promise<ActionResult> {
   const actor = await requireUser();
-  const patch: Partial<typeof schema.accounts.$inferInsert> & { updatedAt: number } = {
+  const patch: Partial<typeof schema.accounts.$inferInsert> & {
+    updatedAt: number;
+  } = {
     updatedAt: Date.now(),
   };
   if (input.name !== undefined) {
@@ -1017,7 +1030,9 @@ export async function updateAsset(input: {
   valueMinor?: number;
 }): Promise<ActionResult> {
   const actor = await requireUser();
-  const patch: Partial<typeof schema.assets.$inferInsert> & { updatedAt: number } = {
+  const patch: Partial<typeof schema.assets.$inferInsert> & {
+    updatedAt: number;
+  } = {
     updatedAt: Date.now(),
   };
   if (input.name !== undefined) {
@@ -1092,7 +1107,9 @@ export async function updateDeposit(input: {
   amountMinor?: number;
 }): Promise<ActionResult> {
   const actor = await requireUser();
-  const patch: Partial<typeof schema.deposits.$inferInsert> & { updatedAt: number } = {
+  const patch: Partial<typeof schema.deposits.$inferInsert> & {
+    updatedAt: number;
+  } = {
     updatedAt: Date.now(),
   };
   if (input.name !== undefined) {
@@ -1300,10 +1317,14 @@ export async function updateLoan(input: {
   if (!loan) return fail(NOT_FOUND_LOAN);
 
   const now = Date.now();
-  const loanPatch: Partial<typeof schema.loans.$inferInsert> & { updatedAt: number } = {
+  const loanPatch: Partial<typeof schema.loans.$inferInsert> & {
+    updatedAt: number;
+  } = {
     updatedAt: now,
   };
-  const kindPatch: Partial<typeof schema.kinds.$inferInsert> & { updatedAt: number } = {
+  const kindPatch: Partial<typeof schema.kinds.$inferInsert> & {
+    updatedAt: number;
+  } = {
     updatedAt: now,
   };
   let touchesKind = false;
@@ -1453,7 +1474,10 @@ export async function createPeopleTransaction(input: {
     });
     await tx
       .update(schema.people)
-      .set({ balanceMinor: sql`${schema.people.balanceMinor} + ${amountMinor}`, updatedAt: now })
+      .set({
+        balanceMinor: sql`${schema.people.balanceMinor} + ${amountMinor}`,
+        updatedAt: now,
+      })
       .where(eq(schema.people.id, input.personId));
   });
   refresh();

@@ -46,16 +46,28 @@ export async function getNetWorth(
   const assetsSum = await sumConvertedToBaseDetailed(
     db,
     [
-      ...bankBalances.map((a) => ({ amountMinor: a.balanceMinor, currency: a.currency })),
-      ...assets.map((a) => ({ amountMinor: a.valueMinor, currency: a.currency })),
-      ...deposits.map((d) => ({ amountMinor: d.amountMinor, currency: d.currency })),
+      ...bankBalances.map((a) => ({
+        amountMinor: a.balanceMinor,
+        currency: a.currency,
+      })),
+      ...assets.map((a) => ({
+        amountMinor: a.valueMinor,
+        currency: a.currency,
+      })),
+      ...deposits.map((d) => ({
+        amountMinor: d.amountMinor,
+        currency: d.currency,
+      })),
     ],
     baseCurrencyCode,
   );
   const liabilitiesSum = await sumConvertedToBaseDetailed(
     db,
     [
-      ...creditCardBalances.map((a) => ({ amountMinor: a.balanceMinor, currency: a.currency })),
+      ...creditCardBalances.map((a) => ({
+        amountMinor: a.balanceMinor,
+        currency: a.currency,
+      })),
       ...loans.map((l) => ({
         amountMinor: clampRemaining(l.remainingBalanceMinor),
         currency: l.currency,
@@ -164,7 +176,12 @@ export async function getAccountsData(db: LedgerDb, userId: string): Promise<Acc
   const transactionsByPersonId = new Map<string, PersonTransactionItem[]>();
   for (const tx of peopleTxRows) {
     const list = transactionsByPersonId.get(tx.personId) ?? [];
-    list.push({ id: tx.id, amountMinor: tx.amountMinor, note: tx.note, occurredAt: tx.occurredAt });
+    list.push({
+      id: tx.id,
+      amountMinor: tx.amountMinor,
+      note: tx.note,
+      occurredAt: tx.occurredAt,
+    });
     transactionsByPersonId.set(tx.personId, list);
   }
   for (const list of transactionsByPersonId.values()) {

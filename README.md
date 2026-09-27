@@ -27,12 +27,35 @@ See [`CONCEPT.md`](CONCEPT.md) for the full product concept,
 
 Declared in [`manifest.json`](manifest.json):
 
-| Permission           | Why                                                                 |
-| --------------------- | --------------------------------------------------------------------|
-| `auth:session`        | Every action is scoped to the signed-in user's own budget data.     |
-| `db:readWrite`        | Own isolated database for all budget/account/transaction tables.    |
-| `mailer:send`         | The 1st-of-month recap email (task L.11).                           |
-| `notifications:send`  | The in-app counterpart to that recap (task L.11).                   |
+| Permission           | Why                                                              |
+| -------------------- | ---------------------------------------------------------------- |
+| `auth:session`       | Every action is scoped to the signed-in user's own budget data.  |
+| `db:readWrite`       | Own isolated database for all budget/account/transaction tables. |
+| `mailer:send`        | The 1st-of-month recap email (task L.11).                        |
+| `notifications:send` | The in-app counterpart to that recap (task L.11).                |
+| `data:export`        | Include your budget in an account data export.                   |
+| `data:import`        | Restore a budget from an exported bundle.                        |
+
+## Your data
+
+**Export and restore.** Everything Ledger stores for you travels in the
+platform's own account data export (Account → Data): currencies, incomes,
+categories and subcategories, expenses, saving jars and their history,
+accounts, cards, assets, deposits, loans, people and their ledgers, and
+which months you have reviewed. Restoring a bundle re-creates all of it,
+remapping internal references so nothing points back at the instance it came
+from. Exchange rates are not included — they are shared, instance-wide
+reference data rather than anything of yours, and are re-fetched daily
+wherever you restore to. The "recap already sent" markers are left out too:
+they are operational state rather than something you wrote, so the next
+monthly recap simply sends normally on the new instance.
+
+**Account deletion.** If your account is deleted — by you or by an admin —
+Ledger deletes every row it holds for you, across all of its tables. It
+never touches another user's rows, and it leaves the shared exchange-rate
+table alone. There is no attribution to sever: Ledger is strictly
+single-user, so no row here is ever owned by one person and attributed to
+another.
 
 ## Running it locally
 
