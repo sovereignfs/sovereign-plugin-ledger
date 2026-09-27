@@ -64,7 +64,7 @@ afterEach(() => {
 });
 
 describe('fetchFxRates', () => {
-  it('fetches once with base=USD and all non-pivot supported codes as symbols', async () => {
+  it('fetches once with base=USD and no symbols filter', async () => {
     stubFrankfurter();
     await fetchFxRates(ctx);
 
@@ -72,7 +72,34 @@ describe('fetchFxRates', () => {
     const [firstCall] = vi.mocked(fetch).mock.calls;
     const url = new URL(firstCall?.[0] as string);
     expect(url.searchParams.get('base')).toBe('USD');
-    expect(url.searchParams.get('symbols')?.split(',').sort()).toEqual([...NON_PIVOT_CODES].sort());
+    // Naming symbols staked the whole request — and therefore every currency
+    // conversion in the app — on how the upstream treats a code it does not
+    // cover (LKR, AED). Nothing is named, and the response is filtered here.
+    expect(url.searchParams.has('symbols')).toBe(false);
+  });
+
+  it('keeps only supported currencies from a response that carries extras', async () => {
+    stubFrankfurter({ EUR: 0.92, ZZZ: 3, XAU: 0.0004 });
+    await fetchFxRates(ctx);
+
+    const codes = (await t.db.select().from(fxRates)).map((r) => r.currencyCode);
+    expect(codes).toContain('EUR');
+    expect(codes).not.toContain('ZZZ');
+    expect(codes).not.toContain('XAU');
+  });
+
+  it('skips a zero or non-numeric quote instead of storing Infinity', async () => {
+    stubFrankfurter({ EUR: 0, GBP: 'oops' as unknown as number, JPY: 150 });
+    await fetchFxRates(ctx);
+
+    const rows = await t.db.select().from(fxRates);
+    const codes = rows.map((r) => r.currencyCode);
+    expect(codes).not.toContain('EUR');
+    expect(codes).not.toContain('GBP');
+    expect(codes).toContain('JPY');
+    for (const row of rows) {
+      expect(Number.isFinite(row.rate)).toBe(true);
+    }
   });
 
   it("inverts Frankfurter's USD-per-unit rate into value-of-1-X-in-USD", async () => {

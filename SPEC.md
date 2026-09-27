@@ -222,7 +222,7 @@ flows new props into the already-mounted client tree — confirmed live that
 **`page.tsx` goes back to branching directly between `SetupWizard` and the
 real Overview** on a single fresh status read, reverting the "always mount
 the same component" indirection L.4 added. That indirection existed only to
-protect an *in-progress* multi-step client interaction (the wizard) from
+protect an _in-progress_ multi-step client interaction (the wizard) from
 being swapped out by an incidental mid-flow refresh — it was never a
 general rule against branching in a server component. Overview as built in
 L.5 triggers no mutations of its own, so there's no path by which a refresh
@@ -380,7 +380,7 @@ picking "Oct 15" in `CreateLoanDialog`'s `DatePicker` round-tripped to
 `.toISOString().slice(0, 10)`, which reads the UTC calendar date — in any
 timezone ahead of UTC (reproduced in Europe/Berlin, UTC+2), local midnight
 is still the previous day in UTC, silently shifting the stored date back
-by one. `EditLoanDialog`'s own `new Date(\`${loan.endDate}T00:00:00Z\`)`
+by one. `EditLoanDialog`'s own ``new Date(`${loan.endDate}T00:00:00Z`)``
 parse had the identical bug in the opposite direction for timezones
 behind UTC. Fixed with a proper local-calendar-only pair,
 `toDateOnly`/`fromDateOnly` (`app/_lib/format.ts`), replacing every ad hoc
@@ -431,9 +431,9 @@ matching the wireframe's explicit direction — it's a status folded into
 the period itself.
 
 **The three savings figures, worked out precisely rather than guessed
-from the wireframe's numbers alone:** *Projected savings* = income minus
-the sum of every kind's budgeted amount. *Actual savings* = income minus
-actual spend (`ledger_transactions`) this period. *Actual, net of jars* =
+from the wireframe's numbers alone:** _Projected savings_ = income minus
+the sum of every kind's budgeted amount. _Actual savings_ = income minus
+actual spend (`ledger_transactions`) this period. _Actual, net of jars_ =
 actual savings further adjusted for jar withdrawals only — a
 jar-contribution has no effect on this figure (moving cash into a jar
 doesn't change total household savings, only where it sits), while a
@@ -449,7 +449,7 @@ exist before L.12 ships saving jars — inert, not hardcoded to zero.
 income and budgeted amounts have no history (same shape as
 `predictedAmountMinor`'s already-documented non-effective-dating
 limitation from L.2) — every period's "income" and "projected savings"
-reflect the user's *current* declared income and budget, not what was
+reflect the user's _current_ declared income and budget, not what was
 actually true in that historical month. A real limitation for anyone
 whose income or budget has changed over time; not solved here, same as
 the schema's own original call.
@@ -546,7 +546,7 @@ via live verification, not reported:**
 directly** (`BudgetView`/`AccountsView`/`ReportsView`'s own
 `selectedId`/`selected` `useState`, already driving the desktop detail
 column) rather than a separate mobile-only `step`-state stack as the
-task text sketched — `ResponsiveSurface` forks only the *presentation*.
+task text sketched — `ResponsiveSurface` forks only the _presentation_.
 The mobile detail screens (`MobileBudgetScreen`/`MobileAccountsScreen`/
 `MobileReportsScreen`) reuse `CategoryDetail`/`AccountsDetail`/
 `ReportsDetail` verbatim behind a hand-rolled `‹ Label` back header (no
@@ -570,7 +570,7 @@ forking each of them to `Drawer` too would have been unrequested scope
 with no UX gain.
 
 A real-looking bug investigated and ruled out before writing any fix:
-`MobileFooter`'s `z-index: 101` sits *above* `Dialog`/`Drawer`'s scrim
+`MobileFooter`'s `z-index: 101` sits _above_ `Dialog`/`Drawer`'s scrim
 `z-index: 100`, which looked like the footer would bleed through an open
 dialog. It doesn't — both `Dialog` and `Drawer`'s mobile scrim already
 stop their `bottom` edge at `var(--sv-shell-footer-height)` (published by
@@ -660,7 +660,7 @@ shrink the interval to force a fast tick) and queried the dev sqld
 real, plausible market rates (EUR ≈ 1.1645 USD, GBP ≈ 1.3582 USD,
 JPY ≈ 0.00627 USD). Second run, a fully independent process restart:
 still exactly 17 rows, not 34 — confirming the unique-index +
-`onConflictDoNothing` idempotency mechanism holds through the *real*
+`onConflictDoNothing` idempotency mechanism holds through the _real_
 scheduler → `runWithBackgroundPlugin` → `sdk.db.getClient()` path, not
 only the mocked-SDK unit tests (which can't exercise that plugin-identity
 resolution at all, and where exactly this class of bug has previously
@@ -693,7 +693,7 @@ shape as `periodReviews` (`(user_id, year, month)`), migrated on both
 dialects.
 
 **The insert into that table is the idempotency claim, attempted before
-sending** (`onConflictDoNothing` + `.returning()` to detect whether *this*
+sending** (`onConflictDoNothing` + `.returning()` to detect whether _this_
 invocation won), not an after-the-fact record: the schedule docs' own
 guidance is "claim work... before acting on it, and only act when the
 claim succeeded" — necessary because a multi-replica deployment ticks
@@ -799,7 +799,7 @@ none, rather than allowing it on with nothing to pick.
 
 **A deliberate scope cut, stated explicitly rather than silently
 dropped**: CONCEPT.md's "Saving Jar contributions post automatically from
-the linked saving plan each period" is *not* built here — L.12's own
+the linked saving plan each period" is _not_ built here — L.12's own
 Deliverables text never mentions automatic posting, only manual
 contribution/withdrawal actions, and automating it would need its own
 scheduled job (the same `schedules` shape as L.10/L.11), a separate,
@@ -950,7 +950,7 @@ them via `open`, matching every other dialog in this app — so a
 `baseCurrencyCode`) only ever ran once, at first mount. Reproduced directly:
 added a second currency, deleted the original base, then reopened "Add
 currency" — the `<select>` visually showed the new correct default, but
-submitting silently created a duplicate of the *previous* open's stale
+submitting silently created a duplicate of the _previous_ open's stale
 selection instead. Fixed with a `useEffect` keyed on `open` alone (not the
 prop, which would otherwise reset an in-progress selection on every
 render) re-syncing the field the moment the dialog opens.
@@ -978,7 +978,6 @@ This closes out **Phase G** and the full roadmap through L.14 — every
 planned task for this plugin is now shipped.
 
 ---
-
 
 ✅ **L.15 shipped (0.15.0)** — a full review pass over everything L.1–L.14
 built, addressing every finding rather than a slice. Correctness first:
@@ -1040,6 +1039,115 @@ currency. Remaining CONCEPT.md §4 scope that is still unbuilt is now
 tracked as ROADMAP.md's Phase I rather than left implicit. 120 tests pass
 (20 new); typecheck, lint, Prettier, and `design:tokens:check` are clean.
 
+✅ **L.16 shipped (0.16.0)** — a second review pass over everything L.1–L.15
+built. Correctness first:
+
+- **Logging a loan payment larger than the balance was not reversible.**
+  `adjustLinkedLoanBalance` floored the stored remaining balance at zero, so
+  with 80.00 owed a 100.00 payment stored `max(0, -20.00)` = 0, and deleting
+  that payment stored `max(0, 0 + 100.00)` = 100.00 — 20.00 more than before
+  the payment existed; an edit was wrong by the same clamped remainder. The
+  balance stores the exact arithmetic result now, and is floored at the read
+  edge (`clampRemaining`) where it is shown and where it counts as a liability.
+- **`createLoan` bypassed the one-currency-per-category invariant.**
+  `createKind` enforces it and Budget/Overview/Reports all sum a category's
+  kinds raw on the strength of that, so a EUR loan plus a USD loan produced one
+  row whose total added the two numbers together. Loans group per currency now
+  — "Loans" for whichever currency claims it first, "Loans (CODE)" for each
+  additional one.
+- **Net worth left people out**, though CONCEPT.md §3 defines it as
+  "accounts, cards, stock/assets, deposits, loans, people". Saving jars stay
+  out deliberately: that money already sits in an account being counted.
+- **Overview and Reports disagreed on "spent this month"** — Overview
+  converted at today's rate, Reports at each expense's own date. Both use the
+  expense's own date.
+- **Top-category lists were ordered by raw stored integers** across
+  currencies, so a category budgeted ¥5,000 outranked one budgeted €1,000.
+  They order on the base-currency value, with an unconvertible category last.
+- **The over-budget streak rule counted non-contiguous months.** A month with
+  no activity produces no period row, so "over budget in March and January,
+  nothing in February" read as two months running.
+- **Insights formatted money with a hardcoded `en-US`** while the rest of the
+  same screen used `useFormatters()`; the request locale is threaded in now.
+- **Every server action is a public POST endpoint**, and several fields were
+  relying on the calling form instead of validation: `createTransaction`
+  accepted a `saving`-type kind (double-booking a jar spend, against this
+  doc's own Data model correction #3), `note` was unbounded and threw on a
+  non-string, amounts had no ceiling, a `null` recurrence threw, and
+  `deleteIncome` would remove the last primary income — which made
+  `getSetupStatus` report an incomplete setup and replaced the whole app with
+  the wizard's step 2, despite Settings claiming a server-side guard.
+- **A jar withdrawal's overdraw check was a read followed by a write**, so two
+  concurrent withdrawals could both pass it and drive a jar negative. The
+  guard is the `UPDATE`'s own `WHERE` now.
+- **The FX job staked every conversion in the app on one upstream detail.** It
+  named all 20 supported codes in Frankfurter's `symbols` filter, two of which
+  (LKR, AED) it does not cover at all — if the upstream rejects an unsupported
+  symbol rather than filtering it, the job fails daily and no rate is ever
+  stored for any currency. It asks for `base=USD` alone and filters the
+  response here, and skips a zero or non-numeric quote that would otherwise
+  invert to `Infinity`.
+
+New capability: **Ledger participates in data portability and account
+deletion.** It had registered none of the three hooks, so an export could
+never carry a user's budget — in the one plugin whose premise is that you own
+your data — and deleting an account left every row of that user's financial
+history in place, which the platform requires a plugin to either handle or
+document, and this one did neither. `provideExport`/`provideImport`/
+`provideDelete` are registered from a new plugin layout, with
+`data:export`/`data:import` declared. Import re-validates every row, since a
+bundle is a file a user can hand-edit; `ledger_fx_rates` is excluded from all
+three as instance-wide reference data. The deletion test enumerates every
+user-scoped table in the schema rather than listing them, so a table added
+later fails the suite instead of outliving deleted accounts.
+
+Performance: conversion was N+1 and sequential — a query pair per
+(currency, date), and because historical amounts price at their own date,
+Reports produced one pair per transaction _day_ per period. Two years of
+multi-currency history meant over a thousand sequential round-trips per page
+render, repeated per user on every tick of the month-end job.
+`loadRateLookup` loads the rates once per payload; a test pins it at one query
+across six periods and 120 spend dates. `getAccountsData`/`getOverviewData`
+also stopped re-querying the five balance-sheet tables to recompute net worth
+from rows they already held.
+
+Process and docs: **this repository has no CI** — the only workflows move the
+`latest`/`stable` branches, so typecheck, lint, formatting and the test suite
+have never run on a push or a pull request. A workflow composing the plugin
+into a platform checkout at `plugins/ledger.local/` was built and then pulled
+back out of this task on review: it is a change to how the repository is built
+rather than to the plugin, and belongs in its own PR. It is tracked as
+ROADMAP.md's Phase I so it is not silently dropped.
+
+Running those gates by hand instead still surfaced a backlog of its own:
+fifteen files were unformatted (`pnpm format:check` is a required gate, so they
+were already failing it), and one Markdown code span using escaped backticks
+inside a single-backtick span was silently corrupted by Prettier — formatting
+SPEC.md joined two lines and ate a word boundary, which is why these files had
+never been formatted at all. It is a double-backtick span now.
+`README.md`/`AGENTS.md` pointed at
+`sovereignfs/sovereignfs` as the platform monorepo — that is the docs-site
+workbench repo; the platform is `sovereignfs/sovereign`, so the documented
+setup sent a contributor to the wrong clone. `ledger_month_end_notifications`
+is documented in the Data model above, having existed in both dialects since
+L.11 while appearing in no table list. `compatibility.minPlatformVersion` was
+re-checked rather than assumed: RFC 0007 portability shipped at platform
+`0.5.15` and RFC 0033 deletion at `0.9.1`, both below the declared `0.94.16`
+floor, so it needs no bump.
+
+One finding from the review was **investigated and rejected**: the report
+claimed `ON DELETE cascade` never fires on SQLite because nothing in the
+platform runs `PRAGMA foreign_keys = ON` and SQLite defaults it off. libsql
+defaults it **on** — measured directly — so cascades do fire, and the
+harness's own pragma is belt-and-braces rather than a mask. The fix was
+reverted rather than shipping redundant deletes behind tests that passed
+against the unfixed code.
+
+30 tests added (154 total); every test covering a behaviour change above was
+confirmed failing against the pre-fix code first. Typecheck, ESLint (including
+the SDK boundary rule), Prettier, `design:tokens:check` and the full suite all
+pass via the monorepo's own commands.
+
 ## Architecture
 
 ### Terminology
@@ -1063,7 +1171,7 @@ already plain language.
   installed from its own repo; requires a `repository` URL)
 - **shell:** `default`. No `shellConfig` until L.9 — a placeholder page has
   nothing to self-render yet, and setting `mobileHeader`/`mobileFooter:
-  false` prematurely would leave mobile users with zero nav chrome for the
+false` prematurely would leave mobile users with zero nav chrome for the
   several tasks in between (a real regression, not a cosmetic one; caught
   in this spec's own validation pass before being written down).
 - **Versioning:** the plugin's version lives only in `manifest.json`;
@@ -1087,12 +1195,12 @@ separate permission grant of its own.
 
 ### SDK usage
 
-| Surface                     | Use                                                          |
-| ---------------------------- | ------------------------------------------------------------ |
-| `sdk.auth.requireSession()` | First line of **every** server action                        |
+| Surface                     | Use                                                                   |
+| --------------------------- | --------------------------------------------------------------------- |
+| `sdk.auth.requireSession()` | First line of **every** server action                                 |
 | `sdk.db.getClient()`        | Plugin's isolated DB (zero-argument invariant — never work around it) |
-| `sdk.mailer.send()`         | Month-end recap email (L.11)                                 |
-| `sdk.notifications.send()`  | Month-end in-app notification (L.11)                          |
+| `sdk.mailer.send()`         | Month-end recap email (L.11)                                          |
+| `sdk.notifications.send()`  | Month-end in-app notification (L.11)                                  |
 
 No `sdk.directory` or any multi-user/membership surface — Ledger is
 strictly single-user (confirmed directly, not a phased deferral), so every
@@ -1180,7 +1288,20 @@ ledger_people              id, tenant_id, user_id, name, balance (cached, signed
 ledger_people_transactions id, tenant_id, user_id, person_id, amount (signed),
                            note, occurred_at
 ledger_period_reviews      tenant_id, user_id, year, month, reviewed_at (not null)
+                           PRIMARY KEY(user_id, year, month)
+ledger_month_end_notifications
+                           tenant_id, user_id, year, month, sent_at (not null)
+                           PRIMARY KEY(user_id, year, month)
 ```
+
+`ledger_month_end_notifications` is L.11's send-once marker for the month-end
+recap — deliberately a separate table from `ledger_period_reviews` rather than
+a column on it, because that table's "absence of a row = needs review"
+invariant would break if a row could also exist for a period that was
+auto-notified but never actually reviewed by the user. Its insert, via
+`onConflictDoNothing`, _is_ the idempotency claim: the row landing is what
+licenses the job to send, which makes it a cross-replica coordination
+primitive and not merely a log.
 
 Indexes: `ledger_transactions(user_id, kind_id, occurred_at)`,
 `ledger_jar_transactions(user_id, jar_id, occurred_at)`,
@@ -1294,21 +1415,21 @@ Tally's heavier pattern by default.
 
 ## UI composition (Design System)
 
-| Need                          | DS surface                                                    |
-| ------------------------------ | -------------------------------------------------------------- |
-| Page chrome                   | `PageContainer`, `PageHeader`                                  |
-| Web layout                    | `ThreeColumnLayout` (`sidebarWidth={240}`, conditional 3rd child) |
-| Mobile layout (L.9)           | `ResponsiveSurface`, self-rendered `MobileHeader`/`MobileFooter` |
-| Budget/predicted-vs-spent bars | `Progress`                                                      |
-| Signed amounts (People)       | `BalanceChip`                                                   |
-| Add expense                   | `Dialog` (`size="md"`) on web; `Drawer` on mobile               |
-| Amount entry                  | `CurrencyInput`                                                 |
-| Review status                 | `StatusBadge`                                                   |
-| Month-end nudge               | `SystemBanner`                                                  |
-| Setup wizard category chips   | Design System Gap Check at L.4 — confirm whether a tappable
-selection-chip primitive already exists in `packages/ui` before building one locally |
-| Empty / loading                | `EmptyState`, `Spinner`                                        |
-| Confirmation                   | `ConfirmDialog`                                                 |
+| Need                                                                                 | DS surface                                                        |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| Page chrome                                                                          | `PageContainer`, `PageHeader`                                     |
+| Web layout                                                                           | `ThreeColumnLayout` (`sidebarWidth={240}`, conditional 3rd child) |
+| Mobile layout (L.9)                                                                  | `ResponsiveSurface`, self-rendered `MobileHeader`/`MobileFooter`  |
+| Budget/predicted-vs-spent bars                                                       | `Progress`                                                        |
+| Signed amounts (People)                                                              | `BalanceChip`                                                     |
+| Add expense                                                                          | `Dialog` (`size="md"`) on web; `Drawer` on mobile                 |
+| Amount entry                                                                         | `CurrencyInput`                                                   |
+| Review status                                                                        | `StatusBadge`                                                     |
+| Month-end nudge                                                                      | `SystemBanner`                                                    |
+| Setup wizard category chips                                                          | Design System Gap Check at L.4 — confirm whether a tappable       |
+| selection-chip primitive already exists in `packages/ui` before building one locally |
+| Empty / loading                                                                      | `EmptyState`, `Spinner`                                           |
+| Confirmation                                                                         | `ConfirmDialog`                                                   |
 
 Anything reusable Ledger would otherwise invent should be checked against
 `packages/ui` first per the DS-first rule; if genuinely missing, that's a
@@ -1744,3 +1865,37 @@ it is the first or second in its category; a malformed currency is
 rejected, never stored; logging a loan installment reduces the loan's
 remaining balance and deleting the expense restores it.
 
+#### L.16 — Second review pass
+
+**Goal:** Address every finding of the 2026-09-27 review of L.1–L.15 —
+correctness bugs, missing platform integration, validation gaps, UX gaps,
+query cost, and process/documentation drift — in one pass, and reject any
+finding that does not survive being checked against the real runtime.
+
+**Deliverables:** see this task's Status entry for the full list — exact loan
+payment reversal, per-currency loan categories, people in net worth,
+consistent FX pricing between Overview and Reports, currency-aware ordering,
+contiguous over-budget streaks, locale-aware insights, server-side validation
+on every action (saving-kind expenses, note bounds, amount ceilings, null
+recurrence, last primary income), a race-free jar withdrawal, a Frankfurter
+request that cannot fail on an uncovered symbol, portability
+(`provideExport`/`provideImport`/`provideDelete` with
+`data:export`/`data:import`), one-query rate loading, and the
+README/AGENTS/SPEC drift. CI is deliberately **not** part of this task — see
+the Status entry.
+
+**Dependencies:** L.15.
+
+**Review checklist:** logging a loan payment larger than the remaining balance
+and then deleting it restores the original balance exactly; a second loan in
+another currency lands in its own Budget row rather than inflating the first
+one's total; a person who owes the user money moves net worth; the same month
+reads the same "spent" figure on Overview and Reports for a multi-currency
+user; "Recent activity" still shows yesterday's expense on the 1st of the
+month; an expense cannot be logged against a saving jar's subcategory; the
+last primary income cannot be deleted; a jar cannot go negative; an account
+data export round-trips a full budget into another account and account
+deletion leaves no row in any user-scoped table; `getReportsData` reads
+`ledger_fx_rates` once regardless of history size; typecheck, ESLint, Prettier,
+`design:tokens:check` and the full suite all pass when run from a platform
+checkout with this plugin composed in at `plugins/ledger.local/`.

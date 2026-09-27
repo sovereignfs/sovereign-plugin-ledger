@@ -74,22 +74,22 @@ already owns.
 
 ## 3. Competitive positioning
 
-| | YNAB | Firefly III | Actual Budget | **Ledger (v1 target)** |
-|---|---|---|---|---|
-| Budgeting model | Zero-based envelopes | Budgets + available-per-period | Zero-based envelopes | Predicted vs. actual per category/kind |
-| Multi-currency | Single currency per budget | Yes, native, robust | No (single currency, workarounds only) | Yes — core requirement |
-| Net worth (assets/liabilities) | Basic, not the focus | Yes — full account/asset/liability model | Basic account tracking only | Yes — accounts, cards, stock/assets, deposits, loans, people |
-| Recurring bills | Yes (scheduled transactions) | Yes ("Bills", flexible date ranges) | Yes (scheduled transactions) | Yes — flexible recurrence (day/week/month/year × N) |
-| Envelope/goal sub-accounts | Categories double as envelopes | "Piggy banks" (separate, running balance) | Category rollover | **Saving Jars** — separate, running balance, contribution + withdrawal |
-| Bank sync | Yes (Plaid) | Optional, via separate importer | Yes (SimpleFin/Plaid bridge) | No (manual) — deferred |
-| Receipt scanning | No | No | No | No — deferred |
-| Insights | Spending reports only | Basic reports/charts | Basic reports | Rule-based budget-variance tips (v1); AI insights a natural post-v1 fit |
-| Pricing | Subscription (~$109/yr) | Free, open source | Free / low-cost hosted option | Free, bundled with the user's own instance |
-| Self-hosted | No | Yes | Optional | Yes, inherently |
+|                                | YNAB                           | Firefly III                               | Actual Budget                          | **Ledger (v1 target)**                                                  |
+| ------------------------------ | ------------------------------ | ----------------------------------------- | -------------------------------------- | ----------------------------------------------------------------------- |
+| Budgeting model                | Zero-based envelopes           | Budgets + available-per-period            | Zero-based envelopes                   | Predicted vs. actual per category/kind                                  |
+| Multi-currency                 | Single currency per budget     | Yes, native, robust                       | No (single currency, workarounds only) | Yes — core requirement                                                  |
+| Net worth (assets/liabilities) | Basic, not the focus           | Yes — full account/asset/liability model  | Basic account tracking only            | Yes — accounts, cards, stock/assets, deposits, loans, people            |
+| Recurring bills                | Yes (scheduled transactions)   | Yes ("Bills", flexible date ranges)       | Yes (scheduled transactions)           | Yes — flexible recurrence (day/week/month/year × N)                     |
+| Envelope/goal sub-accounts     | Categories double as envelopes | "Piggy banks" (separate, running balance) | Category rollover                      | **Saving Jars** — separate, running balance, contribution + withdrawal  |
+| Bank sync                      | Yes (Plaid)                    | Optional, via separate importer           | Yes (SimpleFin/Plaid bridge)           | No (manual) — deferred                                                  |
+| Receipt scanning               | No                             | No                                        | No                                     | No — deferred                                                           |
+| Insights                       | Spending reports only          | Basic reports/charts                      | Basic reports                          | Rule-based budget-variance tips (v1); AI insights a natural post-v1 fit |
+| Pricing                        | Subscription (~$109/yr)        | Free, open source                         | Free / low-cost hosted option          | Free, bundled with the user's own instance                              |
+| Self-hosted                    | No                             | Yes                                       | Optional                               | Yes, inherently                                                         |
 
 Firefly III is the structurally closest match — its "Bills" and "Piggy
 banks" map almost directly onto this plugin's Fixed Expenses and Saving
-Jars. YNAB is the category-defining product for the budgeting *discipline*
+Jars. YNAB is the category-defining product for the budgeting _discipline_
 (predicted vs. actual), which Ledger borrows without adopting strict
 zero-based allocation of every unit of currency. Ledger's differentiation
 is combining Firefly III's breadth (multi-currency, full net worth) with
@@ -218,7 +218,7 @@ mechanism the FX-rate fetch needs.
 2. **Automated bank-balance fetching / aggregation** — manual balance entry
    for v1.
 3. **Live stock/asset price feeds** — asset and stock values are manually
-   updated. (Contrast with currency/crypto *exchange rates*, which **are**
+   updated. (Contrast with currency/crypto _exchange rates_, which **are**
    automated in v1 — see §4.)
 4. **Automated interest-income calculation** — manual entry.
 5. **AI/LLM-generated insights** — rule-based only for v1. Sovereign's
@@ -264,6 +264,7 @@ mechanism the FX-rate fetch needs.
   before this plugin is ever published to `registry/plugins.json` or
   given a public repo name — this research de-risks the question, it
   doesn't clear it.
+
 - ~~**Default Category/Kind seed set.**~~ **Resolved** in
   `docs/adhoc/setup-wizard.md` screen 3: suggested categories are tappable
   chips with pre-filled, editable budget amounts — never auto-created
@@ -280,7 +281,7 @@ mechanism the FX-rate fetch needs.
 - **Predicted-amount history.** If a predicted (budgeted) amount is revised
   at a month-end review, should Ledger keep the old value effective-dated
   so a report generated for an earlier month still reflects what was
-  budgeted *then* — or does "predicted" only ever reflect the current
+  budgeted _then_ — or does "predicted" only ever reflect the current
   value? Affects whether historical reports stay accurate after a
   mid-year budget adjustment. Still open — `SPEC.md` documents this as a
   known v1 limitation rather than resolving it: `predicted_amount` has no

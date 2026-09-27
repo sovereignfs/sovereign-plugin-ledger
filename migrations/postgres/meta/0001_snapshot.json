@@ -655,12 +655,8 @@
           "name": "ledger_jar_transactions_jar_id_ledger_saving_jars_id_fk",
           "tableFrom": "ledger_jar_transactions",
           "tableTo": "ledger_saving_jars",
-          "columnsFrom": [
-            "jar_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["jar_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -668,12 +664,8 @@
           "name": "ledger_jar_transactions_category_id_ledger_categories_id_fk",
           "tableFrom": "ledger_jar_transactions",
           "tableTo": "ledger_categories",
-          "columnsFrom": [
-            "category_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["category_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -783,12 +775,8 @@
           "name": "ledger_kinds_category_id_ledger_categories_id_fk",
           "tableFrom": "ledger_kinds",
           "tableTo": "ledger_categories",
-          "columnsFrom": [
-            "category_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["category_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -910,12 +898,8 @@
           "name": "ledger_loans_linked_kind_id_ledger_kinds_id_fk",
           "tableFrom": "ledger_loans",
           "tableTo": "ledger_kinds",
-          "columnsFrom": [
-            "linked_kind_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["linked_kind_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -925,9 +909,7 @@
         "ledger_loans_linked_kind_id_unique": {
           "name": "ledger_loans_linked_kind_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "linked_kind_id"
-          ]
+          "columns": ["linked_kind_id"]
         }
       },
       "policies": {},
@@ -1093,12 +1075,8 @@
           "name": "ledger_people_transactions_person_id_ledger_people_id_fk",
           "tableFrom": "ledger_people_transactions",
           "tableTo": "ledger_people",
-          "columnsFrom": [
-            "person_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["person_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1149,11 +1127,7 @@
       "compositePrimaryKeys": {
         "ledger_period_reviews_user_id_year_month_pk": {
           "name": "ledger_period_reviews_user_id_year_month_pk",
-          "columns": [
-            "user_id",
-            "year",
-            "month"
-          ]
+          "columns": ["user_id", "year", "month"]
         }
       },
       "uniqueConstraints": {},
@@ -1237,12 +1211,8 @@
           "name": "ledger_saving_jars_kind_id_ledger_kinds_id_fk",
           "tableFrom": "ledger_saving_jars",
           "tableTo": "ledger_kinds",
-          "columnsFrom": [
-            "kind_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["kind_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1252,9 +1222,7 @@
         "ledger_saving_jars_kind_id_unique": {
           "name": "ledger_saving_jars_kind_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "kind_id"
-          ]
+          "columns": ["kind_id"]
         }
       },
       "policies": {},
@@ -1360,12 +1328,8 @@
           "name": "ledger_transactions_kind_id_ledger_kinds_id_fk",
           "tableFrom": "ledger_transactions",
           "tableTo": "ledger_kinds",
-          "columnsFrom": [
-            "kind_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["kind_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }

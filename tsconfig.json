@@ -1,9 +1,4 @@
 {
   "extends": "@sovereignfs/tsconfig/nextjs.json",
-  "include": [
-    "css-modules.d.ts",
-    "app/**/*.ts",
-    "app/**/*.tsx",
-    "scripts/**/*.ts"
-  ]
+  "include": ["css-modules.d.ts", "app/**/*.ts", "app/**/*.tsx", "scripts/**/*.ts"]
 }
