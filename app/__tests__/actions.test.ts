@@ -1292,3 +1292,168 @@ describe('L.16 — loan payment reversal and per-currency loan grouping', () => 
     expect(budget.fixed.map((c) => c.currency).sort()).toEqual(['EUR', 'USD']);
   });
 });
+
+describe('L.16 — input validation hardening', () => {
+  beforeEach(async () => {
+    actAs(owner);
+    await actions.createCurrency({ code: 'EUR', isBase: true });
+  });
+
+  async function savingKindId(): Promise<string> {
+    await actions.createCategoryWithKind({
+      name: 'Travel jar',
+      type: 'saving',
+      predictedAmountMinor: 10_000,
+      currency: 'EUR',
+    });
+    // Resolved via its category, not by row order — this helper is also called
+    // in tests that already created an expense kind.
+    const category = must(
+      (await t.db.select().from(schema.categories)).find((c) => c.type === 'saving'),
+      'saving category',
+    );
+    return must(
+      (await t.db.select().from(schema.kinds)).find((k) => k.categoryId === category.id),
+      'saving kind',
+    ).id;
+  }
+
+  async function spendableKindId(): Promise<string> {
+    await actions.createCategoryWithKind({
+      name: 'Groceries',
+      type: 'dynamic',
+      predictedAmountMinor: 40_000,
+      currency: 'EUR',
+    });
+    return must(
+      (await t.db.select().from(schema.kinds)).find((k) => k.name === 'Groceries'),
+      'groceries kind',
+    ).id;
+  }
+
+  it('createTransaction refuses a saving-type kind so a jar spend is never double-booked', async () => {
+    const kindId = await savingKindId();
+    const result = await actions.createTransaction({ kindId, amountMinor: 2_500 });
+    expect(result.ok).toBe(false);
+    expect(await t.db.select().from(schema.transactions)).toHaveLength(0);
+  });
+
+  it('updateTransaction refuses to move an expense onto a saving-type kind', async () => {
+    const kindId = await spendableKindId();
+    await actions.createTransaction({ kindId, amountMinor: 2_500 });
+    const tx = must((await t.db.select().from(schema.transactions))[0], 'transaction');
+    const savingId = await savingKindId();
+
+    expect((await actions.updateTransaction({ transactionId: tx.id, kindId: savingId })).ok).toBe(
+      false,
+    );
+    const after = must((await t.db.select().from(schema.transactions))[0], 'transaction');
+    expect(after.kindId).toBe(kindId);
+  });
+
+  it('rejects an over-long note rather than storing an unbounded row', async () => {
+    const kindId = await spendableKindId();
+    const result = await actions.createTransaction({
+      kindId,
+      amountMinor: 2_500,
+      note: 'x'.repeat(501),
+    });
+    expect(result.ok).toBe(false);
+    expect(await t.db.select().from(schema.transactions)).toHaveLength(0);
+  });
+
+  it('returns a failure for a non-string note instead of throwing', async () => {
+    const kindId = await spendableKindId();
+    // A server action is a public POST endpoint; its input type is not a
+    // runtime guarantee, so this must be a value and not a TypeError.
+    const result = await actions.createTransaction({
+      kindId,
+      amountMinor: 2_500,
+      note: 42 as unknown as string,
+    });
+    expect(result.ok).toBe(false);
+    expect(await t.db.select().from(schema.transactions)).toHaveLength(0);
+  });
+
+  it('rejects an absurd amount on every amount-bearing action', async () => {
+    const kindId = await spendableKindId();
+    const huge = Number.MAX_SAFE_INTEGER;
+    expect((await actions.createTransaction({ kindId, amountMinor: huge })).ok).toBe(false);
+    expect(
+      (
+        await actions.createIncome({
+          label: 'Lottery',
+          amountMinor: huge,
+          currency: 'EUR',
+          kind: 'secondary',
+        })
+      ).ok,
+    ).toBe(false);
+    expect(
+      (await actions.createDeposit({ name: 'Vault', amountMinor: huge, currency: 'EUR' })).ok,
+    ).toBe(false);
+    expect(await t.db.select().from(schema.transactions)).toHaveLength(0);
+    expect(await t.db.select().from(schema.deposits)).toHaveLength(0);
+  });
+
+  it('returns a failure for a null recurrence instead of throwing', async () => {
+    await actions.createCategoryWithKind({
+      name: 'Utilities',
+      type: 'fixed',
+      predictedAmountMinor: 9_000,
+      currency: 'EUR',
+    });
+    const categoryId = must((await t.db.select().from(schema.categories))[0], 'category').id;
+    const result = await actions.createKind({
+      categoryId,
+      name: 'Water',
+      predictedAmountMinor: 3_000,
+      currency: 'EUR',
+      recurrence: null as unknown as undefined,
+    });
+    // `null` means "no recurrence", same as omitting it — never a crash.
+    expect(result.ok).toBe(true);
+  });
+
+  it('refuses to delete the last primary income but allows a redundant one', async () => {
+    await actions.createIncome({
+      label: 'Salary',
+      amountMinor: 300_000,
+      currency: 'EUR',
+      kind: 'primary',
+    });
+    const first = must((await t.db.select().from(schema.incomes))[0], 'income');
+    expect((await actions.deleteIncome({ incomeId: first.id })).ok).toBe(false);
+    expect(await t.db.select().from(schema.incomes)).toHaveLength(1);
+
+    await actions.createIncome({
+      label: 'Consulting',
+      amountMinor: 50_000,
+      currency: 'EUR',
+      kind: 'primary',
+    });
+    expect((await actions.deleteIncome({ incomeId: first.id })).ok).toBe(true);
+    expect(await t.db.select().from(schema.incomes)).toHaveLength(1);
+  });
+
+  it('allows a jar withdrawal of exactly the balance and still refuses one cent more', async () => {
+    await actions.createCategoryWithKind({
+      name: 'Travel jar',
+      type: 'saving',
+      predictedAmountMinor: 10_000,
+      currency: 'EUR',
+    });
+    const jar = must((await t.db.select().from(schema.savingJars))[0], 'jar');
+    await actions.createJarTransaction({ jarId: jar.id, amountMinor: 5_000 });
+
+    expect((await actions.createJarTransaction({ jarId: jar.id, amountMinor: -5_001 })).ok).toBe(
+      false,
+    );
+    expect((await actions.createJarTransaction({ jarId: jar.id, amountMinor: -5_000 })).ok).toBe(
+      true,
+    );
+    expect(must((await t.db.select().from(schema.savingJars))[0], 'jar').balanceMinor).toBe(0);
+    // The rejected withdrawal left no history behind.
+    expect(await t.db.select().from(schema.jarTransactions)).toHaveLength(2);
+  });
+});

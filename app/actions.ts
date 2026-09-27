@@ -22,7 +22,7 @@
  * every page that shows the row.
  */
 import { revalidatePath } from 'next/cache';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, sql } from 'drizzle-orm';
 import type { LedgerTx } from './_db/client';
 import * as schema from './_db/schema';
 import { fail, ok, type ActionResult } from './_lib/action-result';
@@ -80,11 +80,49 @@ function cleanText(raw: unknown, label: string, max = 200): string | ActionResul
   return value;
 }
 
+/**
+ * Upper bound on any single stored amount. Well past any real budget figure,
+ * and far enough below `Number.MAX_SAFE_INTEGER` that summing thousands of
+ * rows — which every total on Overview, Budget and Reports does, before
+ * multiplying by an exchange rate — stays exact. Without a ceiling a caller
+ * could post `Number.MAX_SAFE_INTEGER` straight into a total.
+ */
+const MAX_AMOUNT_MINOR = 10_000_000_000_000;
+
+/** Free-text note length cap — see `cleanNote`. */
+const NOTE_MAX = 500;
+
 function cleanAmountMinor(raw: unknown, label: string): number | ActionResult {
   if (typeof raw !== 'number' || !Number.isInteger(raw) || raw < 0) {
     return fail(`${label} must be a whole number of minor units (e.g. cents), zero or greater.`);
   }
+  if (raw > MAX_AMOUNT_MINOR) return fail(`${label} is too large.`);
   return raw;
+}
+
+/**
+ * An optional free-text note. Unlike `cleanText`, absent or blank is valid and
+ * becomes `null` — but a note that *is* present is still bounded and still has
+ * to be a string. Every other free-text field here goes through `cleanText`'s
+ * 200-character cap; notes went straight to `input.note?.trim()`, so a caller
+ * could store a row of arbitrary size, and a non-string `note` threw a
+ * `TypeError` out of the action instead of returning an `ActionResult` —
+ * against this file's own contract that domain failures are values, never
+ * thrown. A server action is a public POST endpoint; its declared input type
+ * is not a runtime guarantee.
+ */
+function cleanNote(raw: unknown): string | null | ActionResult {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== 'string') return fail('Note must be text.');
+  const value = raw.trim();
+  if (value.length === 0) return null;
+  if (value.length > NOTE_MAX) return fail(`Note must be ${NOTE_MAX} characters or fewer.`);
+  return value;
+}
+
+/** True for a `cleanNote` result that is a validation failure, not a value. */
+function isNoteFailure(value: string | null | ActionResult): value is ActionResult {
+  return value !== null && typeof value !== 'string';
 }
 
 function cleanCurrencyCode(raw: unknown): string | ActionResult {
@@ -111,7 +149,12 @@ function cleanOccurredAt(raw: unknown, now: number): number | ActionResult {
 
 const RECURRENCE_UNITS = new Set(['day', 'week', 'month', 'year']);
 
-function cleanRecurrence(raw: { unit: string; count: number; anchorDate: string } | undefined):
+/**
+ * Takes `unknown` rather than the declared input shape: a `null` recurrence
+ * used to reach `RECURRENCE_UNITS.has(raw.unit)` and throw a `TypeError` out
+ * of the action instead of returning a failure value.
+ */
+function cleanRecurrence(raw: unknown):
   | {
       unit: 'day' | 'week' | 'month' | 'year';
       count: number;
@@ -119,17 +162,24 @@ function cleanRecurrence(raw: { unit: string; count: number; anchorDate: string 
     }
   | null
   | ActionResult {
-  if (raw === undefined) return null;
-  if (!RECURRENCE_UNITS.has(raw.unit))
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== 'object') return fail('Recurrence must be an object.');
+  const { unit, count, anchorDate } = raw as {
+    unit?: unknown;
+    count?: unknown;
+    anchorDate?: unknown;
+  };
+  if (typeof unit !== 'string' || !RECURRENCE_UNITS.has(unit)) {
     return fail('Recurrence unit must be day, week, month, or year.');
-  if (!Number.isInteger(raw.count) || raw.count < 1) {
+  }
+  if (typeof count !== 'number' || !Number.isInteger(count) || count < 1) {
     return fail('Recurrence count must be a whole number, 1 or greater.');
   }
-  if (!isDateOnly(raw.anchorDate)) return fail('Recurrence start must be a valid date.');
+  if (!isDateOnly(anchorDate)) return fail('Recurrence start must be a valid date.');
   return {
-    unit: raw.unit as 'day' | 'week' | 'month' | 'year',
-    count: raw.count,
-    anchorDate: raw.anchorDate,
+    unit: unit as 'day' | 'week' | 'month' | 'year',
+    count,
+    anchorDate,
   };
 }
 
@@ -138,6 +188,7 @@ function cleanSignedAmountMinor(raw: unknown, label: string): number | ActionRes
   if (typeof raw !== 'number' || !Number.isInteger(raw) || raw === 0) {
     return fail(`${label} must be a non-zero whole number of minor units (e.g. cents).`);
   }
+  if (Math.abs(raw) > MAX_AMOUNT_MINOR) return fail(`${label} is too large.`);
   return raw;
 }
 
@@ -309,9 +360,35 @@ export async function updateIncome(input: {
   return ok('Income updated.');
 }
 
+/**
+ * Removing the **last** primary income is refused, not just disabled in the
+ * UI. `getSetupStatus` treats "no primary income" as an incomplete setup, so
+ * `/ledger` would stop being Overview and silently become the setup wizard's
+ * step 2 — the whole app replaced by an onboarding form because a row was
+ * deleted in Settings. Settings already greys the control out and its comment
+ * claimed a server-side guard existed as the backstop; this is that guard.
+ * Scoped to the *last* one so a genuinely redundant second primary can still
+ * go.
+ */
 export async function deleteIncome(input: { incomeId: string }): Promise<ActionResult> {
   const actor = await requireUser();
   const db = await getDb();
+
+  const [income] = await db
+    .select({ kind: schema.incomes.kind })
+    .from(schema.incomes)
+    .where(and(eq(schema.incomes.id, input.incomeId), eq(schema.incomes.userId, actor.userId)));
+  if (!income) return fail(NOT_FOUND_INCOME);
+  if (income.kind === 'primary') {
+    const primaries = await db
+      .select({ id: schema.incomes.id })
+      .from(schema.incomes)
+      .where(and(eq(schema.incomes.userId, actor.userId), eq(schema.incomes.kind, 'primary')));
+    if (primaries.length <= 1) {
+      return fail('Every budget needs a primary income — add another before removing this one.');
+    }
+  }
+
   const deleted = await db
     .delete(schema.incomes)
     .where(and(eq(schema.incomes.id, input.incomeId), eq(schema.incomes.userId, actor.userId)))
@@ -681,6 +758,38 @@ async function adjustLinkedLoanBalance(
     .where(eq(schema.loans.id, loan.id));
 }
 
+/**
+ * A kind an expense may be logged against, or the failure to return.
+ *
+ * Rejects a `saving`-type kind. Funding an expense from a saving jar is a
+ * withdrawal **instead of** a `ledger_transactions` row (SPEC.md's Data model
+ * correction #3, and one of this plugin's hard rules) — booking both
+ * double-subtracts the same spend from Reports' actual-savings figure. The
+ * expense pickers never offer a saving kind, but that was the only thing
+ * stopping it: a server action is a public POST endpoint, so the rule has to
+ * hold here rather than in the form that usually calls it.
+ */
+async function findSpendableKind(
+  db: Awaited<ReturnType<typeof getDb>>,
+  userId: string,
+  kindId: string,
+): Promise<{ id: string; currency: string } | ActionResult> {
+  const [kind] = await db
+    .select({
+      id: schema.kinds.id,
+      currency: schema.kinds.currency,
+      categoryType: schema.categories.type,
+    })
+    .from(schema.kinds)
+    .innerJoin(schema.categories, eq(schema.categories.id, schema.kinds.categoryId))
+    .where(and(eq(schema.kinds.id, kindId), eq(schema.kinds.userId, userId)));
+  if (!kind) return fail(NOT_FOUND_KIND);
+  if (kind.categoryType === 'saving') {
+    return fail('Money spent from a saving jar is a jar withdrawal — record it on the jar.');
+  }
+  return { id: kind.id, currency: kind.currency };
+}
+
 export async function createTransaction(input: {
   kindId: string;
   amountMinor: number;
@@ -694,12 +803,12 @@ export async function createTransaction(input: {
   const occurredAt = cleanOccurredAt(input.occurredAt, now);
   if (typeof occurredAt !== 'number') return occurredAt;
 
+  const note = cleanNote(input.note);
+  if (isNoteFailure(note)) return note;
+
   const db = await getDb();
-  const [kind] = await db
-    .select({ id: schema.kinds.id, currency: schema.kinds.currency })
-    .from(schema.kinds)
-    .where(and(eq(schema.kinds.id, input.kindId), eq(schema.kinds.userId, actor.userId)));
-  if (!kind) return fail(NOT_FOUND_KIND);
+  const kind = await findSpendableKind(db, actor.userId, input.kindId);
+  if (!('id' in kind)) return kind;
 
   await db.transaction(async (tx) => {
     await tx.insert(schema.transactions).values({
@@ -710,7 +819,7 @@ export async function createTransaction(input: {
       amountMinor,
       currency: kind.currency,
       occurredAt,
-      note: input.note?.trim() || null,
+      note,
       createdAt: now,
       updatedAt: now,
     });
@@ -753,11 +862,8 @@ export async function updateTransaction(input: {
   };
   let nextKindId = existing.kindId;
   if (input.kindId !== undefined && input.kindId !== existing.kindId) {
-    const [kind] = await db
-      .select({ id: schema.kinds.id, currency: schema.kinds.currency })
-      .from(schema.kinds)
-      .where(and(eq(schema.kinds.id, input.kindId), eq(schema.kinds.userId, actor.userId)));
-    if (!kind) return fail(NOT_FOUND_KIND);
+    const kind = await findSpendableKind(db, actor.userId, input.kindId);
+    if (!('id' in kind)) return kind;
     nextKindId = kind.id;
     patch.kindId = kind.id;
     patch.currency = kind.currency;
@@ -774,7 +880,11 @@ export async function updateTransaction(input: {
     if (typeof occurredAt !== 'number') return occurredAt;
     patch.occurredAt = occurredAt;
   }
-  if (input.note !== undefined) patch.note = input.note.trim() || null;
+  if (input.note !== undefined) {
+    const note = cleanNote(input.note);
+    if (isNoteFailure(note)) return note;
+    patch.note = note;
+  }
 
   await db.transaction(async (tx) => {
     await tx.update(schema.transactions).set(patch).where(eq(schema.transactions.id, existing.id));
@@ -844,22 +954,44 @@ export async function createJarTransaction(input: {
   const occurredAt = cleanOccurredAt(input.occurredAt, now);
   if (typeof occurredAt !== 'number') return occurredAt;
 
+  const note = cleanNote(input.note);
+  if (isNoteFailure(note)) return note;
+
   const db = await getDb();
   const [jar] = await db
     .select({
       id: schema.savingJars.id,
-      balanceMinor: schema.savingJars.balanceMinor,
       categoryId: schema.kinds.categoryId,
     })
     .from(schema.savingJars)
     .innerJoin(schema.kinds, eq(schema.kinds.id, schema.savingJars.kindId))
     .where(and(eq(schema.savingJars.id, input.jarId), eq(schema.savingJars.userId, actor.userId)));
   if (!jar) return fail(NOT_FOUND_JAR);
-  if (amountMinor < 0 && Math.abs(amountMinor) > jar.balanceMinor) {
-    return fail('This jar doesn’t have enough balance for that withdrawal.');
-  }
 
-  await db.transaction(async (tx) => {
+  // The overdraw check is the UPDATE's own `WHERE`, not a separate read first.
+  // Reading the balance, deciding, then writing leaves a window where two
+  // concurrent withdrawals each see enough balance and both apply — the jar
+  // goes negative, which is the one thing envelope budgeting must not allow.
+  // Here the guard and the write are the same statement, so the second one
+  // matches no row and reports insufficient funds instead.
+  const applied = await db.transaction(async (tx) => {
+    const rows = await tx
+      .update(schema.savingJars)
+      .set({
+        balanceMinor: sql`${schema.savingJars.balanceMinor} + ${amountMinor}`,
+        updatedAt: now,
+      })
+      .where(
+        amountMinor < 0
+          ? and(
+              eq(schema.savingJars.id, input.jarId),
+              eq(schema.savingJars.userId, actor.userId),
+              gte(schema.savingJars.balanceMinor, -amountMinor),
+            )
+          : and(eq(schema.savingJars.id, input.jarId), eq(schema.savingJars.userId, actor.userId)),
+      )
+      .returning({ id: schema.savingJars.id });
+    if (rows.length === 0) return false;
     await tx.insert(schema.jarTransactions).values({
       id: newId(),
       tenantId: actor.tenantId,
@@ -867,17 +999,12 @@ export async function createJarTransaction(input: {
       jarId: input.jarId,
       amountMinor,
       categoryId: jar.categoryId,
-      note: input.note?.trim() || null,
+      note,
       occurredAt,
     });
-    await tx
-      .update(schema.savingJars)
-      .set({
-        balanceMinor: sql`${schema.savingJars.balanceMinor} + ${amountMinor}`,
-        updatedAt: now,
-      })
-      .where(eq(schema.savingJars.id, input.jarId));
+    return true;
   });
+  if (!applied) return fail('This jar doesn’t have enough balance for that withdrawal.');
   refresh();
   return ok(amountMinor > 0 ? 'Contribution recorded.' : 'Withdrawal recorded.');
 }
@@ -1452,6 +1579,9 @@ export async function createPeopleTransaction(input: {
   const amountMinor = cleanSignedAmountMinor(input.amountMinor, 'Amount');
   if (typeof amountMinor !== 'number') return amountMinor;
 
+  const note = cleanNote(input.note);
+  if (isNoteFailure(note)) return note;
+
   const db = await getDb();
   const now = Date.now();
   const occurredAt = cleanOccurredAt(input.occurredAt, now);
@@ -1469,7 +1599,7 @@ export async function createPeopleTransaction(input: {
       userId: actor.userId,
       personId: input.personId,
       amountMinor,
-      note: input.note?.trim() || null,
+      note,
       occurredAt,
     });
     await tx
