@@ -1,10 +1,18 @@
 import { eq } from 'drizzle-orm';
 import type { LedgerDb } from '../_db/client';
 import * as schema from '../_db/schema';
-import { clampRemaining, getNetWorth } from './accounts';
+import { loadRateLookup } from '../_db/fx-rates';
+import { clampRemaining, computeNetWorth, netWorthCurrencies } from './accounts';
 import { mergeUnconverted, sumConvertedToBaseDetailed } from './money';
-import { getCurrentMonthRange, getUtcYearMonth } from './period';
-import { listCategoriesWithKinds, listTransactionsInRange } from './queries';
+import { dateOnlyOf, getCurrentMonthRange, getUtcYearMonth, todayDateOnly } from './period';
+import {
+  listCategoriesWithKinds,
+  listRecentTransactions,
+  listTransactionsInRange,
+} from './queries';
+
+/** How many rows "Recent activity" shows, web and mobile alike. */
+const RECENT_ACTIVITY_LIMIT = 5;
 
 export interface OverviewChecklistItem {
   key: string;
@@ -107,13 +115,10 @@ export async function getOverviewData(
       .where(eq(schema.categories.userId, userId)),
     db.select().from(schema.savingJars).where(eq(schema.savingJars.userId, userId)),
     db.select().from(schema.accounts).where(eq(schema.accounts.userId, userId)),
-    db.select({ id: schema.assets.id }).from(schema.assets).where(eq(schema.assets.userId, userId)),
-    db
-      .select({ id: schema.deposits.id })
-      .from(schema.deposits)
-      .where(eq(schema.deposits.userId, userId)),
+    db.select().from(schema.assets).where(eq(schema.assets.userId, userId)),
+    db.select().from(schema.deposits).where(eq(schema.deposits.userId, userId)),
     db.select().from(schema.loans).where(eq(schema.loans.userId, userId)),
-    db.select({ id: schema.people.id }).from(schema.people).where(eq(schema.people.userId, userId)),
+    db.select().from(schema.people).where(eq(schema.people.userId, userId)),
   ]);
   const creditCards = accounts.filter((a) => a.type === 'credit_card');
   const bankingCount = accounts.length - creditCards.length;
@@ -121,13 +126,15 @@ export async function getOverviewData(
   const baseCurrencyCode =
     currencies.find((c) => c.isBase === 1)?.code ?? currencies[0]?.code ?? '';
   const { start, end } = getCurrentMonthRange(now);
-  const [transactionsThisMonth, allTransactions, jarWithdrawalsThisMonth, netWorth] =
+  const [transactionsThisMonth, allTransactions, recentTransactions, jarTransactions] =
     await Promise.all([
       listTransactionsInRange(db, userId, start, end),
       db
         .select({ id: schema.transactions.id })
         .from(schema.transactions)
         .where(eq(schema.transactions.userId, userId)),
+      // A rolling window, not this calendar month — see `listRecentTransactions`.
+      listRecentTransactions(db, userId, RECENT_ACTIVITY_LIMIT),
       db
         .select({
           id: schema.jarTransactions.id,
@@ -140,11 +147,41 @@ export async function getOverviewData(
         .from(schema.jarTransactions)
         .innerJoin(schema.savingJars, eq(schema.savingJars.id, schema.jarTransactions.jarId))
         .where(eq(schema.jarTransactions.userId, userId)),
-      getNetWorth(db, userId, baseCurrencyCode),
     ]);
 
-  const incomeSum = await sumConvertedToBaseDetailed(db, incomes, baseCurrencyCode);
-  const spentSum = await sumConvertedToBaseDetailed(db, transactionsThisMonth, baseCurrencyCode);
+  const netWorthSource = {
+    accounts,
+    assets: assetRows,
+    deposits: depositRows,
+    loans: loanRows,
+    people: peopleRows,
+  };
+  // One rate load for every total on this page, rather than one query pair per
+  // (currency, date) inside each sum below.
+  const rates = await loadRateLookup(db, [
+    baseCurrencyCode,
+    ...netWorthCurrencies(netWorthSource),
+    ...incomes.map((i) => i.currency),
+    ...transactionsThisMonth.map((tx) => tx.currency),
+    ...categoriesWithKinds.flatMap((c) => c.kinds.map((k) => k.currency)),
+    ...jars.map((j) => j.currency),
+  ]);
+  const netWorth = await computeNetWorth(db, baseCurrencyCode, netWorthSource, rates);
+
+  const incomeSum = await sumConvertedToBaseDetailed(db, incomes, baseCurrencyCode, rates);
+  // Each expense prices at its **own** date, the same basis Reports uses.
+  // Converting this month's spend at today's rate instead made Overview and
+  // Reports show two different "spent this month" figures for the same month.
+  const spentSum = await sumConvertedToBaseDetailed(
+    db,
+    transactionsThisMonth.map((tx) => ({
+      amountMinor: tx.amountMinor,
+      currency: tx.currency,
+      asOfDate: dateOnlyOf(tx.occurredAt),
+    })),
+    baseCurrencyCode,
+    rates,
+  );
   const budgetedSum = await sumConvertedToBaseDetailed(
     db,
     categoriesWithKinds.flatMap((c) =>
@@ -154,11 +191,13 @@ export async function getOverviewData(
       })),
     ),
     baseCurrencyCode,
+    rates,
   );
   const jarsSum = await sumConvertedToBaseDetailed(
     db,
     jars.map((j) => ({ amountMinor: j.balanceMinor, currency: j.currency })),
     baseCurrencyCode,
+    rates,
   );
   const cardBalanceSum = await sumConvertedToBaseDetailed(
     db,
@@ -167,6 +206,7 @@ export async function getOverviewData(
       currency: a.currency,
     })),
     baseCurrencyCode,
+    rates,
   );
   const cardLimitSum = await sumConvertedToBaseDetailed(
     db,
@@ -177,6 +217,7 @@ export async function getOverviewData(
         currency: a.currency,
       })),
     baseCurrencyCode,
+    rates,
   );
   const loansSum = await sumConvertedToBaseDetailed(
     db,
@@ -185,12 +226,25 @@ export async function getOverviewData(
       currency: l.currency,
     })),
     baseCurrencyCode,
+    rates,
   );
 
   const spentByKindId = new Map<string, number>();
   for (const tx of transactionsThisMonth) {
     spentByKindId.set(tx.kindId, (spentByKindId.get(tx.kindId) ?? 0) + tx.amountMinor);
   }
+
+  // Comparing categories by their raw stored integers is meaningless across
+  // currencies — 50_000 minor units of one currency is not more than 50_000 of
+  // another — and this list is "the five biggest budgets". Sorted on the
+  // base-currency value instead; a category whose rate is missing sorts last
+  // rather than being silently ranked as if it were tiny.
+  const today = todayDateOnly(now);
+  const sortKeyFor = (amountMinor: number, code: string): number => {
+    if (code === baseCurrencyCode) return amountMinor;
+    const rate = rates.crossRate(code, baseCurrencyCode, today);
+    return rate === null ? -1 : Math.round(amountMinor * rate);
+  };
 
   const topCategories: TopCategory[] = categoriesWithKinds
     // A category can have zero kinds (e.g. the shared "Loans" category
@@ -214,12 +268,16 @@ export async function getOverviewData(
         currency: category.kinds[0]?.currency ?? baseCurrencyCode,
       };
     })
-    .sort((a, b) => b.predictedAmountMinor - a.predictedAmountMinor)
+    .sort(
+      (a, b) =>
+        sortKeyFor(b.predictedAmountMinor, b.currency) -
+        sortKeyFor(a.predictedAmountMinor, a.currency),
+    )
     .slice(0, 5);
 
   const kindById = new Map(categoriesWithKinds.flatMap((c) => c.kinds.map((k) => [k.id, k])));
   const categoryNameById = new Map(categoryRows.map((c) => [c.id, c.name]));
-  const expenseActivity: RecentActivityItem[] = transactionsThisMonth.map((tx) => {
+  const expenseActivity: RecentActivityItem[] = recentTransactions.map((tx) => {
     const kind = kindById.get(tx.kindId);
     const categoryName = kind ? categoryNameById.get(kind.categoryId) : undefined;
     return {
@@ -236,8 +294,8 @@ export async function getOverviewData(
   // A jar-funded expense is a withdrawal row, never a `ledger_transactions`
   // row — it still belongs in "what did I spend recently" (the schema
   // carries `category_id` on jar transactions for exactly this).
-  const jarActivity: RecentActivityItem[] = jarWithdrawalsThisMonth
-    .filter((tx) => tx.amountMinor < 0 && tx.occurredAt >= start && tx.occurredAt < end)
+  const jarActivity: RecentActivityItem[] = jarTransactions
+    .filter((tx) => tx.amountMinor < 0)
     .map((tx) => ({
       id: tx.id,
       occurredAt: tx.occurredAt,
@@ -250,9 +308,23 @@ export async function getOverviewData(
     }));
   const recentActivity = [...expenseActivity, ...jarActivity]
     .sort((a, b) => b.occurredAt - a.occurredAt)
-    .slice(0, 5);
+    .slice(0, RECENT_ACTIVITY_LIMIT);
 
+  const hasPrimaryIncome = incomes.some((i) => i.kind === 'primary');
   const secondaryIncomeCount = incomes.filter((i) => i.kind === 'secondary').length;
+  // Same wording as before, just no longer asserting a primary income exists.
+  const incomeChecklistDetail = [
+    baseCurrencyCode || undefined,
+    hasPrimaryIncome
+      ? secondaryIncomeCount > 0
+        ? `Primary + ${secondaryIncomeCount} secondary`
+        : 'Primary'
+      : secondaryIncomeCount > 0
+        ? `${secondaryIncomeCount} secondary`
+        : undefined,
+  ]
+    .filter((part) => part !== undefined)
+    .join(' • ');
   const dynamicCount = categoriesWithKinds.filter((c) => c.type === 'dynamic').length;
   const fixedCount = categoriesWithKinds.filter((c) => c.type === 'fixed').length;
 
@@ -274,18 +346,29 @@ export async function getOverviewData(
   }
 
   const checklist: OverviewChecklistItem[] = [
+    // These two were hardcoded `done: true`. That happens to hold today —
+    // `/ledger` only renders Overview at all once `getSetupStatus` reports a
+    // base currency, a primary income and an expense category — but it made
+    // the checklist assert an invariant enforced in a different file, and the
+    // detail line claimed "Primary" whether or not one existed. Derived from
+    // the data it describes instead, so it cannot drift out of step.
     {
       key: 'currency-incomes',
       label: 'Base currency & incomes',
-      detail: `${baseCurrencyCode} • Primary${secondaryIncomeCount > 0 ? ` + ${secondaryIncomeCount} secondary` : ''}`,
-      done: true,
+      detail: incomeChecklistDetail,
+      done: baseCurrencyCode !== '' && hasPrimaryIncome,
+      href: baseCurrencyCode !== '' && hasPrimaryIncome ? undefined : '/ledger/settings',
       comingSoon: false,
     },
     {
       key: 'expense-categories',
       label: 'Expense categories',
-      detail: `${dynamicCount} dynamic, ${fixedCount} fixed`,
-      done: true,
+      detail:
+        dynamicCount + fixedCount > 0
+          ? `${dynamicCount} dynamic, ${fixedCount} fixed`
+          : 'Plan what you expect to spend',
+      done: dynamicCount + fixedCount > 0,
+      href: dynamicCount + fixedCount > 0 ? undefined : '/ledger/budget',
       comingSoon: false,
     },
     {

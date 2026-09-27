@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import type { LedgerDb } from '../_db/client';
 import * as schema from '../_db/schema';
+import { loadRateLookup, type RateLookup } from '../_db/fx-rates';
 import { mergeUnconverted, sumConvertedToBaseDetailed } from './money';
 
 /**
@@ -28,57 +29,108 @@ export interface NetWorth {
  * summary card computes the exact same number rather than a second,
  * independently-maintained copy of this math.
  */
-export async function getNetWorth(
-  db: LedgerDb,
-  userId: string,
-  baseCurrencyCode: string,
-): Promise<NetWorth> {
-  const [accounts, assets, deposits, loans] = await Promise.all([
-    db.select().from(schema.accounts).where(eq(schema.accounts.userId, userId)),
-    db.select().from(schema.assets).where(eq(schema.assets.userId, userId)),
-    db.select().from(schema.deposits).where(eq(schema.deposits.userId, userId)),
-    db.select().from(schema.loans).where(eq(schema.loans.userId, userId)),
-  ]);
+/**
+ * The rows net worth is computed from. Taken as a parameter so a caller that
+ * has already fetched them — both `getAccountsData` and `getOverviewData` do —
+ * does not fetch the same five tables a second time just to get this number.
+ */
+export interface NetWorthSource {
+  accounts: Array<{ type: string; balanceMinor: number; currency: string }>;
+  assets: Array<{ valueMinor: number; currency: string }>;
+  deposits: Array<{ amountMinor: number; currency: string }>;
+  loans: Array<{ remainingBalanceMinor: number; currency: string }>;
+  /** Signed: positive = owed to the user, negative = owed by them. */
+  people: Array<{ balanceMinor: number; currency: string }>;
+}
 
-  const bankBalances = accounts.filter((a) => a.type === 'bank');
-  const creditCardBalances = accounts.filter((a) => a.type === 'credit_card');
+/** Every currency `computeNetWorth` could need a rate for, for `loadRateLookup`. */
+export function netWorthCurrencies(source: NetWorthSource): string[] {
+  return [
+    ...source.accounts.map((a) => a.currency),
+    ...source.assets.map((a) => a.currency),
+    ...source.deposits.map((d) => d.currency),
+    ...source.loans.map((l) => l.currency),
+    ...source.people.map((p) => p.currency),
+  ];
+}
+
+/**
+ * Net worth from rows the caller already holds.
+ *
+ * **People are part of it** (CONCEPT.md §3: "accounts, cards, stock/assets,
+ * deposits, loans, people"). They were missing, so an informal debt or credit
+ * — a whole section of the Accounts screen — counted for nothing in the
+ * headline figure. `ledger_people.balance` is signed, so it contributes in
+ * whichever direction it already points: money owed to the user is an asset,
+ * money they owe is a liability, no branch needed.
+ *
+ * **Saving jars are deliberately excluded.** A jar holds money that is also
+ * sitting in one of the accounts above — counting both would double it —
+ * and CONCEPT.md's own net-worth definition does not list jars. Overview
+ * shows the jar total as its own card instead.
+ */
+export async function computeNetWorth(
+  db: LedgerDb,
+  baseCurrencyCode: string,
+  source: NetWorthSource,
+  lookup?: RateLookup,
+): Promise<NetWorth> {
+  const rates =
+    lookup ?? (await loadRateLookup(db, [baseCurrencyCode, ...netWorthCurrencies(source)]));
 
   const assetsSum = await sumConvertedToBaseDetailed(
     db,
     [
-      ...bankBalances.map((a) => ({
-        amountMinor: a.balanceMinor,
-        currency: a.currency,
-      })),
-      ...assets.map((a) => ({
-        amountMinor: a.valueMinor,
-        currency: a.currency,
-      })),
-      ...deposits.map((d) => ({
-        amountMinor: d.amountMinor,
-        currency: d.currency,
-      })),
+      ...source.accounts
+        .filter((a) => a.type === 'bank')
+        .map((a) => ({ amountMinor: a.balanceMinor, currency: a.currency })),
+      ...source.assets.map((a) => ({ amountMinor: a.valueMinor, currency: a.currency })),
+      ...source.deposits.map((d) => ({ amountMinor: d.amountMinor, currency: d.currency })),
+      ...source.people.map((p) => ({ amountMinor: p.balanceMinor, currency: p.currency })),
     ],
     baseCurrencyCode,
+    rates,
   );
   const liabilitiesSum = await sumConvertedToBaseDetailed(
     db,
     [
-      ...creditCardBalances.map((a) => ({
-        amountMinor: a.balanceMinor,
-        currency: a.currency,
-      })),
-      ...loans.map((l) => ({
+      ...source.accounts
+        .filter((a) => a.type === 'credit_card')
+        .map((a) => ({ amountMinor: a.balanceMinor, currency: a.currency })),
+      ...source.loans.map((l) => ({
         amountMinor: clampRemaining(l.remainingBalanceMinor),
         currency: l.currency,
       })),
     ],
     baseCurrencyCode,
+    rates,
   );
   return {
     netWorthMinor: assetsSum.totalMinor - liabilitiesSum.totalMinor,
     unconvertedCurrencies: mergeUnconverted(assetsSum, liabilitiesSum),
   };
+}
+
+/** `computeNetWorth` for a caller that does not already hold the rows. */
+export async function getNetWorth(
+  db: LedgerDb,
+  userId: string,
+  baseCurrencyCode: string,
+  lookup?: RateLookup,
+): Promise<NetWorth> {
+  const [accounts, assets, deposits, loans, people] = await Promise.all([
+    db.select().from(schema.accounts).where(eq(schema.accounts.userId, userId)),
+    db.select().from(schema.assets).where(eq(schema.assets.userId, userId)),
+    db.select().from(schema.deposits).where(eq(schema.deposits.userId, userId)),
+    db.select().from(schema.loans).where(eq(schema.loans.userId, userId)),
+    db.select().from(schema.people).where(eq(schema.people.userId, userId)),
+  ]);
+  return computeNetWorth(
+    db,
+    baseCurrencyCode,
+    { accounts, assets, deposits, loans, people },
+    lookup,
+  );
 }
 
 export interface AccountItem {
@@ -171,7 +223,15 @@ export async function getAccountsData(db: LedgerDb, userId: string): Promise<Acc
 
   const baseCurrencyCode =
     currencies.find((c) => c.isBase === 1)?.code ?? currencies[0]?.code ?? '';
-  const netWorth = await getNetWorth(db, userId, baseCurrencyCode);
+  // Rows already in hand — `computeNetWorth`, not `getNetWorth`, so the same
+  // five tables are not queried twice for one page.
+  const netWorth = await computeNetWorth(db, baseCurrencyCode, {
+    accounts: accountRows,
+    assets: assetRows,
+    deposits: depositRows,
+    loans: loanRows,
+    people: peopleRows,
+  });
 
   const transactionsByPersonId = new Map<string, PersonTransactionItem[]>();
   for (const tx of peopleTxRows) {

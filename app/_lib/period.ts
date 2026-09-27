@@ -60,11 +60,17 @@ export function utcNoonOf(localDate: Date): number {
   return Date.UTC(localDate.getFullYear(), localDate.getMonth(), localDate.getDate(), 12);
 }
 
+/** The calendar month immediately before `(year, month)` — December of the
+ *  prior year when `month` is January. 1-indexed in and out. */
+export function previousYearMonth(year: number, month: number): { year: number; month: number } {
+  return month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
+}
+
 /** The calendar month immediately before `now`'s UTC month — December of
  *  the prior year when `now` falls in January. */
 export function getPreviousYearMonth(now: number = Date.now()): { year: number; month: number } {
   const { year, month } = getUtcYearMonth(now);
-  return month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
+  return previousYearMonth(year, month);
 }
 
 /** True when `(year, month)` is `now`'s own UTC calendar month — still accumulating, not closed. */

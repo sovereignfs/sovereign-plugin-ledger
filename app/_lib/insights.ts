@@ -1,5 +1,6 @@
 import type { LedgerDb } from '../_db/client';
 import { formatMoney } from './format';
+import { previousYearMonth } from './period';
 import { listCategoriesWithKinds, listTransactions } from './queries';
 import { getReportsData, type PeriodReport, type ReportsData } from './reports';
 
@@ -68,12 +69,20 @@ export function computeOverBudgetStreakInsights(periods: PeriodReport[]): string
   const insights: string[] = [];
   for (const [categoryId, name] of categoryNames) {
     let streak = 0;
+    // `periods` only contains months that had activity, so walking it directly
+    // treated a gap as if it were contiguous: over budget in March and in
+    // January, with nothing at all logged in February, read as "2 months
+    // running". A streak has to be consecutive calendar months, so each step
+    // must land on the month immediately before the last one counted.
+    let expected: { year: number; month: number } | null = null;
     for (const period of completed) {
+      if (expected && (period.year !== expected.year || period.month !== expected.month)) break;
       const entry = period.topCategories.find((c) => c.categoryId === categoryId);
       const overBudget =
         entry !== undefined && entry.predictedMinor > 0 && entry.actualMinor > entry.predictedMinor;
       if (!overBudget) break;
       streak += 1;
+      expected = previousYearMonth(period.year, period.month);
     }
     if (streak >= CONSECUTIVE_OVER_BUDGET_THRESHOLD) {
       insights.push(`${name} has run over budget ${streak} months running.`);
@@ -101,6 +110,7 @@ export function computeLargeTransactionInsights(
   transactions: InsightTransaction[],
   kindNames: Map<string, string>,
   now: number = Date.now(),
+  locale?: string,
 ): string[] {
   const byKind = new Map<string, InsightTransaction[]>();
   for (const tx of transactions) {
@@ -122,10 +132,13 @@ export function computeLargeTransactionInsights(
       latest.amountMinor >= averagePriorMinor * LARGE_TRANSACTION_MULTIPLIER
     ) {
       const name = kindNames.get(kindId) ?? 'expense';
-      // Server-rendered copy with no viewer locale available at this
-      // layer; `en-US` keeps it deterministic between SSR and hydration.
+      // The viewer's locale, threaded from the page's own `getRequestLocale()`.
+      // These strings were formatted with a hardcoded `en-US` while every other
+      // figure on the same screen went through `useFormatters()`, so a
+      // non-en-US viewer saw one insight card in a different number format from
+      // the rest of the page.
       insights.push(
-        `Your latest ${name} expense of ${formatMoney(latest.amountMinor, latest.currency, 'en-US')} is unusually large compared to your typical ${formatMoney(Math.round(averagePriorMinor), latest.currency, 'en-US')}.`,
+        `Your latest ${name} expense of ${formatMoney(latest.amountMinor, latest.currency, locale)} is unusually large compared to your typical ${formatMoney(Math.round(averagePriorMinor), latest.currency, locale)}.`,
       );
     }
   }
@@ -144,6 +157,7 @@ export async function getInsights(
   userId: string,
   reports?: ReportsData,
   now: number = Date.now(),
+  locale?: string,
 ): Promise<string[]> {
   const [{ periods }, transactions, categoriesWithKinds] = await Promise.all([
     reports ?? getReportsData(db, userId, now),
@@ -159,6 +173,6 @@ export async function getInsights(
 
   return [
     ...computeOverBudgetStreakInsights(periods),
-    ...computeLargeTransactionInsights(transactions, kindNames, now),
+    ...computeLargeTransactionInsights(transactions, kindNames, now, locale),
   ];
 }

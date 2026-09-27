@@ -317,3 +317,69 @@ describe('getInsights', () => {
     );
   });
 });
+
+describe('computeOverBudgetStreakInsights — calendar contiguity', () => {
+  const over = (categoryId: string, name: string) => ({
+    categoryId,
+    name,
+    actualMinor: 30_000,
+    predictedMinor: 20_000,
+    currency: 'EUR',
+    varianceLabel: '+50% vs. budget',
+  });
+
+  const period = (year: number, month: number, topCategories: ReturnType<typeof over>[]) => ({
+    year,
+    month,
+    isCurrent: false,
+    incomeMinor: 0,
+    spentMinor: 0,
+    projectedSavingsMinor: 0,
+    actualSavingsMinor: 0,
+    actualSavingsNetOfJarsMinor: 0,
+    unconvertedCurrencies: [],
+    reviewed: false,
+    reviewedAt: null,
+    topCategories,
+  });
+
+  it('does not count a gap month as part of a streak', async () => {
+    // March and January are over budget; February had no activity at all, so
+    // `getReportsData` produces no period for it. Walking the list directly
+    // read this as "2 months running".
+    const insights = computeOverBudgetStreakInsights([
+      period(2026, 3, [over('cat-1', 'Eating out')]),
+      period(2026, 1, [over('cat-1', 'Eating out')]),
+    ]);
+    expect(insights).toEqual([]);
+  });
+
+  it('still counts genuinely consecutive months, across a year boundary', async () => {
+    const insights = computeOverBudgetStreakInsights([
+      period(2026, 1, [over('cat-1', 'Eating out')]),
+      period(2025, 12, [over('cat-1', 'Eating out')]),
+    ]);
+    expect(insights).toEqual(['Eating out has run over budget 2 months running.']);
+  });
+});
+
+describe('computeLargeTransactionInsights — locale', () => {
+  it('formats money in the viewer’s locale, not a hardcoded en-US', () => {
+    const now = Date.UTC(2026, 5, 3);
+    const transactions = [
+      { kindId: 'k1', amountMinor: 100_00, occurredAt: now - 4000, currency: 'EUR' },
+      { kindId: 'k1', amountMinor: 100_00, occurredAt: now - 3000, currency: 'EUR' },
+      { kindId: 'k1', amountMinor: 100_00, occurredAt: now - 2000, currency: 'EUR' },
+      { kindId: 'k1', amountMinor: 100_00, occurredAt: now - 1000, currency: 'EUR' },
+      { kindId: 'k1', amountMinor: 1_000_00, occurredAt: now, currency: 'EUR' },
+    ];
+    const names = new Map([['k1', 'groceries']]);
+
+    const [enUs] = computeLargeTransactionInsights(transactions, names, now, 'en-US');
+    const [deDe] = computeLargeTransactionInsights(transactions, names, now, 'de-DE');
+    expect(enUs).toContain('€1,000.00');
+    // German formatting: '.' groups and ',' decimals, symbol trailing.
+    expect(deDe).toContain('1.000,00');
+    expect(deDe).not.toBe(enUs);
+  });
+});

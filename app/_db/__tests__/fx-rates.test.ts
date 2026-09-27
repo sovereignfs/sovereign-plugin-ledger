@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { getCrossRateAsOf, getRateAsOf } from '../fx-rates';
+import { getCrossRateAsOf, getRateAsOf, loadRateLookup } from '../fx-rates';
 import { fxRates } from '../schema';
-import { createTestDb, type TestDb } from './test-db';
+import { createTestDb, recordSql, type TestDb } from './test-db';
 
 let t: TestDb;
 
@@ -98,5 +98,50 @@ describe('getCrossRateAsOf', () => {
     expect(
       await getCrossRateAsOf(t.ledger, { from: 'EUR', to: 'GBP', asOfDate: '2026-08-27' }),
     ).toBeNull();
+  });
+});
+
+describe('loadRateLookup', () => {
+  it('answers as-of queries in memory with a single query, whatever the date spread', async () => {
+    await t.db.insert(fxRates).values([
+      { id: 'eur-jan', currencyCode: 'EUR', pivotCode: 'USD', rate: 1.1, asOfDate: '2026-01-01' },
+      { id: 'eur-mar', currencyCode: 'EUR', pivotCode: 'USD', rate: 1.2, asOfDate: '2026-03-01' },
+      {
+        id: 'jpy-jan',
+        currencyCode: 'JPY',
+        pivotCode: 'USD',
+        rate: 0.0067,
+        asOfDate: '2026-01-01',
+      },
+    ]);
+
+    const recorded = recordSql(t.client);
+
+    const lookup = await loadRateLookup(t.ledger, ['EUR', 'JPY', 'USD']);
+    recorded.stop();
+
+    expect(recorded.calls.filter((sql) => sql.includes('ledger_fx_rates'))).toHaveLength(1);
+
+    // The pivot leg is always 1, and a currency against itself is 1.
+    expect(lookup.crossRate('USD', 'USD', '2026-06-01')).toBe(1);
+    expect(lookup.crossRate('EUR', 'EUR', '2026-06-01')).toBe(1);
+    // Latest rate on or before the date, per currency, not the newest overall.
+    expect(lookup.crossRate('EUR', 'USD', '2026-02-01')).toBeCloseTo(1.1, 10);
+    expect(lookup.crossRate('EUR', 'USD', '2026-06-01')).toBeCloseTo(1.2, 10);
+    // Derived cross-rate through the pivot, same as `getCrossRateAsOf`.
+    expect(lookup.crossRate('JPY', 'EUR', '2026-02-01')).toBeCloseTo(0.0067 / 1.1, 10);
+    // No rate as of a date before any row exists.
+    expect(lookup.crossRate('EUR', 'USD', '2025-12-31')).toBeNull();
+    // A currency with no rows at all.
+    expect(lookup.crossRate('GBP', 'USD', '2026-06-01')).toBeNull();
+  });
+
+  it('issues no query at all when only the pivot is needed', async () => {
+    const recorded = recordSql(t.client);
+    const lookup = await loadRateLookup(t.ledger, ['USD']);
+    recorded.stop();
+
+    expect(recorded.calls.filter((sql) => sql.includes('ledger_fx_rates'))).toHaveLength(0);
+    expect(lookup.crossRate('USD', 'USD', '2026-06-01')).toBe(1);
   });
 });
