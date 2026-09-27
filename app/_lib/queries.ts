@@ -81,6 +81,24 @@ export async function listTransactions(db: LedgerDb, userId: string) {
     .orderBy(desc(schema.transactions.occurredAt));
 }
 
+/**
+ * The caller's most recent transactions, newest first, bounded.
+ *
+ * Overview's "Recent activity" used to be built from *this calendar month's*
+ * transactions, so on the 1st of every month it read as empty however much was
+ * logged the day before. "Recent" is a rolling window, not a calendar one —
+ * the same all-time "most recent 5" shape Budget's own recent list already
+ * uses.
+ */
+export async function listRecentTransactions(db: LedgerDb, userId: string, limit: number) {
+  return db
+    .select()
+    .from(schema.transactions)
+    .where(eq(schema.transactions.userId, userId))
+    .orderBy(desc(schema.transactions.occurredAt))
+    .limit(limit);
+}
+
 /** A single kind's own transactions, most recent first — e.g. a Budget detail column. */
 export async function listTransactionsForKind(db: LedgerDb, userId: string, kindId: string) {
   return db

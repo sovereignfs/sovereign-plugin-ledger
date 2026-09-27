@@ -1,5 +1,5 @@
 import type { LedgerDb } from '../_db/client';
-import { getCrossRateAsOf } from '../_db/fx-rates';
+import { loadRateLookup, type RateLookup } from '../_db/fx-rates';
 import { todayDateOnly } from './period';
 
 export interface CurrencyAmount {
@@ -37,6 +37,7 @@ export async function sumConvertedToBaseDetailed(
   db: LedgerDb,
   amounts: CurrencyAmount[],
   baseCode: string,
+  lookup?: RateLookup,
 ): Promise<ConvertedSum> {
   const today = todayDateOnly();
   const byKey = new Map<string, { currency: string; asOfDate: string; minor: number }>();
@@ -47,6 +48,14 @@ export async function sumConvertedToBaseDetailed(
     entry.minor += amountMinor;
     byKey.set(key, entry);
   }
+  if (byKey.size === 0) return { totalMinor: 0, unconvertedCurrencies: [] };
+
+  // One query for every rate this sum could need, unless a caller already
+  // loaded one to share across several sums (`loadRateLookup`'s own doc
+  // comment explains why the per-pair path was a real problem).
+  const rates =
+    lookup ??
+    (await loadRateLookup(db, [baseCode, ...[...byKey.values()].map((entry) => entry.currency)]));
 
   let total = 0;
   const unconverted = new Set<string>();
@@ -55,7 +64,7 @@ export async function sumConvertedToBaseDetailed(
       total += minor;
       continue;
     }
-    const rate = await getCrossRateAsOf(db, { from: currency, to: baseCode, asOfDate });
+    const rate = rates.crossRate(currency, baseCode, asOfDate);
     if (rate === null) {
       unconverted.add(currency);
       continue;
@@ -70,8 +79,9 @@ export async function sumConvertedToBase(
   db: LedgerDb,
   amounts: CurrencyAmount[],
   baseCode: string,
+  lookup?: RateLookup,
 ): Promise<number> {
-  return (await sumConvertedToBaseDetailed(db, amounts, baseCode)).totalMinor;
+  return (await sumConvertedToBaseDetailed(db, amounts, baseCode, lookup)).totalMinor;
 }
 
 /** Merges the `unconvertedCurrencies` of several sums into one sorted, distinct list. */

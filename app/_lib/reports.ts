@@ -1,8 +1,15 @@
 import { eq } from 'drizzle-orm';
 import type { LedgerDb } from '../_db/client';
 import * as schema from '../_db/schema';
+import { loadRateLookup } from '../_db/fx-rates';
 import { mergeUnconverted, sumConvertedToBaseDetailed } from './money';
-import { dateOnlyOf, getMonthRange, getUtcYearMonth, isCurrentMonth } from './period';
+import {
+  dateOnlyOf,
+  getMonthRange,
+  getUtcYearMonth,
+  isCurrentMonth,
+  todayDateOnly,
+} from './period';
 import { listCategoriesWithKinds, listTransactions } from './queries';
 
 /** Threshold under which a category reads as "on budget" rather than a
@@ -95,13 +102,28 @@ export async function getReportsData(
 
   const baseCurrencyCode =
     currencies.find((c) => c.isBase === 1)?.code ?? currencies[0]?.code ?? '';
-  const incomeSum = await sumConvertedToBaseDetailed(db, incomes, baseCurrencyCode);
+
+  // One rate load for the whole payload. Historical amounts price at their own
+  // date, so the per-pair path issued a query pair per (currency, transaction
+  // day) — per period — which on a couple of years of multi-currency history
+  // was over a thousand sequential round-trips to render one page, repeated
+  // for every user on every tick of the month-end job.
+  const rates = await loadRateLookup(db, [
+    baseCurrencyCode,
+    ...incomes.map((i) => i.currency),
+    ...categoriesWithKinds.flatMap((c) => c.kinds.map((k) => k.currency)),
+    ...allTransactions.map((tx) => tx.currency),
+    ...jarTransactions.map((tx) => tx.currency),
+  ]);
+
+  const incomeSum = await sumConvertedToBaseDetailed(db, incomes, baseCurrencyCode, rates);
   const predictedSum = await sumConvertedToBaseDetailed(
     db,
     categoriesWithKinds.flatMap((c) =>
       c.kinds.map((k) => ({ amountMinor: k.predictedAmountMinor, currency: k.currency })),
     ),
     baseCurrencyCode,
+    rates,
   );
   const incomeMinor = incomeSum.totalMinor;
   const totalPredictedMinor = predictedSum.totalMinor;
@@ -117,6 +139,13 @@ export async function getReportsData(
       return periodKey(year, month);
     }),
   );
+
+  const today = todayDateOnly(now);
+  const sortKeyFor = (amountMinor: number, code: string): number => {
+    if (code === baseCurrencyCode) return amountMinor;
+    const rate = rates.crossRate(code, baseCurrencyCode, today);
+    return rate === null ? -1 : Math.round(amountMinor * rate);
+  };
 
   const periods: PeriodReport[] = [];
   for (const key of periodKeys) {
@@ -140,6 +169,7 @@ export async function getReportsData(
         asOfDate: dateOnlyOf(tx.occurredAt),
       })),
       baseCurrencyCode,
+      rates,
     );
     // Withdrawals are stored negative, so this sum is ≤ 0 and *adding* it
     // to actual savings is what nets jar-funded spending out.
@@ -151,6 +181,7 @@ export async function getReportsData(
         asOfDate: dateOnlyOf(tx.occurredAt),
       })),
       baseCurrencyCode,
+      rates,
     );
     const spentMinor = spentSum.totalMinor;
 
@@ -190,7 +221,13 @@ export async function getReportsData(
         varianceLabel,
       });
     }
-    topCategories.sort((a, b) => b.actualMinor - a.actualMinor).splice(5);
+    // Ordered on the base-currency value, not the raw stored integers: this is
+    // "the biggest spends this period", and 50_000 minor units of one currency
+    // is not more than 50_000 of another. A category whose rate is missing
+    // sorts last rather than being ranked as if it were tiny.
+    topCategories
+      .sort((a, b) => sortKeyFor(b.actualMinor, b.currency) - sortKeyFor(a.actualMinor, a.currency))
+      .splice(5);
 
     const reviewedAt = reviewedByKey.get(key) ?? null;
 

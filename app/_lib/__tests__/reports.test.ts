@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import * as schema from '../../_db/schema';
-import { createTestDb, type TestDb } from '../../_db/__tests__/test-db';
+import { createTestDb, recordSql, type TestDb } from '../../_db/__tests__/test-db';
 import { getReportsData } from '../reports';
 
 let t: TestDb;
@@ -297,5 +297,72 @@ describe('getReportsData — actual net of jars (L.12)', () => {
       'August',
     );
     expect(august.actualSavingsNetOfJarsMinor).toBe(august.actualSavingsMinor);
+  });
+});
+
+describe('getReportsData — one rate load, whatever the history', () => {
+  it('reads ledger_fx_rates exactly once across many periods and spend dates', async () => {
+    const now = Date.UTC(2026, 6, 20, 12);
+    const base = { tenantId, userId, createdAt: now, updatedAt: now };
+    await t.db.insert(schema.currencies).values([
+      { id: 'cur-eur', code: 'EUR', isBase: 1, ...base },
+      { id: 'cur-usd', code: 'USD', isBase: 0, ...base },
+    ]);
+    await t.db.insert(schema.categories).values({
+      id: 'cat-usd',
+      name: 'Subscriptions',
+      type: 'dynamic',
+      ...base,
+    });
+    await t.db.insert(schema.kinds).values({
+      id: 'kind-usd',
+      categoryId: 'cat-usd',
+      name: 'Subscriptions',
+      predictedAmountMinor: 5_000,
+      currency: 'USD',
+      recurrenceIntervalUnit: null,
+      recurrenceIntervalCount: null,
+      recurrenceAnchorDate: null,
+      ...base,
+    });
+    await t.db.insert(schema.fxRates).values({
+      id: 'r-eur',
+      currencyCode: 'EUR',
+      pivotCode: 'USD',
+      rate: 1.1,
+      asOfDate: '2026-01-01',
+      source: 'test',
+    });
+
+    // Six months of history, one foreign-currency expense on 20 distinct days
+    // each. Historical amounts price at their own date, so the old per-pair
+    // path issued a query pair for every one of these 120 (currency, day)
+    // combinations, per period.
+    const rows = [];
+    for (let month = 0; month < 6; month += 1) {
+      for (let day = 1; day <= 20; day += 1) {
+        const occurredAt = Date.UTC(2026, month, day, 12);
+        rows.push({
+          id: `tx-${month}-${day}`,
+          tenantId,
+          userId,
+          kindId: 'kind-usd',
+          amountMinor: 1_000,
+          currency: 'USD',
+          occurredAt,
+          note: null,
+          createdAt: occurredAt,
+          updatedAt: occurredAt,
+        });
+      }
+    }
+    await t.db.insert(schema.transactions).values(rows);
+
+    const recorded = recordSql(t.client);
+    const data = await getReportsData(t.ledger, userId, now);
+    recorded.stop();
+
+    expect(data.periods).toHaveLength(6);
+    expect(recorded.calls.filter((sql) => sql.includes('ledger_fx_rates'))).toHaveLength(1);
   });
 });

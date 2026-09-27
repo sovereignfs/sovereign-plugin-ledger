@@ -190,8 +190,80 @@ describe('getAccountsData', () => {
 
     const data = await getAccountsData(t.ledger, userId);
     expect(data.baseCurrencyCode).toBe('EUR');
-    expect(data.netWorthMinor).toBe(0);
+    // What Alex still owes is part of net worth (CONCEPT.md §3 lists people
+    // alongside accounts, cards, assets, deposits and loans) — it used to be
+    // left out entirely, so a whole section of this screen counted for nothing.
+    expect(data.netWorthMinor).toBe(12_000);
     expect(data.people).toHaveLength(1);
     expect(data.people[0]?.transactions.map((tx) => tx.id)).toEqual(['ptx-2', 'ptx-1']);
+  });
+});
+
+describe('computeNetWorth — people', () => {
+  it('counts money owed to the user as an asset and money they owe as a liability', async () => {
+    await seedCurrency();
+    const now = Date.now();
+    const base = { tenantId, userId, currency: 'EUR', createdAt: now, updatedAt: now };
+    await t.db.insert(schema.people).values([
+      { id: 'owes-me', name: 'Alex', balanceMinor: 25_000, ...base },
+      { id: 'i-owe', name: 'Sam', balanceMinor: -10_000, ...base },
+    ]);
+
+    // 25_000 owed to the user, 10_000 owed by them.
+    expect((await getNetWorth(t.ledger, userId, 'EUR')).netWorthMinor).toBe(15_000);
+  });
+
+  it('leaves saving jars out of net worth, since that money already sits in an account', async () => {
+    await seedCurrency();
+    const now = Date.now();
+    await t.db.insert(schema.accounts).values({
+      id: 'acc-1',
+      tenantId,
+      userId,
+      name: 'Checking',
+      institution: null,
+      type: 'bank',
+      balanceMinor: 100_000,
+      currency: 'EUR',
+      creditLimitMinor: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await t.db.insert(schema.categories).values({
+      id: 'cat-jar',
+      tenantId,
+      userId,
+      name: 'Travel jar',
+      type: 'saving',
+      createdAt: now,
+      updatedAt: now,
+    });
+    await t.db.insert(schema.kinds).values({
+      id: 'kind-jar',
+      tenantId,
+      userId,
+      categoryId: 'cat-jar',
+      name: 'Travel jar',
+      predictedAmountMinor: 10_000,
+      currency: 'EUR',
+      recurrenceIntervalUnit: null,
+      recurrenceIntervalCount: null,
+      recurrenceAnchorDate: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await t.db.insert(schema.savingJars).values({
+      id: 'jar-1',
+      tenantId,
+      userId,
+      kindId: 'kind-jar',
+      balanceMinor: 40_000,
+      currency: 'EUR',
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // The bank balance only — counting the jar too would double the same money.
+    expect((await getNetWorth(t.ledger, userId, 'EUR')).netWorthMinor).toBe(100_000);
   });
 });

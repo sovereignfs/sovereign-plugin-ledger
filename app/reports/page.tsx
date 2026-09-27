@@ -18,6 +18,6 @@ export default async function ReportsPage() {
   const [data, apps] = await Promise.all([getReportsData(db, actor.userId), listMobileApps()]);
   // Insights reuse the report payload computed above rather than
   // recomputing it (`getInsights`'s optional third argument).
-  const insights = await getInsights(db, actor.userId, data);
+  const insights = await getInsights(db, actor.userId, data, Date.now(), locale);
   return <ReportsView data={data} apps={apps} insights={insights} locale={locale} />;
 }

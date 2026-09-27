@@ -13,7 +13,8 @@
  * `:memory:` client, previously-migrated tables are simply gone. A file URL
  * gives all connections the same database.
  */
-import { createClient, type Client } from '@libsql/client';
+import { createClient, type Client, type InStatement } from '@libsql/client';
+import { vi } from 'vitest';
 import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql';
 import { migrate } from 'drizzle-orm/libsql/migrator';
 import { randomUUID } from 'node:crypto';
@@ -47,4 +48,23 @@ export async function createTestDb(): Promise<TestDb> {
       for (const suffix of ['', '-wal', '-shm']) rmSync(file + suffix, { force: true });
     },
   };
+}
+
+/**
+ * Records the SQL of every statement a test's client runs, so a test can
+ * assert on query *count* and not just results — the only way to pin a
+ * batching fix like `loadRateLookup` in place, since the values it returns are
+ * identical either way.
+ *
+ * `Client.execute` is overloaded, so the implementation is cast rather than
+ * inferred; `vi.spyOn` cannot derive a single call signature from it.
+ */
+export function recordSql(client: Client): { calls: string[]; stop: () => void } {
+  const calls: string[] = [];
+  const original = client.execute.bind(client);
+  const spy = vi.spyOn(client, 'execute').mockImplementation(((stmt: InStatement) => {
+    calls.push(typeof stmt === 'string' ? stmt : stmt.sql);
+    return original(stmt as never);
+  }) as never);
+  return { calls, stop: () => spy.mockRestore() };
 }

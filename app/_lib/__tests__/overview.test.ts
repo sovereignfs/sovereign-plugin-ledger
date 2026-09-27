@@ -249,3 +249,126 @@ describe('getOverviewData', () => {
     expect(data.topCategories.map((c) => c.name)).not.toContain('Loans');
   });
 });
+
+describe('getOverviewData — recent activity window and currency-aware ordering', () => {
+  const now = Date.UTC(2026, 5, 3, 12); // 3 June 2026, early in the month
+
+  async function seedTwoCurrencyBudget() {
+    const base = { tenantId, userId, createdAt: now, updatedAt: now };
+    await t.db.insert(schema.currencies).values([
+      { id: 'cur-eur', code: 'EUR', isBase: 1, ...base },
+      { id: 'cur-jpy', code: 'JPY', isBase: 0, ...base },
+    ]);
+    await t.db.insert(schema.categories).values([
+      { id: 'cat-eur', name: 'Rent', type: 'fixed', ...base },
+      { id: 'cat-jpy', name: 'Tokyo trip', type: 'dynamic', ...base },
+    ]);
+    await t.db.insert(schema.kinds).values([
+      {
+        id: 'kind-eur',
+        categoryId: 'cat-eur',
+        name: 'Rent',
+        predictedAmountMinor: 100_000, // €1,000.00
+        currency: 'EUR',
+        recurrenceIntervalUnit: null,
+        recurrenceIntervalCount: null,
+        recurrenceAnchorDate: null,
+        ...base,
+      },
+      {
+        id: 'kind-jpy',
+        categoryId: 'cat-jpy',
+        name: 'Tokyo trip',
+        predictedAmountMinor: 500_000, // a bigger integer, a smaller real amount
+        currency: 'JPY',
+        recurrenceIntervalUnit: null,
+        recurrenceIntervalCount: null,
+        recurrenceAnchorDate: null,
+        ...base,
+      },
+    ]);
+    // 1 EUR = 1.10 USD, 1 JPY = 0.0067 USD.
+    await t.db.insert(schema.fxRates).values([
+      {
+        id: 'r-eur',
+        currencyCode: 'EUR',
+        pivotCode: 'USD',
+        rate: 1.1,
+        asOfDate: '2026-01-01',
+        source: 'test',
+      },
+      {
+        id: 'r-jpy',
+        currencyCode: 'JPY',
+        pivotCode: 'USD',
+        rate: 0.0067,
+        asOfDate: '2026-01-01',
+        source: 'test',
+      },
+    ]);
+  }
+
+  it('shows activity from before this month rather than emptying on the 1st', async () => {
+    await seedTwoCurrencyBudget();
+    const lastMonth = Date.UTC(2026, 4, 28, 12); // 28 May 2026
+    await t.db.insert(schema.transactions).values({
+      id: 'tx-last-month',
+      tenantId,
+      userId,
+      kindId: 'kind-eur',
+      amountMinor: 5_000,
+      currency: 'EUR',
+      occurredAt: lastMonth,
+      note: 'Late May',
+      createdAt: lastMonth,
+      updatedAt: lastMonth,
+    });
+
+    const data = await getOverviewData(t.ledger, userId, now);
+    // "Recent" is a rolling window: this used to read empty for the first days
+    // of every month however much was logged just before it.
+    expect(data.recentActivity.map((i) => i.id)).toEqual(['tx-last-month']);
+    // ...while "this month" totals stay scoped to the month.
+    expect(data.thisMonth.spentMinor).toBe(0);
+  });
+
+  it('ranks top categories by their base-currency value, not their raw integers', async () => {
+    await seedTwoCurrencyBudget();
+    const data = await getOverviewData(t.ledger, userId, now);
+    // JPY's stored integer is the larger of the two (500_000 vs 100_000) but
+    // it is worth far less: ¥5,000 ≈ €30 against €1,000.
+    expect(data.topCategories.map((c) => c.categoryId)).toEqual(['cat-eur', 'cat-jpy']);
+  });
+
+  it('prices this month’s spend at each expense’s own date, as Reports does', async () => {
+    await seedTwoCurrencyBudget();
+    // A later, different rate. Converting at "today" would use this one for an
+    // expense that happened while the earlier rate was in effect.
+    await t.db.insert(schema.fxRates).values({
+      id: 'r-jpy-later',
+      currencyCode: 'JPY',
+      pivotCode: 'USD',
+      rate: 0.02,
+      asOfDate: '2026-06-02',
+      source: 'test',
+    });
+    const spentAt = Date.UTC(2026, 5, 1, 12); // 1 June, before the new rate
+    await t.db.insert(schema.transactions).values({
+      id: 'tx-jpy',
+      tenantId,
+      userId,
+      kindId: 'kind-jpy',
+      amountMinor: 100_000,
+      currency: 'JPY',
+      occurredAt: spentAt,
+      note: null,
+      createdAt: spentAt,
+      updatedAt: spentAt,
+    });
+
+    const data = await getOverviewData(t.ledger, userId, now);
+    // 100_000 JPY minor × (0.0067 / 1.1) = 609, the 1 June rate.
+    // The 2 June rate would have given 1_818.
+    expect(data.thisMonth.spentMinor).toBe(609);
+  });
+});

@@ -39,7 +39,7 @@ export default async function LedgerHomePage() {
   const [data, apps, insights] = await Promise.all([
     getOverviewData(db, actor.userId),
     listMobileApps(),
-    getInsights(db, actor.userId),
+    getInsights(db, actor.userId, undefined, Date.now(), locale),
   ]);
   return <OverviewView data={data} apps={apps} insights={insights} locale={locale} />;
 }
