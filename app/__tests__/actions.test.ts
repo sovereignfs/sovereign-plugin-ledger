@@ -14,6 +14,8 @@ import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestDb, type TestDb } from '../_db/__tests__/test-db';
 import * as schema from '../_db/schema';
+import { clampRemaining, getAccountsData } from '../_lib/accounts';
+import { getBudgetData } from '../_lib/budget';
 import { getSettingsData } from '../_lib/settings';
 
 const harness = vi.hoisted(() => ({
@@ -1017,5 +1019,126 @@ describe('review fixes — validation, idempotency, loan payments', () => {
     expect((await actions.markPeriodReviewed({ year: current.year + 1, month: 1 })).ok).toBe(false);
     expect((await actions.markPeriodReviewed({ year: 2026, month: 13 })).ok).toBe(false);
     expect(await t.db.select().from(schema.periodReviews)).toHaveLength(0);
+  });
+});
+
+describe('L.16 — loan payment reversal and per-currency loan grouping', () => {
+  beforeEach(async () => {
+    actAs(owner);
+    await actions.createCurrency({ code: 'EUR', isBase: true });
+  });
+
+  const loanBase = {
+    lender: 'Bank',
+    principalMinor: 10_000,
+    remainingBalanceMinor: 8_000,
+    installmentAmountMinor: 500,
+    startDate: '2025-01-01',
+    endDate: '2027-12-01',
+  };
+
+  async function remaining(): Promise<number> {
+    return must((await t.db.select().from(schema.loans))[0], 'loan').remainingBalanceMinor;
+  }
+
+  it('reverses a payment larger than the remaining balance without inflating it', async () => {
+    await actions.createLoan({ ...loanBase, name: 'Car loan', currency: 'EUR' });
+    const loan = must((await t.db.select().from(schema.loans))[0], 'loan');
+
+    // An overpayment: more than the 8_000 still owed.
+    expect(
+      (await actions.createTransaction({ kindId: loan.linkedKindId, amountMinor: 10_000 })).ok,
+    ).toBe(true);
+    const overpaid = await remaining();
+    const tx = must((await t.db.select().from(schema.transactions))[0], 'transaction');
+
+    // Deleting it must restore the balance exactly, not the clamped figure.
+    expect((await actions.deleteTransaction({ transactionId: tx.id })).ok).toBe(true);
+    expect(await remaining()).toBe(8_000);
+
+    // And the overpaid figure itself is never presented as a negative debt.
+    expect(clampRemaining(overpaid)).toBe(0);
+  });
+
+  it('edits a payment down from an overpayment to the right balance', async () => {
+    await actions.createLoan({ ...loanBase, name: 'Car loan', currency: 'EUR' });
+    const loan = must((await t.db.select().from(schema.loans))[0], 'loan');
+    await actions.createTransaction({ kindId: loan.linkedKindId, amountMinor: 10_000 });
+    const tx = must((await t.db.select().from(schema.transactions))[0], 'transaction');
+
+    expect(
+      (await actions.updateTransaction({ transactionId: tx.id, amountMinor: 500 })).ok,
+    ).toBe(true);
+    // 8_000 owed minus a 500 payment.
+    expect(await remaining()).toBe(7_500);
+  });
+
+  it('floors an overpaid loan at zero in the Accounts payload and in net worth', async () => {
+    await actions.createLoan({ ...loanBase, name: 'Car loan', currency: 'EUR' });
+    const loan = must((await t.db.select().from(schema.loans))[0], 'loan');
+    await actions.createTransaction({ kindId: loan.linkedKindId, amountMinor: 10_000 });
+
+    const data = await getAccountsData(t.ledger, owner.id);
+    expect(must(data.loans[0], 'loan item').remainingBalanceMinor).toBe(0);
+    // No assets, and the overpaid loan must not register as a negative liability.
+    expect(data.netWorthMinor).toBe(0);
+  });
+
+  it('keeps a second loan in another currency out of the first loan’s category', async () => {
+    await actions.createCurrency({ code: 'USD' });
+    await actions.createLoan({ ...loanBase, name: 'Car loan', currency: 'EUR' });
+    await actions.createLoan({ ...loanBase, name: 'Study loan', currency: 'USD' });
+
+    const categories = await t.db.select().from(schema.categories);
+    expect(categories).toHaveLength(2);
+    expect(categories.map((c) => c.name).sort()).toEqual(['Loans', 'Loans (USD)']);
+
+    // Every category still holds exactly one currency — the invariant Budget,
+    // Overview and Reports all sum raw against.
+    const kinds = await t.db.select().from(schema.kinds);
+    for (const category of categories) {
+      const currencies = new Set(
+        kinds.filter((k) => k.categoryId === category.id).map((k) => k.currency),
+      );
+      expect(currencies.size).toBe(1);
+    }
+  });
+
+  it('reuses the shared Loans category for a second loan in the same currency', async () => {
+    await actions.createLoan({ ...loanBase, name: 'Car loan', currency: 'EUR' });
+    await actions.createLoan({ ...loanBase, name: 'Study loan', currency: 'EUR' });
+
+    const categories = await t.db.select().from(schema.categories);
+    expect(categories).toHaveLength(1);
+    expect(must(categories[0], 'category').name).toBe('Loans');
+    expect(await t.db.select().from(schema.kinds)).toHaveLength(2);
+  });
+
+  it('reuses an emptied Loans category for a loan in a different currency', async () => {
+    await actions.createCurrency({ code: 'USD' });
+    await actions.createLoan({ ...loanBase, name: 'Car loan', currency: 'EUR' });
+    const loan = must((await t.db.select().from(schema.loans))[0], 'loan');
+    // deleteLoan removes the kind but leaves the category behind.
+    expect((await actions.deleteLoan({ loanId: loan.id })).ok).toBe(true);
+
+    await actions.createLoan({ ...loanBase, name: 'Study loan', currency: 'USD' });
+    const categories = await t.db.select().from(schema.categories);
+    expect(categories).toHaveLength(1);
+    expect(must(categories[0], 'category').name).toBe('Loans');
+  });
+
+  it('a mixed-currency Budget total can no longer be produced through createLoan', async () => {
+    await actions.createCurrency({ code: 'USD' });
+    await actions.createLoan({ ...loanBase, name: 'Car loan', currency: 'EUR' });
+    await actions.createLoan({ ...loanBase, name: 'Study loan', currency: 'USD' });
+
+    const budget = await getBudgetData(t.ledger, owner.id);
+    // Two separate Fixed rows, each budgeted 500 in its own currency — never
+    // one row reading 1_000 of whichever currency happened to be first.
+    expect(budget.fixed).toHaveLength(2);
+    for (const category of budget.fixed) {
+      expect(category.predictedAmountMinor).toBe(500);
+    }
+    expect(budget.fixed.map((c) => c.currency).sort()).toEqual(['EUR', 'USD']);
   });
 });

@@ -60,6 +60,15 @@ const LOAN_LINKED_KIND = 'A loan is linked to this — delete the loan from Acco
  */
 const LOANS_CATEGORY_NAME = 'Loans';
 
+/**
+ * The Loans category name for a currency other than whichever one claimed the
+ * plain `Loans` name first — see `resolveLoansCategoryId` for why loans are
+ * grouped per currency at all.
+ */
+function loansCategoryNameFor(currency: string): string {
+  return `${LOANS_CATEGORY_NAME} (${currency})`;
+}
+
 function refresh(): void {
   revalidatePath('/ledger', 'layout');
 }
@@ -623,7 +632,24 @@ export async function deleteKind(input: { kindId: string }): Promise<ActionResul
 // on delete, by the delta on edit) — the balance otherwise had to be edited
 // by hand after every payment.
 
-/** Apply `deltaMinor` to the remaining balance of the loan (if any) linked to `kindId`, floored at zero. */
+/**
+ * Apply `deltaMinor` to the remaining balance of the loan (if any) linked to
+ * `kindId`.
+ *
+ * **Deliberately unclamped.** An earlier version floored the stored value at
+ * zero, which made the operation non-invertible and silently inflated the
+ * balance: with 80.00 remaining, logging a 100.00 payment stored
+ * `max(0, -20.00)` = 0, and then *deleting* that payment stored
+ * `max(0, 0 + 100.00)` = 100.00 — 20.00 more than before the payment ever
+ * existed. Edits were wrong by the same clamped remainder. Storing the exact
+ * arithmetic result keeps create/edit/delete exactly reversible, which is the
+ * property the whole reversal mechanism depends on.
+ *
+ * An overpaid loan can therefore hold a negative remaining balance. That is
+ * real information (the loan is settled and then some), not a corrupt value,
+ * so it is floored where it is *presented* or summed as a liability
+ * (`accounts.ts`'s `clampRemaining`) rather than where it is stored.
+ */
 async function adjustLinkedLoanBalance(
   tx: LedgerTx,
   userId: string,
@@ -640,7 +666,7 @@ async function adjustLinkedLoanBalance(
   await tx
     .update(schema.loans)
     .set({
-      remainingBalanceMinor: Math.max(0, loan.remainingBalanceMinor + deltaMinor),
+      remainingBalanceMinor: loan.remainingBalanceMinor + deltaMinor,
       updatedAt: now,
     })
     .where(eq(schema.loans.id, loan.id));
@@ -1110,6 +1136,71 @@ export async function deleteDeposit(input: { depositId: string }): Promise<Actio
 // A transaction logged against the linked kind is an installment payment
 // and moves `remainingBalanceMinor` (see `adjustLinkedLoanBalance`).
 
+/**
+ * The Fixed category a new loan's installment kind joins — found or created
+ * for that loan's **own currency**.
+ *
+ * Budget, Overview and Reports each sum a category's kinds raw and label the
+ * total with the first kind's currency. That is only meaningful because
+ * `createKind` rejects a second currency inside one category — but
+ * `createLoan` inserts its kind directly and used to bypass that check, so a
+ * EUR loan and a USD loan both landed in the one shared "Loans" category and
+ * every screen showing its total added the two figures together as if they
+ * were the same unit.
+ *
+ * Loans are therefore grouped per currency instead of being rejected: the
+ * plain "Loans" name belongs to whichever currency claims it first, and each
+ * additional currency gets its own "Loans (CODE)". That keeps the invariant
+ * every aggregator relies on while still leaving Budget one row per currency
+ * rather than one per loan, which is what sharing a category was for.
+ */
+async function resolveLoansCategoryId(
+  tx: LedgerTx,
+  actor: Actor,
+  currency: string,
+  now: number,
+): Promise<string> {
+  const names = [LOANS_CATEGORY_NAME, loansCategoryNameFor(currency)];
+  const candidates = await tx
+    .select({ id: schema.categories.id, name: schema.categories.name })
+    .from(schema.categories)
+    .where(
+      and(
+        eq(schema.categories.userId, actor.userId),
+        eq(schema.categories.type, 'fixed'),
+        inArray(schema.categories.name, names),
+      ),
+    );
+
+  // Prefer the plain "Loans" category, but only while it is empty or already
+  // in this currency; an empty one is reusable (its last loan was deleted).
+  for (const name of names) {
+    const category = candidates.find((c) => c.name === name);
+    if (!category) continue;
+    const [sibling] = await tx
+      .select({ currency: schema.kinds.currency })
+      .from(schema.kinds)
+      .where(eq(schema.kinds.categoryId, category.id))
+      .limit(1);
+    if (!sibling || sibling.currency === currency) return category.id;
+  }
+
+  const name = candidates.some((c) => c.name === LOANS_CATEGORY_NAME)
+    ? loansCategoryNameFor(currency)
+    : LOANS_CATEGORY_NAME;
+  const categoryId = newId();
+  await tx.insert(schema.categories).values({
+    id: categoryId,
+    tenantId: actor.tenantId,
+    userId: actor.userId,
+    name,
+    type: 'fixed',
+    createdAt: now,
+    updatedAt: now,
+  });
+  return categoryId;
+}
+
 export async function createLoan(input: {
   name: string;
   lender: string;
@@ -1148,28 +1239,7 @@ export async function createLoan(input: {
   const db = await getDb();
   const now = Date.now();
   await db.transaction(async (tx) => {
-    const [existingCategory] = await tx
-      .select({ id: schema.categories.id })
-      .from(schema.categories)
-      .where(
-        and(
-          eq(schema.categories.userId, actor.userId),
-          eq(schema.categories.type, 'fixed'),
-          eq(schema.categories.name, LOANS_CATEGORY_NAME),
-        ),
-      );
-    const categoryId = existingCategory?.id ?? newId();
-    if (!existingCategory) {
-      await tx.insert(schema.categories).values({
-        id: categoryId,
-        tenantId: actor.tenantId,
-        userId: actor.userId,
-        name: LOANS_CATEGORY_NAME,
-        type: 'fixed',
-        createdAt: now,
-        updatedAt: now,
-      });
-    }
+    const categoryId = await resolveLoansCategoryId(tx, actor, currency, now);
 
     const kindId = newId();
     await tx.insert(schema.kinds).values({

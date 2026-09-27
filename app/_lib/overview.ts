@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import type { LedgerDb } from '../_db/client';
 import * as schema from '../_db/schema';
-import { getNetWorth } from './accounts';
+import { clampRemaining, getNetWorth } from './accounts';
 import { mergeUnconverted, sumConvertedToBaseDetailed } from './money';
 import { getCurrentMonthRange, getUtcYearMonth } from './period';
 import { listCategoriesWithKinds, listTransactionsInRange } from './queries';
@@ -171,7 +171,10 @@ export async function getOverviewData(
   );
   const loansSum = await sumConvertedToBaseDetailed(
     db,
-    loanRows.map((l) => ({ amountMinor: l.remainingBalanceMinor, currency: l.currency })),
+    loanRows.map((l) => ({
+      amountMinor: clampRemaining(l.remainingBalanceMinor),
+      currency: l.currency,
+    })),
     baseCurrencyCode,
   );
 
