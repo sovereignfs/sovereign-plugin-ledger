@@ -3,6 +3,18 @@ import type { LedgerDb } from '../_db/client';
 import * as schema from '../_db/schema';
 import { mergeUnconverted, sumConvertedToBaseDetailed } from './money';
 
+/**
+ * A loan's remaining balance as it is shown and as it counts against net
+ * worth. `actions.ts`'s `adjustLinkedLoanBalance` stores the exact
+ * arithmetic result so that logging, editing and deleting a payment stay
+ * reversible, which means an overpaid loan can hold a negative remaining
+ * balance. Nothing owes the lender less than nothing, so the figure is
+ * floored here — at the read edge — never in storage.
+ */
+export function clampRemaining(remainingBalanceMinor: number): number {
+  return Math.max(0, remainingBalanceMinor);
+}
+
 export interface NetWorth {
   netWorthMinor: number;
   /** Currencies left out of the total for lack of a rate — see `ConvertedSum`. */
@@ -44,7 +56,10 @@ export async function getNetWorth(
     db,
     [
       ...creditCardBalances.map((a) => ({ amountMinor: a.balanceMinor, currency: a.currency })),
-      ...loans.map((l) => ({ amountMinor: l.remainingBalanceMinor, currency: l.currency })),
+      ...loans.map((l) => ({
+        amountMinor: clampRemaining(l.remainingBalanceMinor),
+        currency: l.currency,
+      })),
     ],
     baseCurrencyCode,
   );
@@ -190,7 +205,7 @@ export async function getAccountsData(db: LedgerDb, userId: string): Promise<Acc
       name: l.name,
       lender: l.lender,
       principalMinor: l.principalMinor,
-      remainingBalanceMinor: l.remainingBalanceMinor,
+      remainingBalanceMinor: clampRemaining(l.remainingBalanceMinor),
       installmentAmountMinor: l.installmentAmountMinor,
       currency: l.currency,
       startDate: l.startDate,
