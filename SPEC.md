@@ -1116,8 +1116,8 @@ Process and docs: **this repository has no CI** — the only workflows move the
 have never run on a push or a pull request. A workflow composing the plugin
 into a platform checkout at `plugins/ledger.local/` was built and then pulled
 back out of this task on review: it is a change to how the repository is built
-rather than to the plugin, and belongs in its own PR. It is tracked as
-ROADMAP.md's Phase I so it is not silently dropped.
+rather than to the plugin, and belongs in its own PR. It landed separately,
+right after; see ROADMAP.md's Repository work section.
 
 Running those gates by hand instead still surfaced a backlog of its own:
 fifteen files were unformatted (`pnpm format:check` is a required gate, so they

@@ -1,0 +1,86 @@
+name: CI
+
+# Until now nothing verified this repository: the other two workflows only move
+# the `latest`/`stable` branches, so typecheck, lint, formatting and the test
+# suite had never run on a push or a pull request.
+#
+# This plugin has no build tooling of its own by design — `package.json` carries
+# only a `typecheck` script, and its dependencies (`@sovereignfs/sdk`,
+# `@sovereignfs/ui`, `@sovereignfs/tsconfig`, all `workspace:*`) resolve only
+# inside the platform monorepo's pnpm workspace. So CI reproduces the documented
+# development setup: check out the platform, drop this repo in at
+# `plugins/<slug>.local/`, and run the monorepo's own gates against it. Running
+# against the platform's `main` also makes SDK/UI drift a CI failure here rather
+# than something a contributor trips over by hand.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the platform monorepo
+        uses: actions/checkout@v7
+        with:
+          repository: sovereignfs/sovereign
+          path: sovereign
+          # A private platform repo would need a PAT with read access here.
+
+      - name: Check out this plugin as a .local dev plugin
+        uses: actions/checkout@v7
+        with:
+          path: sovereign/plugins/ledger.local
+
+      - uses: pnpm/action-setup@v4
+        with:
+          # Read the pnpm pin from the *platform's* package.json. This action
+          # resolves `package_json_file` relative to the job's working
+          # directory, which is the repository root — and this repo has no
+          # `packageManager` field, only the monorepo does. Omitting this is
+          # what made the first attempt at this workflow fail immediately with
+          # "No pnpm version is specified". Pointing at the platform's manifest
+          # rather than hardcoding a `version` here means the two can never
+          # drift apart.
+          package_json_file: sovereign/package.json
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: sovereign/.node-version
+          cache: pnpm
+          cache-dependency-path: sovereign/pnpm-lock.yaml
+
+      - name: Install
+        working-directory: sovereign
+        # `--frozen-lockfile` always fails with a `.local` plugin composed in:
+        # it is a workspace member the committed lockfile cannot know about.
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Typecheck
+        working-directory: sovereign
+        run: pnpm --filter sovereign-plugin-ledger typecheck
+
+      - name: Lint
+        working-directory: sovereign
+        # The monorepo's flat config, so this also enforces the SDK boundary
+        # rule — a plugin may import `@sovereignfs/sdk` and `@sovereignfs/ui`,
+        # never the platform's `runtime/src`.
+        run: pnpm exec eslint plugins/ledger.local
+
+      - name: Format
+        working-directory: sovereign/plugins/ledger.local
+        run: pnpm exec prettier --check "**/*.{ts,tsx,json,md,css,yml}" --ignore-path .gitignore
+
+      - name: Design tokens
+        working-directory: sovereign
+        run: pnpm design:tokens:check
+
+      - name: Tests
+        working-directory: sovereign
+        run: pnpm exec vitest run plugins/ledger.local
