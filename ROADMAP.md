@@ -88,25 +88,28 @@ picked up.
 | —    | Yearly report view (by category and by subcategory)                 | ⬜     | —         |
 | —    | Effective-dated budget/income history (CONCEPT.md §7 open question) | ⬜     | —         |
 
-## Deferred repository work
+## Repository work
 
-Not product scope — how this repository is built and checked. Tracked so it
-is not silently dropped.
+Not product scope — how this repository is built and checked.
 
 | Slot | Task                                                               | Status | Spec task |
 | ---- | ------------------------------------------------------------------ | ------ | --------- |
-| —    | CI: compose into a platform checkout and run its gates on every PR | ⬜     | —         |
+| —    | CI: compose into a platform checkout and run its gates on every PR | ✅     | —         |
 
-The only workflows here move the `latest`/`stable` branches, so typecheck,
-lint, formatting and the test suite have never run on a push or a pull
-request — they are run by hand from a platform checkout with this plugin
-composed in at `plugins/ledger.local/`. A workflow doing that was built
-during L.16 and pulled back out on review as a build-tooling change that
-belongs in its own PR. Note when picking it up: `pnpm/action-setup` resolves
-`packageManager` relative to the _job's_ working directory, and this repo's
-`package.json` has no such field — the monorepo's does, so the action needs
-an explicit `version` or a `package_json_file` pointing into the platform
-checkout.
+`.github/workflows/ci.yml` checks out `sovereignfs/sovereign`, drops this repo
+in at `plugins/ledger.local/`, and runs the monorepo's own gates — typecheck,
+ESLint (including the SDK boundary rule), Prettier, `design:tokens:check` and
+vitest. Before it, the other two workflows only moved the `latest`/`stable`
+branches, so none of those had ever run on a push or a pull request; they were
+run by hand. Running against the platform's `main` also makes SDK/UI drift a
+CI failure here rather than something a contributor trips over by hand.
+
+Two things worth knowing if it needs changing: `pnpm/action-setup` resolves
+`package_json_file` relative to the job's working directory, and this repo has
+no `packageManager` field — only the monorepo does, so the step points at
+`sovereign/package.json` rather than hardcoding a version that could drift.
+And `pnpm install` runs with `--no-frozen-lockfile`, because a `.local` plugin
+is a workspace member the committed lockfile cannot know about.
 
 ---
 
