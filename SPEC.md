@@ -1039,6 +1039,70 @@ currency. Remaining CONCEPT.md §4 scope that is still unbuilt is now
 tracked as ROADMAP.md's Phase I rather than left implicit. 120 tests pass
 (20 new); typecheck, lint, Prettier, and `design:tokens:check` are clean.
 
+✅ **L.17 shipped (0.17.0)** — the two expense dialogs, which share a form
+shape and a stylesheet, fixed together. Nothing here is a redesign; every
+change is the wireframed design actually arriving.
+
+**UI.** The desktop panel had no heading at all. It passed `title`, which
+`Dialog` renders only in its mobile bar — and mobile takes the `Drawer`
+branch, so that prop was dead: the panel opened with a bare `×` and the
+amount field against the top edge, where `web-shell.md` screen 6 draws an
+"Add expense" row. Switched to `header`, which renders at both widths. The
+mobile drawer had no gutter: `Drawer`'s panel is a bare scroll container and
+every consumer brings its own padding (the design system's own `DatePicker`
+does this with its `.drawerBody`), so the fields rendered edge to edge —
+measured at `x: 0, width: 390` on a 390px viewport, now `x: 16` with a 16px
+gutter each side. The actions scrolled with the body inside a `size="md"`
+panel capped at 42rem, so on a short window the submit button — and any
+error it had just produced — sat below the fold; they now ride in `Dialog`'s
+own pinned `footer`, with the mobile drawer keeping them inline since
+`Drawer` has no footer slot.
+
+**UX.** The fields sat in a plain `<div>`, so there was no form to submit and
+Enter did nothing on the app's primary daily action; they are a real
+`<form>` now, with the footer's button reaching it by `form=` since the
+footer is a DOM sibling of the scrolling region. The add dialog is rendered
+by shell chrome and never unmounts, so a failed submission's error survived
+a close and greeted the user again above an otherwise blank form; the whole
+surface is now keyed per open, which resets the result along with every
+field and retires the hand-written reset effect. `getExpenseFormOptions()`
+was called with `.then()` and no `.catch()`, so a rejected server action left
+the dialog on "Loading categories…" forever — it now offers a retry. The
+submit button disabled itself silently; it now always carries the reason,
+which is the half of the design system's prevent-don't-fail convention this
+form was missing. Jar balances were fetched for the picker and thrown away,
+leaving an overdraw to be caught server-side after submitting — each option
+now shows what it holds, and an over-large amount blocks the button with the
+available figure. A budget with saving jars but no categories opened on two
+empty pickers with nothing indicating the toggle below was the way through;
+that case now opens with the toggle on. A backdated expense lands in another
+month's budget, silently, until the user goes looking for it — the date
+field now says which month it counts towards.
+
+**Tests.** This plugin had no client-component tests, so none of the above
+could have been caught. `app/_components/__tests__/AddExpenseDialog.test.tsx`
+is the first, following `plugins/warden`'s precedent (`@testing-library/react`
+and `@testing-library/dom` from the platform catalog, `// @vitest-environment
+jsdom` per file). Five tests, each confirmed to fail against the pre-fix code.
+A sixth was written and deleted: it asserted the desktop heading, and passed
+against the pre-fix code too, because jsdom applies no CSS — the old `title`
+is in the DOM exactly like the new `header`, and the breakpoint rule that hid
+it (`.mobileHeader { display: none }`) never applies. That fix and the drawer
+gutter are verified by reading `Dialog.module.css` and by measuring a real
+browser instead; the test file says so rather than implying coverage it does
+not have.
+
+**Not done here.** The mobile date picker opening its own `Drawer` _inside_
+this one — the picker's scrim covering only the parent sheet, so tapping
+what looked like its backdrop dismissed the half-filled expense form — was
+not this plugin's bug. Every overlay panel animates with a `transform`, which
+makes it the containing block for its `position: fixed` descendants; it was
+fixed in the platform's design system (`@sovereignfs/ui` 0.84.0, which
+portals `Dialog`/`Drawer`/`Sheet` to the shell root). `minPlatformVersion` is
+left alone: this plugin's code does not depend on the portal, it just behaves
+better with it, and the platform's root version was not bumped for that
+change so there is no version to point at.
+
 ✅ **L.16 shipped (0.16.0)** — a second review pass over everything L.1–L.15
 built. Correctness first:
 
@@ -1899,3 +1963,35 @@ deletion leaves no row in any user-scoped table; `getReportsData` reads
 `ledger_fx_rates` once regardless of history size; typecheck, ESLint, Prettier,
 `design:tokens:check` and the full suite all pass when run from a platform
 checkout with this plugin composed in at `plugins/ledger.local/`.
+
+#### L.17 — Expense dialog UI/UX fixes
+
+**Goal:** Fix the UI and UX defects in the two expense dialogs — the daily
+surface of this app, and the one both shells open from their own chrome —
+without redesigning either. `AddExpenseDialog` and `EditTransactionDialog`
+share a form shape and a stylesheet, so they are one task, not two.
+
+**Deliverables:** see this task's Status entry for the full list — a heading
+on the desktop panel, a gutter inside the mobile drawer, actions pinned in
+`Dialog`'s footer, a real `<form>` (Enter submits), per-open state reset,
+an error path for the options fetch, a disabled submit that states its own
+reason, jar balances surfaced before an overdraw rather than after, a
+sensible default when a budget has jars but no categories, a note when a
+backdated expense lands in another month, and the first client-component
+test file in this plugin.
+
+**Dependencies:** L.16. Benefits from, but does not require, the platform's
+own `Dialog`/`Drawer`/`Sheet` portal fix (`@sovereignfs/ui` 0.84.0) — before
+it, the date picker's own drawer opened _inside_ this one on mobile.
+
+**Review checklist:** the desktop dialog shows "Add expense" above the form;
+the mobile drawer's fields clear both screen edges; the submit button stays
+visible on a short window; Enter in the amount field logs the expense;
+reopening after a failed attempt shows a blank form, not the old error; a
+failed options fetch offers a retry instead of spinning; a disabled submit
+always says what it wants; a jar picker shows each jar's available balance
+and refuses an overdraw before submitting; a budget with jars but no
+categories opens on the jar picker; a date outside the open month says which
+month it counts towards; typecheck, ESLint, Prettier, `design:tokens:check`
+and the full suite all pass when run from a platform checkout with this
+plugin composed in at `plugins/ledger.local/`.
