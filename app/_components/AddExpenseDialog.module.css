@@ -4,6 +4,20 @@
   gap: var(--sv-space-4);
 }
 
+/* `Drawer` deliberately supplies no gutter of its own (its panel is a bare
+   scroll container), so every consumer brings one — the design system's own
+   `DatePicker` does exactly this for its mobile branch. Without it the form
+   renders edge to edge on a phone. The bottom inset clears the home
+   indicator in standalone/fullscreen mode, matching Drawer's own
+   `env(safe-area-inset-bottom)` padding. */
+.drawerBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-4);
+  padding: var(--sv-space-4);
+  padding-bottom: max(var(--sv-space-4), env(safe-area-inset-bottom));
+}
+
 .loading {
   display: flex;
   align-items: center;
@@ -41,9 +55,31 @@
   color: var(--sv-color-text-muted);
 }
 
+/* The submit button and whatever explains its state, as one block. On
+   desktop this is handed to `Dialog`'s own `footer` slot (a non-scrolling
+   row below the body), so it supplies no padding of its own; on mobile it is
+   simply the last thing inside `.drawerBody`. */
+.footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-space-2);
+}
+
+/* Holds either the server's failure or the reason the submit button is
+   disabled, and is an `aria-live` region either way — so it stays in the DOM
+   while empty rather than being conditionally rendered. */
+.feedback {
+  margin: 0;
+  font-size: var(--sv-font-size-sm);
+  color: var(--sv-color-text-muted);
+}
+
+.feedback:empty {
+  display: none;
+}
+
 .feedbackError {
   color: var(--sv-color-error-text);
-  font-size: var(--sv-font-size-sm);
 }
 
 .actions {
