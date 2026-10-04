@@ -1,6 +1,6 @@
 # Ledger — Roadmap
 
-**Manifest version:** 0.17.1 · **Last updated:** 2026-10-04
+**Manifest version:** 0.18.0 · **Last updated:** 2026-10-04
 
 Chronological build index — one row per PR, platform-`ROADMAP.md` style. Full
 task detail lives in [SPEC.md](SPEC.md); the product concept in
@@ -85,6 +85,12 @@ depend on the previous row unless noted.
 | Slot   | Task                      | Status | Spec task                                      |
 | ------ | ------------------------- | ------ | ---------------------------------------------- |
 | 0.17.1 | Mobile shell chrome fixes | ✅     | [L.18](SPEC.md#l18--mobile-shell-chrome-fixes) |
+
+## Phase M — All currencies
+
+| Slot   | Task                                   | Status | Spec task                                                      |
+| ------ | -------------------------------------- | ------ | -------------------------------------------------------------- |
+| 0.18.0 | All currencies, per-currency precision | ✅     | [L.19](SPEC.md#l19--all-currencies-and-per-currency-precision) |
 
 ## Phase I — CONCEPT.md §4 scope not yet built
 

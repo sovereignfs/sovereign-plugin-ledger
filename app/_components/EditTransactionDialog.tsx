@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useId, useState, type FormEvent } from 'react';
 import {
   Button,
-  CurrencyInput,
   DatePicker,
   Dialog,
   EmptyState,
@@ -13,6 +12,7 @@ import {
   Select,
   Spinner,
 } from '@sovereignfs/ui';
+import { MoneyInput } from './MoneyInput';
 import { getExpenseFormOptions, updateTransaction } from '../actions';
 import type { ExpenseFormCategoryOption } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
@@ -176,7 +176,12 @@ export function EditTransactionDialog({
       <form id={formId} className={styles.body} onSubmit={handleSubmit}>
         <FormField label={`Amount (${selectedKind?.currency ?? transaction.currency})`}>
           {(field) => (
-            <CurrencyInput {...field} valueCents={amountCents} onValueChange={setAmountCents} />
+            <MoneyInput
+              currency={selectedKind?.currency ?? transaction.currency}
+              {...field}
+              valueCents={amountCents}
+              onValueChange={setAmountCents}
+            />
           )}
         </FormField>
         <div className={styles.row}>

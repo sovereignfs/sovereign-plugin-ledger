@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
   Button,
-  CurrencyInput,
   DatePicker,
   Dialog,
   Drawer,
@@ -17,6 +16,7 @@ import {
   Toggle,
   useIsMobile,
 } from '@sovereignfs/ui';
+import { MoneyInput } from './MoneyInput';
 import { createJarTransaction, createTransaction, getExpenseFormOptions } from '../actions';
 import type { ExpenseFormCategoryOption, ExpenseFormJarOption } from '../actions';
 import { type ActionResult } from '../_lib/action-result';
@@ -299,7 +299,8 @@ function useAddExpenseForm({ onClose, isMobile }: { onClose: () => void; isMobil
     <form id={formId} className={styles.body} onSubmit={handleSubmit}>
       <FormField label={currency ? `Amount (${currency})` : 'Amount'}>
         {(field) => (
-          <CurrencyInput
+          <MoneyInput
+            currency={currency ?? ''}
             {...field}
             ref={amountRef}
             valueCents={amountCents}

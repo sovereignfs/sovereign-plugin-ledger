@@ -2,20 +2,13 @@
 
 import { useRouter } from 'next/navigation';
 import { startTransition, useActionState, useEffect, useState } from 'react';
-import {
-  Button,
-  CurrencyInput,
-  DatePicker,
-  Dialog,
-  FormField,
-  Input,
-  Select,
-} from '@sovereignfs/ui';
+import { Button, DatePicker, Dialog, FormField, Input } from '@sovereignfs/ui';
+import { CurrencyPicker } from './CurrencyPicker';
+import { MoneyInput } from './MoneyInput';
 import { createLoan } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
 import { toDateOnly } from '../_lib/format';
 import styles from './Accounts.module.css';
-import { CURRENCY_OPTIONS } from '../_lib/currency-options';
 
 /**
  * Currency defaults to the user's base currency on every open — the dialog
@@ -99,20 +92,13 @@ export function CreateLoanDialog({
           </FormField>
         </div>
         <FormField label="Currency">
-          {(field) => (
-            <Select {...field} value={currency} onChange={(e) => setCurrency(e.target.value)}>
-              {CURRENCY_OPTIONS.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.code} — {c.name}
-                </option>
-              ))}
-            </Select>
-          )}
+          {(field) => <CurrencyPicker {...field} value={currency} onChange={setCurrency} />}
         </FormField>
         <div className={styles.statGrid}>
           <FormField label="Principal">
             {(field) => (
-              <CurrencyInput
+              <MoneyInput
+                currency={currency}
                 {...field}
                 valueCents={principalCents}
                 onValueChange={setPrincipalCents}
@@ -121,7 +107,8 @@ export function CreateLoanDialog({
           </FormField>
           <FormField label="Remaining balance">
             {(field) => (
-              <CurrencyInput
+              <MoneyInput
+                currency={currency}
                 {...field}
                 valueCents={remainingCents}
                 onValueChange={setRemainingCents}
@@ -131,7 +118,8 @@ export function CreateLoanDialog({
         </div>
         <FormField label="Monthly installment">
           {(field) => (
-            <CurrencyInput
+            <MoneyInput
+              currency={currency}
               {...field}
               valueCents={installmentCents}
               onValueChange={setInstallmentCents}

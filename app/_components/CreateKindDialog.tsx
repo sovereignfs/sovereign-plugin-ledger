@@ -2,7 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { startTransition, useActionState, useState } from 'react';
-import { Button, CurrencyInput, Dialog, FormField, Input } from '@sovereignfs/ui';
+import { Button, Dialog, FormField, Input } from '@sovereignfs/ui';
+import { MoneyInput } from './MoneyInput';
 import { createKind } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
 import styles from './Settings.module.css';
@@ -61,7 +62,12 @@ export function CreateKindDialog({
         </FormField>
         <FormField label={`Budgeted amount (${categoryCurrency})`}>
           {(field) => (
-            <CurrencyInput {...field} valueCents={amountCents} onValueChange={setAmountCents} />
+            <MoneyInput
+              currency={categoryCurrency}
+              {...field}
+              valueCents={amountCents}
+              onValueChange={setAmountCents}
+            />
           )}
         </FormField>
         {state && !state.ok && <p className={styles.feedbackError}>{state.error}</p>}

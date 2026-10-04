@@ -1039,6 +1039,64 @@ currency. Remaining CONCEPT.md §4 scope that is still unbuilt is now
 tracked as ROADMAP.md's Phase I rather than left implicit. 120 tests pass
 (20 new); typecheck, lint, Prettier, and `design:tokens:check` are clean.
 
+✅ **L.19 shipped (0.18.0)** — any currency, and the end of the assumption
+that money has two decimal places.
+
+**The list.** `CURRENCY_OPTIONS` was 20 hand-written fiat codes and was also
+the exact set the rate job fetched. It is now generated from the Node
+runtime's own ICU database — 162 ISO 4217 codes with their real display names
+and, crucially, their real fraction digits — plus BTC, which ICU does not
+carry because it is not ISO 4217. Generated-then-committed rather than read
+at runtime (`scripts/generate-currencies.ts`, the same shape as the
+platform's `pnpm generate:icons`): the table is then deterministic rather
+than varying with whichever ICU the server and browser each happen to have,
+and it is reviewable in a diff.
+
+**Precision.** Money is stored as an integer count of a currency's smallest
+unit, and the app divided every one of them by exactly 100. That is wrong for
+more currencies than it is right for in the new list: ISO gives JPY, KRW, CLP
+and ISK zero digits and BHD, KWD and TND three, and BTC needs eight — the
+satoshi. At two digits the smallest recordable BTC amount is 0.01 BTC, and
+one satoshi renders as "BTC 0.00". `formatMoney` now scales by the currency's
+own exponent and states the fraction digits explicitly (ICU's own default for
+an unknown code like BTC is 2, which would silently round the amount away).
+
+The input side could not be fixed here: `CurrencyInput` is a published design
+system component and was hardcoded to cents. It gained a `decimals` prop
+upstream (`@sovereignfs/ui` 0.85.0), and this plugin binds it through a
+`MoneyInput` wrapper so the lookup lives in one place rather than at 25 call
+sites where forgetting it would record a BTC amount off by 10^6. A guard test
+asserts no component reaches for `CurrencyInput` directly.
+
+**The picker.** Nine dialogs each rendered their own `<Select>` over the
+20 options. A 163-row native dropdown is not something to ask anyone to
+scroll, so they share one `CurrencyPicker` built on the design system's
+`Combobox` — which draws this line itself ("for option lists long enough that
+typing to filter beats scanning"). The code is in the label as well as the
+value, because `Combobox` filters on the label and a user typing "USD" has to
+match.
+
+**The job.** It fetched rates for every supported currency. At 163 codes that
+is a few hundred rows a day of which a typical instance reads three, so the
+wanted set is now `SELECT DISTINCT code FROM ledger_currencies` — the union
+across every user, which is the right scope for an untenanted instance-wide
+table. A fresh instance now makes no outbound request at all. The request
+itself still names no `symbols`, for the reason it never did: several
+supported codes aren't in Frankfurter's coverage, and naming them bets every
+conversion in the app on how the upstream treats a code it doesn't have.
+
+**BTC has no rate source yet, and is not claimed to.** Frankfurter is ECB
+reference data — fiat only, by design. BTC is selectable, recordable and
+correctly formatted, but not convertible, and degrades through the same
+documented "no rate" path (`ConvertedSum.unconvertedCurrencies`) as any other
+uncovered currency rather than being guessed at. The schema has always
+accommodated a second feed (`source` is free-text provenance, not an enum)
+and the pivot was chosen as USD precisely so a crypto feed could share this
+table without a second conversion hop. Adding that feed is its own task: it
+needs a provider verified against its live API, and CONCEPT.md §7's
+constraint on this choice — no required API key by default for self-hosters —
+is a real one that should be checked rather than assumed.
+
 ✅ **L.18 shipped (0.17.1)** — three drifts between this plugin's
 self-rendered mobile chrome and the platform chrome it replaces.
 `shellConfig.mobileFooter: false` removes the runtime's own `MobileNav` from
@@ -2063,3 +2121,29 @@ every other route in the instance; plugin icons are legible in dark mode in
 both the drawer and the footer; the drawer lists only real apps; a Launcher
 with no declared icon still falls back to the generic glyph rather than a
 broken image.
+
+#### L.19 — All currencies, and per-currency precision
+
+**Goal:** Let a user add any currency, not twenty — ICU's full ISO 4217 set
+plus BTC — and make the app handle the fact that currencies do not all have
+two decimal places. Fetch rates for the currencies people actually added
+rather than for the whole list.
+
+**Deliverables:** a generated `CURRENCY_OPTIONS` (163 entries: code, name and
+the currency's own fraction digits) with `scripts/generate-currencies.ts` to
+regenerate it from ICU; `currencyDecimals`/`currencyScale`; a
+decimals-aware `formatMoney`; a `MoneyInput` wrapper binding the design
+system's new `CurrencyInput.decimals` prop to each field's currency, adopted
+at all 25 money fields, with a guard test keeping new fields off
+`CurrencyInput` directly; a `CurrencyPicker` on `Combobox` replacing nine
+copies of a 20-option `<Select>`; and an FX job whose wanted set is
+`SELECT DISTINCT code FROM ledger_currencies`.
+
+**Dependencies:** L.18, and `@sovereignfs/ui` 0.85.0 for
+`CurrencyInput.decimals`.
+
+**Review checklist:** every ISO currency and BTC is selectable and searchable
+by code or name; a JPY amount reads ¥1,500 rather than ¥15; one satoshi
+renders as BTC 0.00000001 rather than BTC 0.00; a fresh instance makes no
+rate request at all; adding a currency causes it to be priced from the next
+run; a currency nobody added is never stored.

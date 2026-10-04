@@ -2,7 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { startTransition, useActionState, useState } from 'react';
-import { Button, CurrencyInput, DatePicker, Dialog, FormField, Input } from '@sovereignfs/ui';
+import { Button, DatePicker, Dialog, FormField, Input } from '@sovereignfs/ui';
+import { MoneyInput } from './MoneyInput';
 import { updateLoan } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
 import type { LoanItem } from '../_lib/accounts';
@@ -55,7 +56,8 @@ export function EditLoanDialog({ loan, onClose }: { loan: LoanItem; onClose: () 
         </div>
         <FormField label={`Remaining balance (${loan.currency})`}>
           {(field) => (
-            <CurrencyInput
+            <MoneyInput
+              currency={loan.currency}
               {...field}
               valueCents={remainingCents}
               onValueChange={setRemainingCents}
@@ -64,7 +66,8 @@ export function EditLoanDialog({ loan, onClose }: { loan: LoanItem; onClose: () 
         </FormField>
         <FormField label={`Monthly installment (${loan.currency})`}>
           {(field) => (
-            <CurrencyInput
+            <MoneyInput
+              currency={loan.currency}
               {...field}
               valueCents={installmentCents}
               onValueChange={setInstallmentCents}

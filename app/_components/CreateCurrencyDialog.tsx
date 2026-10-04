@@ -2,7 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { startTransition, useActionState, useEffect, useState } from 'react';
-import { Button, Dialog, FormField, Select } from '@sovereignfs/ui';
+import { Button, Dialog, FormField } from '@sovereignfs/ui';
+import { CurrencyPicker } from './CurrencyPicker';
 import { createCurrency } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
 import { CURRENCY_OPTIONS } from '../_lib/currency-options';
@@ -58,13 +59,7 @@ export function CreateCurrencyDialog({
         ) : (
           <FormField label="Currency">
             {(field) => (
-              <Select {...field} value={code} onChange={(e) => setCode(e.target.value)}>
-                {available.map((c) => (
-                  <option key={c.code} value={c.code}>
-                    {c.code} — {c.name}
-                  </option>
-                ))}
-              </Select>
+              <CurrencyPicker {...field} value={code} onChange={setCode} options={available} />
             )}
           </FormField>
         )}

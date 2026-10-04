@@ -2,7 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { startTransition, useActionState, useState } from 'react';
-import { Button, CurrencyInput, Dialog, FormField, Input, SegmentedControl } from '@sovereignfs/ui';
+import { Button, Dialog, FormField, Input, SegmentedControl } from '@sovereignfs/ui';
+import { MoneyInput } from './MoneyInput';
 import { createPeopleTransaction } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
 import type { PersonItem } from '../_lib/accounts';
@@ -64,7 +65,12 @@ export function RecordPersonTransactionDialog({
         />
         <FormField label={`Amount (${person.currency})`}>
           {(field) => (
-            <CurrencyInput {...field} valueCents={amountCents} onValueChange={setAmountCents} />
+            <MoneyInput
+              currency={person.currency}
+              {...field}
+              valueCents={amountCents}
+              onValueChange={setAmountCents}
+            />
           )}
         </FormField>
         <FormField label="Note (optional)">
