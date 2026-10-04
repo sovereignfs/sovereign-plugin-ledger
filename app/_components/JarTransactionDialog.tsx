@@ -2,15 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { startTransition, useActionState, useState } from 'react';
-import {
-  Button,
-  CurrencyInput,
-  DatePicker,
-  Dialog,
-  FormField,
-  Input,
-  SegmentedControl,
-} from '@sovereignfs/ui';
+import { Button, DatePicker, Dialog, FormField, Input, SegmentedControl } from '@sovereignfs/ui';
+import { MoneyInput } from './MoneyInput';
 import { createJarTransaction } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
 import { utcNoonOf } from '../_lib/period';
@@ -80,7 +73,12 @@ export function JarTransactionDialog({
         />
         <FormField label={`Amount (${currency})`}>
           {(field) => (
-            <CurrencyInput {...field} valueCents={amountCents} onValueChange={setAmountCents} />
+            <MoneyInput
+              currency={currency}
+              {...field}
+              valueCents={amountCents}
+              onValueChange={setAmountCents}
+            />
           )}
         </FormField>
         <FormField label="Date">

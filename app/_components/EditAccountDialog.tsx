@@ -2,7 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { startTransition, useActionState, useState } from 'react';
-import { Button, CurrencyInput, Dialog, FormField, Input } from '@sovereignfs/ui';
+import { Button, Dialog, FormField, Input } from '@sovereignfs/ui';
+import { MoneyInput } from './MoneyInput';
 import { updateAccount } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
 import type { AccountItem } from '../_lib/accounts';
@@ -70,13 +71,19 @@ export function EditAccountDialog({
           }
         >
           {(field) => (
-            <CurrencyInput {...field} valueCents={balanceCents} onValueChange={setBalanceCents} />
+            <MoneyInput
+              currency={account.currency}
+              {...field}
+              valueCents={balanceCents}
+              onValueChange={setBalanceCents}
+            />
           )}
         </FormField>
         {isCard && (
           <FormField label={`Credit limit (${account.currency})`}>
             {(field) => (
-              <CurrencyInput
+              <MoneyInput
+                currency={account.currency}
                 {...field}
                 valueCents={creditLimitCents}
                 onValueChange={setCreditLimitCents}

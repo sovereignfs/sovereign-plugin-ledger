@@ -2,11 +2,11 @@
 
 import { useRouter } from 'next/navigation';
 import { startTransition, useActionState, useEffect, useState } from 'react';
-import { Button, Dialog, FormField, Input, Select } from '@sovereignfs/ui';
+import { Button, Dialog, FormField, Input } from '@sovereignfs/ui';
+import { CurrencyPicker } from './CurrencyPicker';
 import { createPerson } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
 import styles from './Accounts.module.css';
-import { CURRENCY_OPTIONS } from '../_lib/currency-options';
 
 /**
  * Currency defaults to the user's base currency on every open — the dialog
@@ -47,15 +47,7 @@ export function CreatePersonDialog({
           {(field) => <Input {...field} value={name} onChange={(e) => setName(e.target.value)} />}
         </FormField>
         <FormField label="Currency">
-          {(field) => (
-            <Select {...field} value={currency} onChange={(e) => setCurrency(e.target.value)}>
-              {CURRENCY_OPTIONS.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.code} — {c.name}
-                </option>
-              ))}
-            </Select>
-          )}
+          {(field) => <CurrencyPicker {...field} value={currency} onChange={setCurrency} />}
         </FormField>
         {state && !state.ok && <p className={styles.feedbackError}>{state.error}</p>}
         <div className={styles.actions}>

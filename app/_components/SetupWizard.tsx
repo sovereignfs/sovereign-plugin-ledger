@@ -1,10 +1,11 @@
 'use client';
 
-import { Button, CurrencyInput, FormField, Select } from '@sovereignfs/ui';
+import { Button, FormField } from '@sovereignfs/ui';
+import { CurrencyPicker } from './CurrencyPicker';
+import { MoneyInput } from './MoneyInput';
 import { startTransition, useActionState, useState } from 'react';
 import { createCurrency, createIncome } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
-import { CURRENCY_OPTIONS } from '../_lib/currency-options';
 import { LedgerLocaleProvider } from '../_lib/locale';
 import type { IncompleteSetupStatus } from '../_lib/setup-status';
 import { CategoriesStep } from './CategoriesStep';
@@ -44,15 +45,7 @@ function CurrencyStep({ onNext }: { onNext: (code: string) => void }) {
       </p>
       <div className={styles.fields}>
         <FormField label="Base currency">
-          {(field) => (
-            <Select {...field} value={code} onChange={(e) => setCode(e.target.value)}>
-              {CURRENCY_OPTIONS.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.code} — {c.name}
-                </option>
-              ))}
-            </Select>
-          )}
+          {(field) => <CurrencyPicker {...field} value={code} onChange={setCode} />}
         </FormField>
       </div>
       {state && !state.ok && <p className={styles.feedbackError}>{state.error}</p>}
@@ -103,7 +96,8 @@ function IncomeStep({
       <div className={styles.fields}>
         <FormField label={`Amount (${currencyCode})`}>
           {(field) => (
-            <CurrencyInput
+            <MoneyInput
+              currency={currencyCode}
               {...field}
               valueCents={amountCents}
               onValueChange={setAmountCents}
