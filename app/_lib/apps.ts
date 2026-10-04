@@ -26,6 +26,12 @@ export interface MobileAppEntry {
  * `sovereign-plugin-kanban.local`'s `shell: minimal` build: Ledger keeps the
  * platform's own mobile header (see `LedgerMobileShell`'s doc comment), so
  * its brand badge already links home.
+ *
+ * Platform chrome plugins (Launcher, Account, Console, Inbox) are
+ * deliberately still in here: this is the availability list, and
+ * `LedgerMobileShell` is what decides which of them are chrome rather than
+ * app tiles — it needs Launcher's own entry to source the footer's Apps
+ * icon. See `CHROME_PLUGIN_IDS` there.
  */
 export async function listMobileApps(): Promise<MobileAppEntry[]> {
   const apps = await sdk.plugins.list();

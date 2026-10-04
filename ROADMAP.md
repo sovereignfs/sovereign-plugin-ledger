@@ -1,6 +1,6 @@
 # Ledger — Roadmap
 
-**Manifest version:** 0.17.0 · **Last updated:** 2026-10-03
+**Manifest version:** 0.17.1 · **Last updated:** 2026-10-04
 
 Chronological build index — one row per PR, platform-`ROADMAP.md` style. Full
 task detail lives in [SPEC.md](SPEC.md); the product concept in
@@ -79,6 +79,12 @@ depend on the previous row unless noted.
 | Slot   | Task                       | Status | Spec task                                      |
 | ------ | -------------------------- | ------ | ---------------------------------------------- |
 | 0.17.0 | Expense dialog UI/UX fixes | ✅     | [L.17](SPEC.md#l17--expense-dialog-uiux-fixes) |
+
+## Phase L — Mobile shell chrome fixes
+
+| Slot   | Task                      | Status | Spec task                                      |
+| ------ | ------------------------- | ------ | ---------------------------------------------- |
+| 0.17.1 | Mobile shell chrome fixes | ✅     | [L.18](SPEC.md#l18--mobile-shell-chrome-fixes) |
 
 ## Phase I — CONCEPT.md §4 scope not yet built
 

@@ -11,9 +11,33 @@
   z-index: 101;
 }
 
+/* Plugin icons are monochrome SVGs drawn in near-black, so on a dark surface
+ * they render dark-on-dark — invisible. The platform inverts them for exactly
+ * this reason, on both of its own copies (`.navIcon` and `.drawerGridIconImg`
+ * in `runtime/app/(platform)/_components/MobileNav.module.css`); this shell
+ * rebuilds that chrome and has to carry the same rule. `:global(...)` because
+ * `[data-theme]` is set on `<html>`, outside this CSS module's scope.
+ *
+ * `object-fit: contain`, not `cover`: these are logos inside their own
+ * viewBox, and `cover` crops a non-square one to fill the box. The platform
+ * uses `contain` for both of its copies. No border-radius for the same
+ * reason — an icon is not a photo tile. */
+.launcherIcon {
+  width: var(--sv-icon-size-md);
+  height: var(--sv-icon-size-md);
+  object-fit: contain;
+}
+
+:global([data-theme='dark']) .launcherIcon {
+  filter: invert(1);
+}
+
 .drawerIcon {
   width: 28px;
   height: 28px;
-  border-radius: var(--sv-radius-md);
-  object-fit: cover;
+  object-fit: contain;
+}
+
+:global([data-theme='dark']) .drawerIcon {
+  filter: invert(1);
 }
