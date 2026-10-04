@@ -2,7 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { startTransition, useActionState, useState } from 'react';
-import { Button, CurrencyInput, Dialog, FormField } from '@sovereignfs/ui';
+import { Button, Dialog, FormField } from '@sovereignfs/ui';
+import { MoneyInput } from './MoneyInput';
 import { updateKindBudget } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
 import styles from './Budget.module.css';
@@ -60,7 +61,12 @@ export function EditBudgetDialog({
       <div className={styles.dialogBody}>
         <FormField label={`Budgeted amount for ${kindName} (${currency})`}>
           {(field) => (
-            <CurrencyInput {...field} valueCents={amountCents} onValueChange={setAmountCents} />
+            <MoneyInput
+              currency={currency}
+              {...field}
+              valueCents={amountCents}
+              onValueChange={setAmountCents}
+            />
           )}
         </FormField>
         {state && !state.ok && (

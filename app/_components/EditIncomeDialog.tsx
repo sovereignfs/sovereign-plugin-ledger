@@ -2,7 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { startTransition, useActionState, useState } from 'react';
-import { Button, CurrencyInput, Dialog, FormField, Input } from '@sovereignfs/ui';
+import { Button, Dialog, FormField, Input } from '@sovereignfs/ui';
+import { MoneyInput } from './MoneyInput';
 import { updateIncome } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
 import styles from './Settings.module.css';
@@ -43,7 +44,12 @@ export function EditIncomeDialog({
         </FormField>
         <FormField label={`Amount (${currency})`}>
           {(field) => (
-            <CurrencyInput {...field} valueCents={amountCents} onValueChange={setAmountCents} />
+            <MoneyInput
+              currency={currency}
+              {...field}
+              valueCents={amountCents}
+              onValueChange={setAmountCents}
+            />
           )}
         </FormField>
         {state && !state.ok && <p className={styles.feedbackError}>{state.error}</p>}

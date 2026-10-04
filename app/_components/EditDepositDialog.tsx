@@ -2,7 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { startTransition, useActionState, useState } from 'react';
-import { Button, CurrencyInput, Dialog, FormField, Input } from '@sovereignfs/ui';
+import { Button, Dialog, FormField, Input } from '@sovereignfs/ui';
+import { MoneyInput } from './MoneyInput';
 import { updateDeposit } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
 import type { DepositItem } from '../_lib/accounts';
@@ -40,7 +41,12 @@ export function EditDepositDialog({
         </FormField>
         <FormField label={`Amount (${deposit.currency})`}>
           {(field) => (
-            <CurrencyInput {...field} valueCents={amountCents} onValueChange={setAmountCents} />
+            <MoneyInput
+              currency={deposit.currency}
+              {...field}
+              valueCents={amountCents}
+              onValueChange={setAmountCents}
+            />
           )}
         </FormField>
         {state && !state.ok && <p className={styles.feedbackError}>{state.error}</p>}

@@ -8,10 +8,20 @@
  * genuinely server-only code (the month-end recap job) formats with a
  * fixed locale of its own.
  */
+import { currencyDecimals } from './currency-options';
+
 export function formatMoney(amountMinor: number, currencyCode: string, locale?: string): string {
-  return new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode }).format(
-    amountMinor / 100,
-  );
+  const decimals = currencyDecimals(currencyCode);
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: currencyCode,
+    // Stated explicitly rather than left to ICU's own default for the code.
+    // For the ISO set the two agree, so nothing moves; for BTC they do not —
+    // BTC is not ISO 4217, ICU has no entry for it, and its fallback is two
+    // digits, which would render every amount below 0.01 BTC as "BTC 0.00".
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(amountMinor / 10 ** decimals);
 }
 
 /**

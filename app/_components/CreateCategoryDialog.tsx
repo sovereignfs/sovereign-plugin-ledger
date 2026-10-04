@@ -2,18 +2,11 @@
 
 import { useRouter } from 'next/navigation';
 import { startTransition, useActionState, useEffect, useState } from 'react';
-import {
-  Button,
-  CurrencyInput,
-  Dialog,
-  FormField,
-  Input,
-  SegmentedControl,
-  Select,
-} from '@sovereignfs/ui';
+import { Button, Dialog, FormField, Input, SegmentedControl } from '@sovereignfs/ui';
+import { CurrencyPicker } from './CurrencyPicker';
+import { MoneyInput } from './MoneyInput';
 import { createCategoryWithKind } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
-import { CURRENCY_OPTIONS } from '../_lib/currency-options';
 import styles from './Settings.module.css';
 
 /**
@@ -82,19 +75,16 @@ export function CreateCategoryDialog({
           {(field) => <Input {...field} value={name} onChange={(e) => setName(e.target.value)} />}
         </FormField>
         <FormField label="Currency">
-          {(field) => (
-            <Select {...field} value={currency} onChange={(e) => setCurrency(e.target.value)}>
-              {CURRENCY_OPTIONS.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.code} — {c.name}
-                </option>
-              ))}
-            </Select>
-          )}
+          {(field) => <CurrencyPicker {...field} value={currency} onChange={setCurrency} />}
         </FormField>
         <FormField label={`Budgeted amount (${currency})`}>
           {(field) => (
-            <CurrencyInput {...field} valueCents={amountCents} onValueChange={setAmountCents} />
+            <MoneyInput
+              currency={currency}
+              {...field}
+              valueCents={amountCents}
+              onValueChange={setAmountCents}
+            />
           )}
         </FormField>
         {state && !state.ok && <p className={styles.feedbackError}>{state.error}</p>}

@@ -1,6 +1,7 @@
 'use client';
 
-import { Button, CurrencyInput, Input } from '@sovereignfs/ui';
+import { Button, Input } from '@sovereignfs/ui';
+import { MoneyInput } from './MoneyInput';
 import { useState, useTransition } from 'react';
 import { createCategoriesWithKinds } from '../actions';
 import { CategoryChip } from './CategoryChip';
@@ -147,7 +148,8 @@ export function CategoriesStep({
           {orderedSelected.map((name) => (
             <div key={name} className={styles.amountRow}>
               <span>{name}</span>
-              <CurrencyInput
+              <MoneyInput
+                currency={currencyCode}
                 aria-label={`Budgeted amount for ${name}`}
                 valueCents={amounts[name] ?? 0}
                 onValueChange={(cents) => setAmounts((prev) => ({ ...prev, [name]: cents ?? 0 }))}

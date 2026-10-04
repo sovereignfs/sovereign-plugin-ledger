@@ -2,19 +2,12 @@
 
 import { useRouter } from 'next/navigation';
 import { startTransition, useActionState, useEffect, useState } from 'react';
-import {
-  Button,
-  CurrencyInput,
-  Dialog,
-  FormField,
-  Input,
-  SegmentedControl,
-  Select,
-} from '@sovereignfs/ui';
+import { Button, Dialog, FormField, Input, SegmentedControl } from '@sovereignfs/ui';
+import { CurrencyPicker } from './CurrencyPicker';
+import { MoneyInput } from './MoneyInput';
 import { createAccount } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
 import styles from './Accounts.module.css';
-import { CURRENCY_OPTIONS } from '../_lib/currency-options';
 
 /**
  * Currency defaults to the user's base currency on every open — the dialog
@@ -87,27 +80,25 @@ export function CreateAccountDialog({
           )}
         </FormField>
         <FormField label="Currency">
-          {(field) => (
-            <Select {...field} value={currency} onChange={(e) => setCurrency(e.target.value)}>
-              {CURRENCY_OPTIONS.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.code} — {c.name}
-                </option>
-              ))}
-            </Select>
-          )}
+          {(field) => <CurrencyPicker {...field} value={currency} onChange={setCurrency} />}
         </FormField>
         <FormField
           label={type === 'credit_card' ? 'Current balance owed' : `Balance (${currency})`}
         >
           {(field) => (
-            <CurrencyInput {...field} valueCents={balanceCents} onValueChange={setBalanceCents} />
+            <MoneyInput
+              currency={currency}
+              {...field}
+              valueCents={balanceCents}
+              onValueChange={setBalanceCents}
+            />
           )}
         </FormField>
         {type === 'credit_card' && (
           <FormField label={`Credit limit (${currency})`}>
             {(field) => (
-              <CurrencyInput
+              <MoneyInput
+                currency={currency}
                 {...field}
                 valueCents={creditLimitCents}
                 onValueChange={setCreditLimitCents}

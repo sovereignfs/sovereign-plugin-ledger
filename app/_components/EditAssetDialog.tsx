@@ -2,7 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { startTransition, useActionState, useState } from 'react';
-import { Button, CurrencyInput, Dialog, FormField, Input } from '@sovereignfs/ui';
+import { Button, Dialog, FormField, Input } from '@sovereignfs/ui';
+import { MoneyInput } from './MoneyInput';
 import { updateAsset } from '../actions';
 import type { ActionResult } from '../_lib/action-result';
 import type { AssetItem } from '../_lib/accounts';
@@ -31,7 +32,12 @@ export function EditAssetDialog({ asset, onClose }: { asset: AssetItem; onClose:
         </FormField>
         <FormField label={`Value (${asset.currency})`}>
           {(field) => (
-            <CurrencyInput {...field} valueCents={valueCents} onValueChange={setValueCents} />
+            <MoneyInput
+              currency={asset.currency}
+              {...field}
+              valueCents={valueCents}
+              onValueChange={setValueCents}
+            />
           )}
         </FormField>
         {state && !state.ok && <p className={styles.feedbackError}>{state.error}</p>}
