@@ -42,6 +42,29 @@ import styles from './LedgerMobileShell.module.css';
  * short heading instead. See SPEC.md's L.9 status entry for the full
  * account of this trade-off.
  */
+const LAUNCHER_PLUGIN_ID = 'fs.sovereign.launcher';
+
+/**
+ * Platform chrome plugins — reached through chrome (the header's brand badge,
+ * bell and avatar menu; this footer's own Apps button), never listed as app
+ * tiles. The runtime keeps the same set in `runtime/src/launcher-plugins.ts`
+ * as `CHROME_PLUGIN_IDS` and filters both its sidebar icons and its own Apps
+ * drawer through it (SRS LCH-04, PLT-12), but `sdk.plugins.list()` applies no
+ * such filter — it answers "what is installed and available to this user",
+ * so a plugin reconstructing chrome has to apply this itself. Without it this
+ * drawer listed Launcher, Account, Console and Inbox alongside real apps, and
+ * Launcher twice over once the footer's own button started showing its icon.
+ * Kept here rather than in `listMobileApps()` so that lookup stays the plain
+ * availability list its callers (five pages, six views) expect, and so the
+ * launcher's own entry is still visible to this component for the icon below.
+ */
+const CHROME_PLUGIN_IDS: ReadonlySet<string> = new Set([
+  LAUNCHER_PLUGIN_ID,
+  'fs.sovereign.account',
+  'fs.sovereign.console',
+  'fs.sovereign.inbox',
+]);
+
 export function LedgerMobileShell({
   apps,
   children,
@@ -52,6 +75,9 @@ export function LedgerMobileShell({
   const pathname = usePathname();
   const router = useRouter();
   const [appsOpen, setAppsOpen] = useState(false);
+
+  const launcher = apps.find((app) => app.id === LAUNCHER_PLUGIN_ID);
+  const drawerApps = apps.filter((app) => !CHROME_PLUGIN_IDS.has(app.id));
 
   const isOverview = pathname === '/ledger';
   const isBudget = pathname.startsWith('/ledger/budget');
@@ -66,6 +92,22 @@ export function LedgerMobileShell({
         <MobileFooter
           onOpenApps={() => setAppsOpen(true)}
           launcherOpen={appsOpen}
+          // The real Launcher icon, exactly as the platform's own MobileNav
+          // supplies it (`launcherIconUrl={/plugin-icons/<id>.svg}`), so this
+          // footer's middle button reads as the same Apps button everywhere
+          // else in the instance. Left unset, MobileFooter falls back to a
+          // generic `grid-2x2` glyph — which is what shipped here, and the
+          // one slot in this bar that didn't match the rest of the platform.
+          launcherIcon={
+            launcher?.hasIcon ? (
+              <img
+                src={`/plugin-icons/${LAUNCHER_PLUGIN_ID}.svg`}
+                alt=""
+                aria-hidden
+                className={styles.launcherIcon}
+              />
+            ) : undefined
+          }
           leftIcons={[
             {
               icon: <Icon name="layout-dashboard" size="md" aria-hidden />,
@@ -100,7 +142,7 @@ export function LedgerMobileShell({
         open={appsOpen}
         onClose={() => setAppsOpen(false)}
         aria-label="Apps"
-        items={apps.map((app) => ({
+        items={drawerApps.map((app) => ({
           key: app.id,
           label: app.name,
           icon: app.hasIcon ? (

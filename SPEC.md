@@ -1039,6 +1039,49 @@ currency. Remaining CONCEPT.md §4 scope that is still unbuilt is now
 tracked as ROADMAP.md's Phase I rather than left implicit. 120 tests pass
 (20 new); typecheck, lint, Prettier, and `design:tokens:check` are clean.
 
+✅ **L.18 shipped (0.17.1)** — three drifts between this plugin's
+self-rendered mobile chrome and the platform chrome it replaces.
+`shellConfig.mobileFooter: false` removes the runtime's own `MobileNav` from
+every route here, so what this shell renders _is_ the chrome — and it has to
+match.
+
+- **The footer's Apps button showed a generic grid glyph.** `MobileFooter`
+  takes a `launcherIcon` prop ("a plugin-supplied image", defaulting to
+  `grid-2x2`) and this shell never passed one, so the one slot in the bar
+  that exists in every other route looked different here. It now passes the
+  real Launcher icon from `/plugin-icons/fs.sovereign.launcher.svg`, exactly
+  as `MobileNav` does, falling back to the glyph when the Launcher declares
+  no icon.
+- **Plugin icons were invisible in dark mode.** They are monochrome SVGs
+  drawn in near-black; on a dark surface they render dark-on-dark. The
+  platform inverts them under `[data-theme='dark']` on both of its own copies
+  (`.navIcon` and `.drawerGridIconImg`); this shell carried neither rule.
+  `MobileAppsDrawer` itself was not at fault — its own chrome is entirely
+  token-based and adapts correctly; only the consumer-supplied `<img>`
+  icons did not. Measured in Chromium: `filter: invert(1)` under
+  `data-theme="dark"`, `none` under light. The drawer icon also moved from
+  `object-fit: cover` with a border radius to `contain` with none, matching
+  the reference — `cover` crops a non-square logo.
+- **Platform chrome plugins were listed as app tiles.** `sdk.plugins.list()`
+  answers "what is installed and available to this user" and applies no
+  chrome filter, so Launcher, Account, Console and Inbox appeared in the
+  drawer alongside real apps — and Launcher would have appeared twice over
+  once the footer button started carrying its icon. The runtime excludes the
+  same four through `CHROME_PLUGIN_IDS` (SRS LCH-04, PLT-12); the shell now
+  does too. The filter lives in `LedgerMobileShell` rather than
+  `listMobileApps()` so that lookup stays the plain availability list its
+  five pages and six views expect, and so the Launcher's own entry is still
+  visible to the component that needs its icon.
+
+Two of the three are covered by
+`app/_components/__tests__/LedgerMobileShell.test.tsx`, both confirmed to
+fail against the pre-fix code. The dark-mode rule is not: jsdom applies no
+CSS. It was verified in a real browser instead — and the first attempt at
+that measurement was itself wrong, reading `filter: none` because loading a
+raw `.module.css` leaves `:global(...)` as an invalid selector the browser
+drops; resolving it the way the CSS-modules compiler does is what showed the
+rule working.
+
 ✅ **L.17 shipped (0.17.0)** — the two expense dialogs, which share a form
 shape and a stylesheet, fixed together. Nothing here is a redesign; every
 change is the wireframed design actually arriving.
@@ -1995,3 +2038,28 @@ categories opens on the jar picker; a date outside the open month says which
 month it counts towards; typecheck, ESLint, Prettier, `design:tokens:check`
 and the full suite all pass when run from a platform checkout with this
 plugin composed in at `plugins/ledger.local/`.
+
+#### L.18 — Mobile shell chrome fixes
+
+**Goal:** Make the self-rendered mobile footer and Apps drawer match the
+platform chrome they stand in for. `shellConfig.mobileFooter: false` removes
+the runtime's own `MobileNav` from every route under this plugin, so this
+shell _is_ the chrome here — and three details of it had drifted from the
+reference.
+
+**Deliverables:** the real Launcher icon on the footer's Apps button
+(`MobileFooter`'s `launcherIcon`, previously unset and falling back to a
+generic grid glyph); the `[data-theme='dark']` inversion plugin icons need to
+stay visible on a dark surface, on both the drawer tiles and that launcher
+icon; platform chrome plugins (Launcher, Account, Console, Inbox) kept out of
+the drawer's app tiles, as `CHROME_PLUGIN_IDS` already does for the runtime's
+own drawer and sidebar.
+
+**Dependencies:** L.9 (the mobile fork this shell comes from). Independent of
+L.17.
+
+**Review checklist:** the footer's middle button shows the same Apps icon as
+every other route in the instance; plugin icons are legible in dark mode in
+both the drawer and the footer; the drawer lists only real apps; a Launcher
+with no declared icon still falls back to the generic glyph rather than a
+broken image.
